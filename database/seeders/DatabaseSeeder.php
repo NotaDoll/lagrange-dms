@@ -3,23 +3,34 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
-     * Seed the application's database.
+     * Creates a default proprietor account for local/dev setups, so a fresh
+     * clone always has at least one working login without needing manual
+     * tinker commands. Safe to re-run — firstOrCreate skips if it exists.
+     *
+     * ⚠️ Change this password before deploying anywhere real — this is a
+     * known, publicly-documented default meant only for local development.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $proprietor = User::firstOrCreate(
+            ['email' => 'admin@lagrange.test'],
+            [
+                'name' => 'Merlinda Villanueva',
+                'first_name' => 'Merlinda',
+                'last_name' => 'Villanueva',
+                'password' => Hash::make('password'),
+                'role' => 'proprietor',
+            ],
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->command->info("Proprietor account ready:");
+        $this->command->info("  Email:    {$proprietor->email}");
+        $this->command->info("  Password: password (change this after first login)");
     }
 }
