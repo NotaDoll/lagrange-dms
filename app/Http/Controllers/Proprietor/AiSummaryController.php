@@ -32,14 +32,14 @@ class AiSummaryController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
 
-        $complaintTexts = Complaint::query()
+        $complaints = Complaint::query()
             ->when($filters['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
             ->when($filters['date_from'] ?? null, fn ($query, $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))
             ->when($filters['date_to'] ?? null, fn ($query, $dateTo) => $query->whereDate('created_at', '<=', $dateTo))
             ->latest()
-            ->pluck('description');
+            ->get(['category', 'description', 'status', 'created_at']);
 
-        $summary = $this->complaintSummarizationService->summarize($complaintTexts, [
+        $summary = $this->complaintSummarizationService->summarize($complaints, [
             ...$filters,
             'generated_by' => $request->user()->id,
         ]);
