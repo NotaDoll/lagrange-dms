@@ -35,7 +35,8 @@
             flex-direction: column;
             align-items: flex-start;
             text-decoration: none;
-            margin-right: 40px;
+            /* Changed margin-right to 0 so it stays on the far left */
+            margin-right: 0;
         }
 
         .navbar-logo {
@@ -94,7 +95,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-left: auto; /* Pushes to the far right */
+            margin-left: 0; /* Changed from auto to 0 to help the center alignment */
         }
 
         .nav-notif-wrapper {
@@ -159,6 +160,9 @@
             .nav-right-actions { margin-left: 0; width: 100%; justify-content: center; padding-top: 10px; border-top: 1px solid #f0f0f0; }
             .nav-notif-icon { width: 20px; height: 20px; }
             #notif-badge { top: -4px; right: -6px; }
+
+            /* On mobile, reset the nav list margin so it stacks neatly below the centered logo */
+            .navbar-nav { margin: 0 auto !important; text-align: center; }
         }
     </style>
 </head>
@@ -193,7 +197,13 @@
 
             <!-- Navbar Links & Right Side Actions -->
             <div class="collapse navbar-collapse" id="tenantNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                <!-- 1. Empty spacer on the left -->
+                <div style="flex: 1;"></div>
+
+                <!-- 2. CENTERED NAVIGATION LIST -->
+                <!-- Changed `me-auto` to `mx-auto`, and added `d-flex justify-content-center` -->
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 d-flex justify-content-center" style="flex: 2;">
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('tenant.dashboard') ? 'active' : '' }}" href="{{ route('tenant.dashboard') }}">Dashboard</a>
                     </li>
@@ -207,6 +217,9 @@
                         <a class="nav-link {{ request()->routeIs('tenant.announcements.*') ? 'active' : '' }}" href="{{ route('tenant.announcements.index') }}">Announcements</a>
                     </li>
                 </ul>
+
+                <!-- 3. Empty spacer on the right -->
+                <div style="flex: 1;"></div>
 
                 <!-- Right Side Actions (Bell & Avatar Dropdown) -->
                 <div class="nav-right-actions">

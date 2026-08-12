@@ -238,7 +238,7 @@
         width: 16px; height: 16px; fill: currentColor;
     }
 
-    /* ===== FILTER DROPDOWN (UPDATED TO MATCH NEW SCREENSHOT) ===== */
+    /* ===== FILTER DROPDOWN ===== */
     .ann-filter-dropdown {
         min-width: 320px;
         padding: 20px 24px;
@@ -337,10 +337,6 @@
     }
     .ann-modal-list {
         padding-left: 20px; margin-bottom: 30px; font-size: 0.95rem; color: #374151; line-height: 1.7;
-    }
-
-    .ann-modal-views {
-        text-align: right; font-size: 0.8rem; color: #6b7280; margin-top: 10px;
     }
 
     /* ===== RESPONSIVE ===== */
@@ -479,11 +475,21 @@
     <div class="ann-right-col">
 
         <!-- FAQ Card -->
-        <div class="ann-sidebar-card" style="min-height: 250px; position: relative;">
+        <div class="ann-sidebar-card">
             <div class="ann-sidebar-title">Frequently Asked Questions</div>
-            <div style="color: #9ca3af; font-size:0.9rem;">Content here...</div>
-            <a href="#" style="position: absolute; bottom: 15px; right: 15px; color:#9ca3af;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+
+            @forelse ($faqs as $faq)
+                <div style="margin-bottom: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
+                    <a href="{{ route('tenant.faq.index') }}" style="text-decoration: none; color: #374151; font-weight: 500; font-size: 0.9rem; display: block;">
+                        {{ $faq->question ?? $faq->title }}
+                    </a>
+                </div>
+            @empty
+                <div style="color: #9ca3af; font-size:0.9rem;">No FAQs available yet.</div>
+            @endforelse
+
+            <a href="{{ route('tenant.faq.index') }}" style="display: block; text-align: right; margin-top: 15px; font-size: 0.8rem; color: #6b7280; text-decoration: none;">
+                View all FAQs &rarr;
             </a>
         </div>
 
@@ -520,10 +526,6 @@
 
                 <div class="ann-modal-text" id="modalBody">
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                </div>
-
-                <div class="ann-modal-views">
-                    43 views
                 </div>
 
             </div>
