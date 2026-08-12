@@ -19,7 +19,7 @@
     }
 
     .db-wrapper {
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: 'Poppins', system-ui, sans-serif;
         margin-top: -20px; /* Tighten spacing to header */
     }
 
