@@ -6,46 +6,43 @@
     <title>@yield('title', 'Dashboard') — La Grange DMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Loading BOTH Raleway and Poppins -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Raleway:wght@300;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        /* ===== NAVBAR CUSTOM STYLES ===== */
         :root {
-            /* New color palette based on your screenshot */
             --c-primary: #C0249F;
             --c-bg-light: #FF9CE9;
             --c-bg-white: #FFE4F9;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
         }
 
         .tenant-navbar {
             background-color: #ffffff;
             border-bottom: 1px solid #f0f0f0;
             padding: 12px 0;
-            font-family: 'Poppins', sans-serif;
         }
 
         .tenant-navbar .container-fluid {
             padding: 0 40px;
         }
 
-        /* Brand / Logo (Uses Raleway) */
         .navbar-brand-wrapper {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
             text-decoration: none;
-            /* Changed margin-right to 0 so it stays on the far left */
             margin-right: 0;
         }
 
         .navbar-logo {
             display: flex;
             align-items: center;
-            font-family: 'Raleway', sans-serif;
             font-weight: 800;
             font-size: 2.2rem;
-            color: #5E1049; /* Deep plum color */
+            color: #5E1049;
             letter-spacing: -1.5px;
             line-height: 1;
         }
@@ -60,7 +57,6 @@
         }
 
         .navbar-tagline {
-            font-family: 'Raleway', sans-serif;
             font-weight: 300;
             font-size: 0.7rem;
             letter-spacing: 0.5px;
@@ -70,11 +66,9 @@
             line-height: 1;
         }
 
-        /* Nav Links (Uses Poppins) */
         .tenant-navbar .nav-link {
-            color: #9ca3af; /* Muted gray */
+            color: #9ca3af;
             font-weight: 500;
-            font-family: 'Poppins', sans-serif;
             font-size: 0.95rem;
             padding: 8px 16px !important;
             transition: color 0.2s;
@@ -86,7 +80,7 @@
         }
 
         .tenant-navbar .nav-link.active {
-            color: #1a1a1a; /* Active black */
+            color: #1a1a1a;
             font-weight: 600;
         }
 
@@ -95,7 +89,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-left: 0; /* Changed from auto to 0 to help the center alignment */
+            margin-left: 0;
         }
 
         .nav-notif-wrapper {
@@ -131,18 +125,16 @@
             text-align: center;
         }
 
-        /* User Avatar with new color palette */
         .nav-user-avatar {
             width: 36px;
             height: 36px;
-            background-color: var(--c-bg-white); /* #FFE4F9 */
-            color: var(--c-primary);             /* #C0249F - Applied here! */
+            background-color: var(--c-bg-white);
+            color: var(--c-primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 800;       /* Extra Bold */
-            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
             font-size: 0.95rem;
             text-decoration: none;
             border: 2px solid #fff;
@@ -150,7 +142,7 @@
             cursor: pointer;
         }
         .nav-user-avatar:hover {
-            background-color: var(--c-bg-light); /* #FF9CE9 on hover */
+            background-color: var(--c-bg-light);
         }
 
         /* Responsive adjustments */

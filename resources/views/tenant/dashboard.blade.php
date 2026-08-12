@@ -19,7 +19,6 @@
     }
 
     .db-wrapper {
-        font-family: 'Poppins', system-ui, sans-serif;
         margin-top: -20px; /* Tighten spacing to header */
     }
 
@@ -47,9 +46,9 @@
 
     /* ===== PAGE HEADER ===== */
     .db-header h1 {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: var(--db-text-dark);
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1a1a1a;
         margin-bottom: 25px;
     }
 

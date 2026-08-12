@@ -4,11 +4,6 @@
 
 @section('content')
 
-<!-- Import Inter font for exact typography match -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 <style>
     :root {
         --ann-plum: #5E1049;
@@ -22,7 +17,6 @@
 
     /* ===== MAIN PAGE LAYOUT ===== */
     .ann-page-wrapper {
-        font-family: 'Inter', sans-serif;
         display: flex;
         gap: 30px;
         flex-wrap: wrap;
@@ -43,9 +37,14 @@
 
     /* ===== HEADER & CONTROLS ===== */
     .ann-header h1 {
-        font-weight: 700;
         font-size: 1.6rem;
+        font-weight: 700;
         color: #1a1a1a;
+        margin-bottom: 4px;
+    }
+    .ann-header p {
+        color: #6b7280;
+        font-size: 0.9rem;
         margin-bottom: 20px;
     }
 
@@ -314,7 +313,7 @@
     .ann-modal .modal-content {
         border-radius: 4px; border: none; box-shadow: 0 15px 40px rgba(0,0,0,0.1); padding: 30px 40px;
     }
-    .ann-modal .modal-body { padding: 0; font-family: 'Inter', sans-serif; }
+    .ann-modal .modal-body { padding: 0; }
 
     .ann-modal-back {
         display: flex; justify-content: flex-end; margin-bottom: 15px;
@@ -360,6 +359,7 @@
 
         <div class="ann-header">
             <h1>Announcements</h1>
+            <p>Stay updated with the latest dorm news and advisories.</p>
         </div>
 
         <!-- Controls -->

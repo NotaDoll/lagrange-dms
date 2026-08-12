@@ -2,11 +2,6 @@
 @section('title', 'Submit Complaint')
 @section('content')
 
-<!-- Import Inter font to match your typography screenshot -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
 <style>
     :root {
         --cp-plum: #5E1049;
@@ -18,8 +13,6 @@
         max-width: 600px;
         margin: 40px auto;
         width: 100%;
-        /* Applied Inter globally to this page */
-        font-family: 'Inter', sans-serif;
     }
 
     .cp-create-header {
@@ -67,7 +60,6 @@
         font-size: 0.95rem;
         color: #333;
         background-color: #fff;
-        font-family: 'Inter', sans-serif;
     }
 
     .cp-create-card .form-select:focus,
@@ -99,7 +91,6 @@
         transition: 0.2s;
         font-size: 0.9rem;
         cursor: pointer;
-        font-family: 'Inter', sans-serif;
     }
     .cp-btn-cancel:hover { background: #FDF2F8; color: var(--cp-plum); }
 
@@ -112,7 +103,6 @@
         font-weight: 600;
         transition: 0.2s;
         font-size: 0.9rem;
-        font-family: 'Inter', sans-serif;
     }
     .cp-btn-submit:hover { background: var(--cp-plum-hover); color: #fff; }
 
@@ -122,7 +112,6 @@
         border: none;
         box-shadow: 0 15px 40px rgba(0,0,0,0.1);
         padding: 30px 20px;
-        font-family: 'Inter', sans-serif;
     }
 
     .cp-modal .modal-body {
@@ -145,8 +134,6 @@
     }
 
     .cp-modal p {
-        /* Matches typography: Inter Regular, 10px (applied via font-size), Line-height Auto, Opacity 74% black */
-        font-family: 'Inter', sans-serif;
         font-weight: 400;
         font-size: 0.9rem; /* Slightly adjusted to 0.9rem for readability since 10px is really tiny */
         color: rgba(0, 0, 0, 0.74);
@@ -205,7 +192,7 @@
     </div>
 </div>
 
-<<!-- ===== CANCEL CONFIRMATION MODAL ===== -->
+<!-- ===== CANCEL CONFIRMATION MODAL ===== -->
 <div class="modal fade cp-modal" id="cancelModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
         <div class="modal-content">
@@ -214,10 +201,9 @@
                 <!-- Using your local images/icon.png file -->
                 <img src="{{ asset('images/icon.png') }}" alt="Confirmation Mascot" class="mascot-icon">
 
-                <!-- UPDATED: Applied 'Inter' font explicitly to these texts -->
-                <h5 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1a1a1a; margin-bottom: 10px;">Are you sure?</h5>
+                <h5 style="font-weight: 700; font-size: 1.2rem; color: #1a1a1a; margin-bottom: 10px;">Are you sure?</h5>
 
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 0.9rem; color: rgba(0, 0, 0, 0.74); line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
+                <p style="font-weight: 400; font-size: 0.9rem; color: rgba(0, 0, 0, 0.74); line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
                     You are about to cancel your entry, are you sure you want to exit?
                 </p>
 

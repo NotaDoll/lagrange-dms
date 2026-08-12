@@ -2,12 +2,7 @@
 @section('title', 'Login')
 @section('content')
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Raleway:wght@300;700;800&display=swap" rel="stylesheet">
-
 <style>
-    /* ===== GLOBAL ===== */
     * {
         box-sizing: border-box;
     }
@@ -28,7 +23,6 @@
         align-items: center;
         justify-content: center;
         padding: 30px 20px;
-        font-family: 'Poppins', sans-serif;
         overflow-y: auto;
         overflow-x: hidden;
         z-index: 0;
