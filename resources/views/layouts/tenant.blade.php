@@ -157,6 +157,8 @@
             .navbar-nav { margin: 0 auto !important; text-align: center; }
         }
     </style>
+
+    @include('partials.theme')
 </head>
 <body>
 

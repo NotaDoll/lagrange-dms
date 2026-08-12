@@ -11,10 +11,39 @@ class PaymentController extends Controller
     {
         $tenant = auth()->user()->tenant()->firstOrFail();
 
-        $payments = Payment::where('tenant_id', $tenant->id)
+        $paymentQuery = Payment::where('tenant_id', $tenant->id);
+
+        $outstandingBalance = (clone $paymentQuery)
+            ->whereIn('status', ['pending', 'overdue'])
+            ->sum('amount');
+
+        $outstandingCount = (clone $paymentQuery)
+            ->whereIn('status', ['pending', 'overdue'])
+            ->count();
+
+        $totalPaid = (clone $paymentQuery)
+            ->where('status', 'paid')
+            ->sum('amount');
+
+        $paidCount = (clone $paymentQuery)
+            ->where('status', 'paid')
+            ->count();
+
+        $paymentStatus = (clone $paymentQuery)->where('status', 'overdue')->exists()
+            ? 'Overdue'
+            : ((clone $paymentQuery)->where('status', 'pending')->exists() ? 'Pending' : 'Paid');
+
+        $payments = (clone $paymentQuery)
             ->latest('due_date')
             ->paginate(15);
 
-        return view('tenant.payments.index', compact('payments'));
+        return view('tenant.payments.index', compact(
+            'payments',
+            'outstandingBalance',
+            'outstandingCount',
+            'totalPaid',
+            'paidCount',
+            'paymentStatus'
+        ));
     }
 }
