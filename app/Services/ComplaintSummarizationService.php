@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Http;
 
 class ComplaintSummarizationService
 {
-    public function summarize(Collection $complaintTexts, array $filters): AiSummary
+    public function summarize(Collection $complaints, array $filters): AiSummary
     {
-        $prompt = $this->buildPrompt($complaintTexts);
+        $prompt = $this->buildPrompt($complaints);
 
         $startedAt = microtime(true);
 
@@ -35,13 +35,41 @@ class ComplaintSummarizationService
         ]);
     }
 
-    private function buildPrompt(Collection $complaintTexts): string
+    private function buildPrompt(Collection $complaints): string
     {
-        return "You are an assistant of a dormitory owner in the Philippines. Here are the\n"
-            . "complaints from tenants. Give your concise summary in English (but keep the\n"
-            . "Filipino or Bisaya terms if any are necessary for clarification). Mention:\n"
-            . "(1) types of complaints that appear most frequently, (2) number of complaints\n"
-            . "per type, (3) suggested courses of action for the manager. Complaints:\n"
-            . $complaintTexts->implode("\n") . ".";
+        $categoryCounts = $complaints
+            ->groupBy('category')
+            ->map(fn ($group) => $group->count())
+            ->map(fn ($count, $category) => strtoupper($category) . ": {$count}")
+            ->implode("\n");
+
+        $listedComplaints = $complaints
+            ->map(function ($complaint, $i) {
+                $date = $complaint->created_at->format('M j, Y');
+
+                return ($i + 1) . ". [{$complaint->category}, {$date}] {$complaint->description}";
+            })
+            ->implode("\n");
+
+        return "You are an assistant of a dormitory owner in the Philippines. Here are\n"
+            . "{$complaints->count()} complaints from tenants, each labeled with its category\n"
+            . "and the date it was filed. Give your concise summary in English (but keep the\n"
+            . "Filipino or Bisaya terms if any are necessary for clarification).\n\n"
+            . "ACTUAL COMPLAINT COUNTS PER CATEGORY (use these exact numbers, do not\n"
+            . "recount or estimate them yourself):\n"
+            . "{$categoryCounts}\n\n"
+            . "COMPLAINTS:\n"
+            . "{$listedComplaints}\n\n"
+            . "In your summary, mention:\n"
+            . "(1) the specific recurring issues within each category that appears most\n"
+            . "    frequently — name the actual problem (e.g. \"repeated reports of a leaking\n"
+            . "    faucet in the shared bathroom\"), not a generic label like \"maintenance\n"
+            . "    issues\";\n"
+            . "(2) the number of complaints per type, using the exact counts given above;\n"
+            . "(3) suggested courses of action for the manager, tied directly to the specific\n"
+            . "    issues you identified in (1).\n\n"
+            . "Be specific and reference actual details from the complaints rather than\n"
+            . "generic statements. Do not copy complaint sentences verbatim — synthesize\n"
+            . "them into your own analysis. Keep the summary under 200 words.";
     }
 }

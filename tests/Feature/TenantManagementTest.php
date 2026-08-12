@@ -31,7 +31,7 @@ class TenantManagementTest extends TestCase
             ])
             ->assertRedirect(route('proprietor.tenants.index'))
             ->assertSessionHas('success', 'Tenant created successfully.')
-            ->assertSessionHas('temp_password', 'Royo09123456789');
+            ->assertSessionHas('temp_password', 'ROYO09123456789');
 
         $this->assertDatabaseHas('users', [
             'name' => 'Ana Santos Royo',

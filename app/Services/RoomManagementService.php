@@ -49,7 +49,7 @@ class RoomManagementService
         if ($capacity > $beds->count()) {
             for ($number = $beds->count() + 1; $number <= $capacity; $number++) {
                 $room->beds()->create([
-                    'bed_label' => 'Bed ' . $number,
+                    'bed_label' => 'Bed ' . chr(64 + $number),
                     'status' => 'available',
                 ]);
             }

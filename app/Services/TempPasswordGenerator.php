@@ -14,12 +14,12 @@ class TempPasswordGenerator
     public function fromNameParts(string $lastName, ?string $contactNumber): string
     {
         if (empty($contactNumber)) {
-            return Str::random(10);
+            return strtoupper(Str::random(10));
         }
 
         $digitsOnly = preg_replace('/\D/', '', $contactNumber);
 
-        return ucfirst(strtolower(trim($lastName))) . $digitsOnly;
+        return strtoupper(trim($lastName)) . $digitsOnly;
     }
 
     public function fromFullName(string $fullName, ?string $contactNumber): string

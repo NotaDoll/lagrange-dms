@@ -16,7 +16,7 @@
     @if (session('temp_password'))
         <div class="alert alert-warning">
             <strong>Temporary password for {{ session('temp_password_email') }}:</strong>
-            <code>{{ session('temp_password') }}</code>
+            <code class="text-uppercase">{{ session('temp_password') }}</code>
             <div class="small mt-1">Copy this now — it will not be shown again.</div>
         </div>
     @endif

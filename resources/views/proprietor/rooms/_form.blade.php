@@ -3,7 +3,7 @@
 <div class="row g-3">
     <div class="col-md-6">
         <label for="room_number" class="form-label">Room Number</label>
-        <input type="text" class="form-control @error('room_number') is-invalid @enderror" id="room_number" name="room_number" value="{{ old('room_number', $room->room_number ?? '') }}" required>
+        <input type="text" class="form-control text-uppercase @error('room_number') is-invalid @enderror" id="room_number" name="room_number" value="{{ old('room_number', $room->room_number ?? '') }}" required>
         @error('room_number')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
@@ -11,7 +11,7 @@
 
     <div class="col-md-6">
         <label for="floor" class="form-label">Floor</label>
-        <input type="text" class="form-control @error('floor') is-invalid @enderror" id="floor" name="floor" value="{{ old('floor', $room->floor ?? '') }}" required>
+        <input type="text" class="form-control text-uppercase @error('floor') is-invalid @enderror" id="floor" name="floor" value="{{ old('floor', $room->floor ?? '') }}" required>
         @error('floor')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror

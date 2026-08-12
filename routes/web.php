@@ -25,6 +25,8 @@ use App\Http\Controllers\Proprietor\TenantImportController;
 
 require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
 
+Route::get('/', fn () => redirect()->route('login'));
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

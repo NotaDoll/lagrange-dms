@@ -3,7 +3,7 @@
 <div class="row g-3">
     <div class="col-md-4">
         <label for="first_name" class="form-label">First Name</label>
-        <input type="text" class="form-control @error('first_name') is-invalid @enderror" id="first_name" name="first_name" value="{{ old('first_name', $tenant->user->first_name ?? '') }}" required>
+        <input type="text" class="form-control text-uppercase @error('first_name') is-invalid @enderror" id="first_name" name="first_name" value="{{ old('first_name', $tenant->user->first_name ?? '') }}" required>
         @error('first_name')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
@@ -11,7 +11,7 @@
 
     <div class="col-md-4">
         <label for="middle_name" class="form-label">Middle Name <span class="text-muted">(Optional)</span></label>
-        <input type="text" class="form-control @error('middle_name') is-invalid @enderror" id="middle_name" name="middle_name" value="{{ old('middle_name', $tenant->user->middle_name ?? '') }}">
+        <input type="text" class="form-control text-uppercase @error('middle_name') is-invalid @enderror" id="middle_name" name="middle_name" value="{{ old('middle_name', $tenant->user->middle_name ?? '') }}">
         @error('middle_name')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
@@ -19,7 +19,7 @@
 
     <div class="col-md-4">
         <label for="last_name" class="form-label">Last Name</label>
-        <input type="text" class="form-control @error('last_name') is-invalid @enderror" id="last_name" name="last_name" value="{{ old('last_name', $tenant->user->last_name ?? '') }}" required>
+        <input type="text" class="form-control text-uppercase @error('last_name') is-invalid @enderror" id="last_name" name="last_name" value="{{ old('last_name', $tenant->user->last_name ?? '') }}" required>
         @error('last_name')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
@@ -69,7 +69,7 @@
 
     <div class="col-md-6">
         <label for="emergency_contact_name" class="form-label">Emergency Contact Name</label>
-        <input type="text" class="form-control @error('emergency_contact_name') is-invalid @enderror" id="emergency_contact_name" name="emergency_contact_name" value="{{ old('emergency_contact_name', $tenant->emergency_contact_name ?? '') }}" required>
+        <input type="text" class="form-control text-uppercase @error('emergency_contact_name') is-invalid @enderror" id="emergency_contact_name" name="emergency_contact_name" value="{{ old('emergency_contact_name', $tenant->emergency_contact_name ?? '') }}" required>
         @error('emergency_contact_name')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
@@ -91,7 +91,7 @@
 
     <div class="col-md-6">
         <label for="guardian_name" class="form-label">Guardian Name <span class="text-muted">(Optional)</span></label>
-        <input type="text" class="form-control @error('guardian_name') is-invalid @enderror" id="guardian_name"name="guardian_name" value="{{ old('guardian_name', $tenant->guardian_name ?? '') }}">
+        <input type="text" class="form-control text-uppercase @error('guardian_name') is-invalid @enderror" id="guardian_name" name="guardian_name" value="{{ old('guardian_name', $tenant->guardian_name ?? '') }}">
         @error('guardian_name')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror

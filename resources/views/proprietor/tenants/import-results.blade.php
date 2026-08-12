@@ -23,7 +23,7 @@
                                 <td>{{ $row['row'] }}</td>
                                 <td>{{ $row['name'] }}</td>
                                 <td>{{ $row['email'] }}</td>
-                                <td><code>{{ $row['password'] }}</code></td>
+                                <td><code class="text-uppercase">{{ $row['password'] }}</code></td>
                             </tr>
                         @endforeach
                     </tbody>
