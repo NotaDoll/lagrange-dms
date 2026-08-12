@@ -205,19 +205,21 @@
     </div>
 </div>
 
-<!-- ===== CANCEL CONFIRMATION MODAL ===== -->
+<<!-- ===== CANCEL CONFIRMATION MODAL ===== -->
 <div class="modal fade cp-modal" id="cancelModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
         <div class="modal-content">
             <div class="modal-body">
 
-                <!-- Using your exact uploaded Mascot Icon -->
-                <img src="https://i.imgur.com/YOUR_MASCOT_IMAGE.png" alt="Confirmation Mascot" class="mascot-icon">
+                <!-- Using your local images/icon.png file -->
+                <img src="{{ asset('images/icon.png') }}" alt="Confirmation Mascot" class="mascot-icon">
 
-                <!-- If you uploaded the icon to your own server, replace the src above with: {{ asset('path/to/mascot.png') }} -->
+                <!-- UPDATED: Applied 'Inter' font explicitly to these texts -->
+                <h5 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1a1a1a; margin-bottom: 10px;">Are you sure?</h5>
 
-                <h5>Are you sure?</h5>
-                <p>You are about to cancel your entry, are you sure you want to exit?</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 0.9rem; color: rgba(0, 0, 0, 0.74); line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
+                    You are about to cancel your entry, are you sure you want to exit?
+                </p>
 
                 <div class="modal-actions">
                     <button type="button" class="cp-btn-cancel" data-bs-dismiss="modal">Back</button>
@@ -227,5 +229,4 @@
         </div>
     </div>
 </div>
-
 @endsection

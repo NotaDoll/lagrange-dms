@@ -224,8 +224,8 @@
                 <!-- Right Side Actions (Bell & Avatar Dropdown) -->
                 <div class="nav-right-actions">
 
-                    <!-- Bell with Badge -->
-                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper">
+                    <!-- Bell with Badge (Added onclick and id) -->
+                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" id="bellLink" onclick="clearNotificationBadge()">
                         <!-- Bell Icon SVG -->
                         <svg class="nav-notif-icon" viewBox="0 0 24 24">
                             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -265,19 +265,47 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-    async function pollNotifications() {
-        const res = await fetch("{{ route('notifications.unread-count') }}");
-        const data = await res.json();
-        const badge = document.getElementById('notif-badge');
-        if (data.count > 0) {
-            badge.textContent = data.count;
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
+        // 1. Function to clear the badge immediately when clicked
+        function clearNotificationBadge() {
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                badge.style.display = 'none';
+                badge.textContent = '0';
+            }
         }
-    }
-    pollNotifications();
-    setInterval(pollNotifications, 15000);
+
+        // 2. Automatically hide badge if the user is currently viewing the notifications page
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUrl = window.location.pathname;
+            // Adjust this string to match your actual notifications route
+            const notificationRoute = '/notifications';
+
+            if (currentUrl.includes(notificationRoute)) {
+                clearNotificationBadge();
+            }
+        });
+
+        // 3. Background polling logic
+        async function pollNotifications() {
+            try {
+                const res = await fetch("{{ route('notifications.unread-count') }}");
+                const data = await res.json();
+                const badge = document.getElementById('notif-badge');
+
+                // Only show the badge if the user is NOT currently on the notifications page AND has unread items
+                if (data.count > 0 && !window.location.pathname.includes('/notifications')) {
+                    badge.textContent = data.count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+            }
+        }
+
+        pollNotifications();
+        setInterval(pollNotifications, 15000);
     </script>
 
     @stack('scripts')

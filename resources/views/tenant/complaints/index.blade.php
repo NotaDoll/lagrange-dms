@@ -58,7 +58,7 @@
         border-radius: 16px;
         border: 1px solid var(--cp-border);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        overflow: hidden;
+        overflow: visible !important; /* CRITICAL: Prevents clipping */
     }
 
     /* ===== FILTER BAR ===== */
@@ -70,6 +70,7 @@
         gap: 12px;
         padding: 16px 24px;
         border-bottom: 1px solid #f3f4f6;
+        position: relative; /* For the absolutely positioned popup */
     }
 
     .cp-filter-label { font-size: 0.85rem; font-weight: 600; color: #333; margin-right: 4px; }
@@ -111,39 +112,70 @@
         align-items: center;
         gap: 6px;
         transition: 0.2s;
+        cursor: pointer;
     }
     .cp-filter-btn:hover { background: #FDF2F8; }
     .cp-filter-btn svg { width: 14px; height: 14px; fill: currentColor; }
 
-    /* ===== FILTER DROPDOWN MENU ===== */
-    .cp-filter-dropdown {
-        min-width: 300px;
-        padding: 20px;
-        border-radius: 16px;
-        border: none;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-        margin-top: 12px !important;
-        background: #fff;
+    /* ===== CUSTOM POPUP MENU (NO CUTOFF) ===== */
+    .cp-filter-wrapper {
+        position: relative;
+        display: inline-block;
     }
 
-    .cp-filter-dropdown .filter-header {
+    .cp-filter-popup {
+        display: none; /* Hidden by default */
+        position: fixed; /* FLOATS OVER EVERYTHING */
+        top: 45%;
+        left: 80%;
+        transform: translate(-50%, -50%); /* Perfectly centered */
+        width: 340px;
+        max-width: 95vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 24px;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+        background: #fff;
+        z-index: 99999;
+    }
+
+    .cp-filter-popup.open {
+        display: block;
+    }
+
+    /* Overlay to darken background when popup is open */
+    .cp-filter-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.3);
+        z-index: 99998;
+    }
+    .cp-filter-overlay.open {
+        display: block;
+    }
+
+    .cp-filter-popup .filter-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 12px;
     }
-    .cp-filter-dropdown .filter-header h6 {
+    .cp-filter-popup .filter-header h6 {
         font-weight: 700;
         font-size: 1.1rem;
         margin: 0;
     }
-    .cp-filter-dropdown .filter-clear {
+    .cp-filter-popup .filter-clear {
         font-size: 0.8rem;
         color: #3b82f6;
         text-decoration: none;
         font-weight: 500;
+        cursor: pointer;
     }
-    .cp-filter-dropdown .filter-section-title {
+    .cp-filter-popup .filter-section-title {
         font-size: 0.8rem;
         font-weight: 700;
         color: #a855a7;
@@ -151,23 +183,25 @@
         margin-bottom: 10px;
     }
 
-    .cp-filter-dropdown .form-check-label {
+    .cp-filter-popup .form-check-label {
         font-weight: 500;
         color: var(--cp-plum);
         font-size: 0.9rem;
     }
-    .cp-filter-dropdown .form-check-input {
+    .cp-filter-popup .form-check-input {
         border-color: #d1d5db;
+        cursor: pointer;
     }
-    .cp-filter-dropdown .form-check-input:checked {
+    .cp-filter-popup .form-check-input:checked {
         background-color: var(--cp-plum);
         border-color: var(--cp-plum);
     }
-    .cp-filter-dropdown .form-select {
+    .cp-filter-popup .form-select {
         border-radius: 6px;
         padding: 10px 12px;
         font-weight: 500;
         border: 1px solid #d1d5db;
+        width: 100%;
     }
 
     .cp-filter-apply-btn {
@@ -180,6 +214,7 @@
         width: 100%;
         margin-top: 15px;
         transition: 0.2s;
+        cursor: pointer;
     }
     .cp-filter-apply-btn:hover { background: var(--cp-plum-hover); color: white; }
 
@@ -238,6 +273,7 @@
         .cp-filter-bar { flex-direction: column; align-items: stretch; }
         .cp-filter-btn { align-self: flex-end; }
         .cp-footer { flex-direction: column; gap: 10px; text-align: center; }
+        .cp-filter-popup { width: 95vw; }
     }
 </style>
 
@@ -270,72 +306,97 @@
 
                 @if ($hasFilters)
                     <span class="cp-filter-label">Active Filters:</span>
+
                     @foreach ($activeStatus as $s)
-                        <a href="{{ request()->fullUrlWithoutQuery('status') }}" class="cp-chip">{{ Str::headline($s) }} <span style="color:#9ca3af; font-size:1.1rem;">&times;</span></a>
+                        @php
+                            $newStatus = array_diff($activeStatus, [$s]);
+                            $queryParams = request()->query();
+                            $queryParams['status'] = $newStatus;
+                            if(empty($queryParams['status'])) unset($queryParams['status']);
+                        @endphp
+                        <a href="{{ request()->url() . '?' . http_build_query($queryParams) }}" class="cp-chip">
+                            {{ Str::headline($s) }} <span style="color:#9ca3af; font-size:1.1rem;">&times;</span>
+                        </a>
                     @endforeach
+
                     @foreach ($activeCategory as $c)
-                        <a href="{{ request()->fullUrlWithoutQuery('category') }}" class="cp-chip">{{ ucfirst($c) }} <span style="color:#9ca3af; font-size:1.1rem;">&times;</span></a>
+                        @php
+                            $newCategory = array_diff($activeCategory, [$c]);
+                            $queryParams = request()->query();
+                            $queryParams['category'] = $newCategory;
+                            if(empty($queryParams['category'])) unset($queryParams['category']);
+                        @endphp
+                        <a href="{{ request()->url() . '?' . http_build_query($queryParams) }}" class="cp-chip">
+                            {{ ucfirst($c) }} <span style="color:#9ca3af; font-size:1.1rem;">&times;</span>
+                        </a>
                     @endforeach
+
                     <span class="text-muted mx-1">|</span>
-                    <a href="{{ url()->current() }}" class="cp-clear-link">Clear all filters</a>
+                    <a href="{{ request()->url() }}" class="cp-clear-link">Clear all filters</a>
                 @else
                     <span class="cp-filter-label">Active Filters:</span>
                 @endif
             </div>
 
-            <!-- Filter Dropdown -->
-            <div class="dropdown">
-                <button class="cp-filter-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <!-- Custom Filter Button & Popup -->
+            <div class="cp-filter-wrapper">
+                <button class="cp-filter-btn" onclick="openFilterPopup()">
                     <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     Filter
                 </button>
 
-                <form method="GET" class="dropdown-menu cp-filter-dropdown">
-                    <div class="filter-header">
-                        <h6>Filter Complaints</h6>
-                        <a href="{{ url()->current() }}" class="filter-clear">Clear all</a>
-                    </div>
+                <!-- Overlay -->
+                <div class="cp-filter-overlay" id="filterOverlay" onclick="closeFilterPopup()"></div>
 
-                    <div class="mb-3">
-                        <div class="filter-section-title">Status</div>
-                        <div class="row gx-2">
-                            @foreach (['submitted' => 'Submitted', 'in_progress' => 'In Progress', 'resolved' => 'Resolved'] as $val => $label)
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="status[]" value="{{ $val }}" id="st-{{ $val }}" {{ in_array($val, $activeStatus) ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="st-{{ $val }}">{{ $label }}</label>
-                                    </div>
-                                </div>
-                            @endforeach
+                <!-- Popup Form -->
+                <div class="cp-filter-popup" id="filterPopup">
+                    <form method="GET" action="{{ request()->url() }}">
+                        <div class="filter-header">
+                            <h6>Filter Complaints</h6>
+                            <a href="{{ request()->url() }}" class="filter-clear" onclick="closeFilterPopup()">Clear all</a>
                         </div>
-                    </div>
 
-                    <div class="mb-3">
-                        <div class="filter-section-title">Category</div>
-                        <div class="row gx-2">
-                            @foreach (['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Others'] as $val => $label)
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="category[]" value="{{ $val }}" id="cat-{{ $val }}" {{ in_array($val, $activeCategory) ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="cat-{{ $val }}">{{ $label }}</label>
+                        <div class="mb-3">
+                            <div class="filter-section-title">Status</div>
+                            <div class="row gx-2">
+                                @foreach (['submitted' => 'Submitted', 'in_progress' => 'In Progress', 'resolved' => 'Resolved'] as $val => $label)
+                                    <div class="col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="status[]" value="{{ $val }}" id="st-{{ $val }}" {{ in_array($val, $activeStatus) ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="st-{{ $val }}">{{ $label }}</label>
+                                        </div>
                                     </div>
-                                </div>
-                            @endforeach
+                                @endforeach
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="mb-0">
-                        <div class="filter-section-title">Date Submitted</div>
-                        <select name="date_filter" class="form-select">
-                            <option value="30">Last 30 days</option>
-                            <option value="7">Last 7 days</option>
-                            <option value="90">Last 90 days</option>
-                            <option value="all">All time</option>
-                        </select>
-                    </div>
+                        <div class="mb-3">
+                            <div class="filter-section-title">Category</div>
+                            <div class="row gx-2">
+                                @foreach (['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Others'] as $val => $label)
+                                    <div class="col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="category[]" value="{{ $val }}" id="cat-{{ $val }}" {{ in_array($val, $activeCategory) ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="cat-{{ $val }}">{{ $label }}</label>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
 
-                    <button type="submit" class="cp-filter-apply-btn">Apply Filter</button>
-                </form>
+                        <div class="mb-0">
+                            <div class="filter-section-title">Date Submitted</div>
+                            <select name="date_filter" class="form-select">
+                                <option value="30" {{ request('date_filter') == '30' ? 'selected' : '' }}>Last 30 days</option>
+                                <option value="7" {{ request('date_filter') == '7' ? 'selected' : '' }}>Last 7 days</option>
+                                <option value="90" {{ request('date_filter') == '90' ? 'selected' : '' }}>Last 90 days</option>
+                                <option value="all" {{ request('date_filter') == 'all' ? 'selected' : '' }}>All time</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="cp-filter-apply-btn" onclick="closeFilterPopup()">Apply Filter</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -382,13 +443,49 @@
                     Showing <strong>{{ $complaints->firstItem() }}-{{ $complaints->lastItem() }}</strong> of {{ $complaints->total() }} complaints
                 </div>
                 <div class="cp-pager">
-                    <a href="{{ $complaints->previousPageUrl() ?? '#' }}" class="cp-pager-btn {{ $complaints->onFirstPage() ? 'disabled' : '' }}">&#8592;</a>
+                    {{-- Previous Page --}}
+                    @if ($complaints->onFirstPage())
+                        <span class="cp-pager-btn disabled">&#8592;</span>
+                    @else
+                        <a href="{{ $complaints->previousPageUrl() }}" class="cp-pager-btn">&#8592;</a>
+                    @endif
+
+                    {{-- Current Page --}}
                     <span class="cp-pager-current">{{ $complaints->currentPage() }}</span>
-                    <a href="{{ $complaints->nextPageUrl() ?? '#' }}" class="cp-pager-btn {{ $complaints->hasMorePages() ? '' : 'disabled' }}">&#8594;</a>
+
+                    {{-- Next Page --}}
+                    @if ($complaints->hasMorePages())
+                        <a href="{{ $complaints->nextPageUrl() }}" class="cp-pager-btn">&#8594;</a>
+                    @else
+                        <span class="cp-pager-btn disabled">&#8594;</span>
+                    @endif
                 </div>
             </div>
         @endif
 
     </div>
 </div>
+
+<!-- ===== JAVASCRIPT TO HANDLE POPUP ===== -->
+<script>
+    function openFilterPopup() {
+        document.getElementById('filterPopup').classList.add('open');
+        document.getElementById('filterOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    function closeFilterPopup() {
+        document.getElementById('filterPopup').classList.remove('open');
+        document.getElementById('filterOverlay').classList.remove('open');
+        document.body.style.overflow = ''; // Restore background scrolling
+    }
+
+    // Close popup if the user presses the ESC key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeFilterPopup();
+        }
+    });
+</script>
+
 @endsection

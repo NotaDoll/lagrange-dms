@@ -20,6 +20,14 @@ class NotificationController extends Controller
             ->latest()
             ->paginate(20);
 
+        // ===== CRITICAL FIX ADDED HERE =====
+        // Mark all fetched notifications as read in the database immediately
+        $request->user()
+            ->notifications()
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+        // ===================================
+
         return view('notifications.index', compact('notifications'));
     }
 
