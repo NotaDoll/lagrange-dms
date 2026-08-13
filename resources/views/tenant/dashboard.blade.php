@@ -13,7 +13,7 @@
             <span style="color: #2563eb; font-weight: 700; margin-right: 5px;">i</span>
             First-time users: Your login credentials, including your temporary password, were provided by the administrator. You will be required to change your password upon your first login.
         </span>
-        <button type="button" class="close-btn" onclick="this.parentElement.style.display='none'">&times;</button>
+        <button type="button" class="close-btn" onclick="this.parentElement.style.display='none'; document.querySelector('.db-wrapper').classList.add('banner-closed')">&times;</button>
     </div>
 
     <!-- Header -->

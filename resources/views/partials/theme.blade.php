@@ -44,6 +44,7 @@
         border-radius: 6px;
         padding: 14px 20px;
         margin-bottom: 30px;
+        margin-top:50px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -67,8 +68,10 @@
         font-weight: 700;
         color: #1a1a1a;
         margin-bottom: 4px;
+        margin-top:10px;
     }
     .db-header h1 { margin-bottom: 25px; }
+    .banner-closed .db-header h1 { margin-top: 50px; }
     .theme-page-header p,
     .ann-header p,
     .cp-header p {

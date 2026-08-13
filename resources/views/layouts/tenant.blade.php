@@ -22,11 +22,11 @@
         .tenant-navbar {
             background-color: #ffffff;
             border-bottom: 1px solid #f0f0f0;
-            padding: 12px 0;
+            padding: 12px 12px;
         }
 
         .tenant-navbar .container-fluid {
-            padding: 0 40px;
+            padding: 10px 50px;
         }
 
         .navbar-brand-wrapper {
@@ -52,7 +52,7 @@
         .tenant-navbar .nav-link {
             color: #9ca3af;
             font-weight: 500;
-            font-size: 0.95rem;
+            font-size: 1.1rem;
             padding: 8px 16px !important;
             transition: color 0.2s;
             align-items: center;
