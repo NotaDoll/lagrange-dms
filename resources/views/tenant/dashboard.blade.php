@@ -43,7 +43,9 @@
         <a href="{{ route('tenant.announcements.index') }}" class="db-card db-card-link">
             <div class="db-card-title">UNREAD ANNOUNCEMENTS</div>
             <div class="db-card-value">{{ $announcementsCount }}</div>
-            <div class="db-card-sub blue">Latest: Christmas Party Meeting</div>
+            <div class="db-card-sub blue">
+                Latest: {{ $latestAnnouncement?->title ?? 'No announcements yet' }}
+            </div>
         </a>
     </div>
 

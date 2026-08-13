@@ -22,7 +22,10 @@ class TenantDashboardController extends Controller
         // 3. Count the total announcements (You can adjust this if you have an 'unread' scope later)
         $announcementsCount = Announcement::count();
 
-        // 4. Pass both counts to the dashboard view
-        return view('tenant.dashboard', compact('complaintsCount', 'announcementsCount'));
+        // 4. Get the most recent announcement for the dashboard summary.
+        $latestAnnouncement = Announcement::latest()->first();
+
+        // 5. Pass both counts and the latest title to the dashboard view
+        return view('tenant.dashboard', compact('complaintsCount', 'announcementsCount', 'latestAnnouncement'));
     }
 }

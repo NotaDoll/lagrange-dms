@@ -18,8 +18,8 @@
         <!-- Controls -->
         <div class="ann-controls">
             <div class="ann-tabs">
-                <a href="{{ route('tenant.announcements.index') }}" class="{{ request('status') !== 'unread' ? 'active' : '' }}">All</a>
-                <a href="{{ route('tenant.announcements.index', ['status' => 'unread']) }}" class="{{ request('status') === 'unread' ? 'active' : '' }}">Unread</a>
+                <a href="{{ route('tenant.announcements.index') }}" class="ann-tab {{ request('status') !== 'unread' ? 'active' : '' }}" data-filter="all">All</a>
+                <a href="{{ route('tenant.announcements.index', ['status' => 'unread']) }}" class="ann-tab {{ request('status') === 'unread' ? 'active' : '' }}" data-filter="unread">Unread</a>
             </div>
 
             <div class="ann-actions">
@@ -78,7 +78,7 @@
         <!-- List -->
         <div class="ann-list">
             @forelse ($announcements as $announcement)
-                <div class="ann-item">
+                <div class="ann-item is-unread" data-announcement-id="{{ $announcement->id }}" data-read="false">
                     <div class="ann-item-header">
                         <h4 class="ann-item-title">{{ $announcement->title }}</h4>
                         <span class="ann-item-date">{{ $announcement->created_at->format('m/d/y  h:i A') }}</span>
@@ -190,6 +190,67 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const viewModal = document.getElementById('viewAnnouncementModal');
+
+const storageKey = 'lagrange_announcements_read';
+        const getReadState = () => {
+            try {
+                return JSON.parse(localStorage.getItem(storageKey) || '{}');
+            } catch (error) {
+                return {};
+            }
+        };
+
+        const applyReadState = () => {
+            const readState = getReadState();
+            const items = document.querySelectorAll('.ann-item');
+
+            items.forEach(item => {
+                const id = item.dataset.announcementId;
+                const isRead = !!readState[id];
+                item.dataset.read = isRead ? 'true' : 'false';
+                item.classList.toggle('is-read', isRead);
+                item.classList.toggle('is-unread', !isRead);
+            });
+        };
+
+        const applyTabFilter = () => {
+            const activeTab = document.querySelector('.ann-tab.active');
+            const filter = activeTab ? activeTab.dataset.filter : 'all';
+            const items = document.querySelectorAll('.ann-item');
+
+            items.forEach(item => {
+                const isRead = item.dataset.read === 'true';
+                const shouldShow = filter === 'all' || (filter === 'unread' && !isRead);
+                item.style.display = shouldShow ? '' : 'none';
+            });
+        };
+
+        document.querySelectorAll('.ann-tab').forEach(tab => {
+            tab.addEventListener('click', function (event) {
+                event.preventDefault();
+
+                document.querySelectorAll('.ann-tab').forEach(link => link.classList.remove('active'));
+                tab.classList.add('active');
+                applyTabFilter();
+            });
+        });
+
+        document.querySelectorAll('.ann-read-more').forEach(button => {
+            button.addEventListener('click', function () {
+                const item = button.closest('.ann-item');
+                if (!item) return;
+
+                const id = item.dataset.announcementId;
+                const readState = getReadState();
+                readState[id] = true;
+                localStorage.setItem(storageKey, JSON.stringify(readState));
+                applyReadState();
+                applyTabFilter();
+            });
+        });
+
+        applyReadState();
+        applyTabFilter();
 
         viewModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;

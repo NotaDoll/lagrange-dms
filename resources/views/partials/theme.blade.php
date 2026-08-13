@@ -318,6 +318,14 @@
         padding: 20px 24px;
         transition: 0.2s;
     }
+    .ann-item.is-read {
+        background: #ffffff;
+        border-color: #e5e7eb;
+    }
+    .ann-item.is-unread {
+        background: #fff5f9;
+        border-color: #f6d9e7;
+    }
     .ann-item:hover { border-color: var(--theme-border); }
     .ann-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
     .ann-item-title { font-weight: 600; font-size: 1rem; color: var(--theme-plum); margin: 0; }
