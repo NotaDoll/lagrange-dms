@@ -1,7 +1,11 @@
 @props(['variant' => 'tenant'])
 
 @php
-    $userInitial = strtoupper(substr(auth()->user()->name ?? 'U', 0, 1));
+    $user = auth()->user();
+    $userInitial = strtoupper(substr($user->name ?? 'U', 0, 1));
+    $tenant = $user?->tenant;
+    $currentRoom = $tenant?->currentAssignment?->bed?->room?->room_number;
+    $roomLabel = $currentRoom ? strtoupper($currentRoom) : 'ROOM N/A';
     $proprietorLinks = [
         ['label' => 'Dashboard', 'route' => 'proprietor.dashboard', 'active' => 'proprietor.dashboard'],
         ['label' => 'Tenants', 'route' => 'proprietor.tenants.index', 'active' => 'proprietor.tenants.*'],
@@ -20,16 +24,7 @@
 
             <!-- Brand / Logo Section -->
             <a class="navbar-brand-wrapper" href="{{ route('tenant.dashboard') }}">
-                <div class="navbar-logo">
-                    l<span class="house-icon">
-                        <!-- Using your exact house icon SVG -->
-                        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="#5E1049">
-                            <path d="M50 10 L10 40 L10 90 L90 90 L90 40 Z" />
-                            <path d="M30 70 Q50 80 70 70" stroke="white" stroke-width="6" stroke-linecap="round" fill="none"/>
-                        </svg>
-                    </span>grange
-                </div>
-                <div class="navbar-tagline">DORMITORY MANAGEMENT SYSTEM</div>
+                <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo" class="navbar-logo" style="height: 42px; width: auto; display: block; margin-left: 60%;">
             </a>
 
             <!-- Hamburger Toggle for Mobile -->
@@ -69,23 +64,43 @@
                     <!-- Bell with Badge (Added onclick and id) -->
                     <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" id="bellLink" onclick="clearNotificationBadge()">
                         <!-- Bell Icon SVG -->
-                        <svg class="nav-notif-icon" viewBox="0 0 24 24">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                        </svg>
+                       <svg width="24" height="24" viewBox="0 0 0.72 0.72" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.444 0.595a0.023 0.023 0 0 1 0.022 0.034 0.093 0.093 0 0 1 -0.025 0.029c-0.011 0.008 -0.023 0.014 -0.036 0.019s-0.027 0.006 -0.041 0.006 -0.028 -0.002 -0.041 -0.006 -0.025 -0.01 -0.036 -0.019a0.093 0.093 0 0 1 -0.025 -0.029 0.023 0.023 0 0 1 0.022 -0.034c0.006 0.001 0.051 0.005 0.08 0.005s0.075 -0.004 0.08 -0.005M0.256 0.063a0.259 0.259 0 0 1 0.216 -0.003l0.006 0.003c0.072 0.032 0.118 0.102 0.118 0.178v0.038c0 0.03 0.007 0.061 0.02 0.088l0.008 0.017c0.037 0.076 -0.011 0.164 -0.097 0.18l-0.005 0.001a0.915 0.915 0 0 1 -0.32 0c-0.087 -0.015 -0.132 -0.108 -0.091 -0.182l0.007 -0.012A0.198 0.198 0 0 0 0.146 0.272V0.234C0.146 0.161 0.188 0.095 0.256 0.063" fill-rule="evenodd" clip-rule="evenodd" fill="#000"/></svg>
                         <span class="badge" id="notif-badge">0</span>
                     </a>
 
                     <!-- User Avatar Dropdown -->
                     <div class="dropdown">
-                        <button class="nav-user-avatar dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="nav-user-avatar" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ $userInitial }}
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
+                        <ul class="dropdown-menu dropdown-menu-end user-profile-dropdown">
+                            <li class="user-profile-card">
+                                <div class="user-profile-summary">
+                                    <div class="user-profile-name">{{ $user->name ?? 'User' }}</div>
+                                    <div class="user-profile-room-row">
+                                        <span class="user-profile-room">{{ $roomLabel }}</span>
+                                        <span class="user-profile-status"><span class="user-status-dot"></span>Active</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <div class="user-profile-divider"></div>
+                            <li>
+                                <a href="{{ route('profile.edit') }}" class="dropdown-item user-profile-action">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Change Password
+                                </a>
+                            </li>
                             <li>
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-                                    <button type="submit" class="dropdown-item">Logout</button>
+                                    <button type="submit" class="dropdown-item user-profile-action user-logout-action">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        Logout
+                                    </button>
                                 </form>
                             </li>
                         </ul>

@@ -34,7 +34,7 @@
             flex-direction: column;
             align-items: flex-start;
             text-decoration: none;
-            margin-right: 0;
+            margin-right: 8%;
         }
 
         .navbar-logo {
@@ -47,24 +47,7 @@
             line-height: 1;
         }
 
-        .navbar-logo .house-icon {
-            width: 32px;
-            height: 32px;
-            margin: 0 2px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .navbar-tagline {
-            font-weight: 300;
-            font-size: 0.7rem;
-            letter-spacing: 0.5px;
-            color: #5E1049;
-            margin-top: 2px;
-            margin-left: 2px;
-            line-height: 1;
-        }
+       
 
         .tenant-navbar .nav-link {
             color: #9ca3af;
@@ -90,6 +73,7 @@
             align-items: center;
             gap: 15px;
             margin-left: 0;
+            margin-right: 8%;
         }
 
         .nav-notif-wrapper {
@@ -128,21 +112,130 @@
         .nav-user-avatar {
             width: 36px;
             height: 36px;
-            background-color: var(--c-bg-white);
-            color: var(--c-primary);
+            background-color: #FFE4F9;
+            color: #C0249F;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            font-size: 0.95rem;
+            font-size: 18px;
             text-decoration: none;
-            border: 2px solid #fff;
+            border: 2px solid #FF9CE9;
             transition: 0.2s;
             cursor: pointer;
+            padding: 0;
+            appearance: none;
+            -webkit-appearance: none;
         }
+
+        .nav-user-avatar::after {
+            display: none !important;
+        }
+
         .nav-user-avatar:hover {
             background-color: var(--c-bg-light);
+        }
+
+        .user-profile-dropdown {
+            width: 320px;
+            border-radius: 18px;
+            border: 1px solid rgba(99, 94, 99, 0.2);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.10);
+            padding: 14px 16px 10px;
+            margin-top: 12px;
+            background: #fdfdfd;
+        }
+
+        .user-profile-card {
+            padding: 4px 4px 10px;
+        }
+
+        .user-profile-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .user-profile-name {
+            font-size: 20px;
+            line-height: 1.05;
+            font-weight: 600;
+            letter-spacing: -0.05em;
+            color: #1f1f1f;
+        }
+
+        .user-profile-room-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 1.05rem;
+            color: #111827;
+            
+        }
+
+        .user-profile-room {
+            font-weight: 300;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            font-size: 15px;
+            color: #1f1f1f;
+        }
+
+        .user-profile-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 300;
+            color: #2f9e44;
+            font-size: 15px;
+        }
+
+        .user-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #2f9e44;
+            display: inline-block;
+        }
+
+        .user-profile-divider {
+            height: 1px;
+            background: rgba(31, 31, 31, 0.18);
+            margin: 10px 0 8px;
+        }
+
+        .user-profile-action {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 8px;
+            font-size: 1.1rem;
+            color: #1f1f1f;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .user-profile-action svg {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .user-profile-action:hover {
+            background: #f6f6f6;
+            color: #111827;
+        }
+
+        .user-logout-action {
+            color: #b42318;
+        }
+
+        .user-logout-action:hover {
+            color: #b42318;
+            background: #fff3f2;
         }
 
         /* Responsive adjustments */
