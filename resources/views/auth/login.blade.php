@@ -93,6 +93,40 @@
         max-width: 100%;
     }
 
+    .password-field-wrap {
+        position: relative;
+    }
+
+    .password-field-wrap .form-control {
+        padding-right: 46px;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        color: #4b5563;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+    }
+
+    .password-toggle svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .password-toggle:focus {
+        outline: none;
+    }
+
     .lg-card .form-control:focus {
         border-color: #630a4b;
         box-shadow: 0 0 0 3px rgba(99, 10, 75, 0.12);
@@ -323,8 +357,21 @@
 
                     <div class="mb-3" style="margin-bottom: 15px;">
                         <label for="password" class="form-label">Password</label>
-                        <input id="password" type="password" name="password"
-                            class="form-control @error('password') is-invalid @enderror" required>
+                        <div class="password-field-wrap">
+                            <input id="password" type="password" name="password"
+                                class="form-control @error('password') is-invalid @enderror" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" data-password-toggle="password">
+                                <svg class="eye-open" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+                                </svg>
+                                <svg class="eye-closed" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none;">
+                                    <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M10.6 10.6A2.8 2.8 0 0 0 13.4 13.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M9.1 5.5A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-4.3 5.3M6.8 6.8A17.9 17.9 0 0 0 2 12s3.5 7 10 7a11.5 11.5 0 0 0 5.2-1.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
                         @error('password')
                             <div class="text-danger small mt-1" style="color: #dc3545; font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
                         @enderror
@@ -351,5 +398,29 @@
 
     </div>
 </div>
+
+<script>
+    document.addEventListener('click', function (event) {
+        const toggle = event.target.closest('[data-password-toggle]');
+        if (!toggle) return;
+
+        const inputId = toggle.dataset.passwordToggle;
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+
+        toggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+
+        const eyeOpen = toggle.querySelector('.eye-open');
+        const eyeClosed = toggle.querySelector('.eye-closed');
+
+        if (eyeOpen && eyeClosed) {
+            eyeOpen.style.display = isPassword ? 'none' : 'block';
+            eyeClosed.style.display = isPassword ? 'block' : 'none';
+        }
+    });
+</script>
 
 @endsection

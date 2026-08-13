@@ -14,8 +14,8 @@
         @csrf
         <div class="mb-3">
             <label for="email" class="form-label">Email</label>
-            <input id="email" type="email" name="email" value="{{ old('email') }}" class="form-control" required autofocus>
+            <input id="email" type="email" name="email" value="{{ old('email') }}" class="form-control" required autofocus style="border-color: #630a4b; box-shadow: none;">
         </div>
-        <button type="submit" class="btn btn-primary w-100">Email Password Reset Link</button>
+        <button type="submit" class="btn btn-primary w-100" style="background-color: #630a4b; border-color: #630a4b;">Email Password Reset Link</button>
     </form>
 @endsection
