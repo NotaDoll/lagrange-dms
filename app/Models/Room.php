@@ -16,4 +16,9 @@ class Room extends Model
     {
         return $this->hasMany(Bed::class);
     }
+    
+    public function utilityBills()
+{
+    return $this->hasMany(UtilityBill::class);
+}
 }

@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class SmsService
 {
+    public function __construct(private readonly SettingsService $settings)
+    {
+    }
+
     public function send(string $number, string $message): void
     {
         $normalizedNumber = $this->normalizeNumber($number);
@@ -25,10 +29,13 @@ class SmsService
         $status = 'failed';
 
         try {
+            $apiKey = $this->settings->get('sms', 'api_key') ?? config('services.semaphore.key');
+
             $response = Http::asForm()->post('https://api.semaphore.co/api/v4/messages', [
-                'apikey' => config('services.semaphore.key'),
+                'apikey' => $apiKey,
                 'number' => $number,
                 'message' => $message,
+                'sendername' => $this->settings->get('sms', 'sender_name'),
             ]);
 
             $status = $response->successful() ? 'sent' : 'failed';

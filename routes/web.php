@@ -22,6 +22,11 @@ use App\Http\Controllers\Tenant\TenantDashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Proprietor\TenantImportController;
+use App\Http\Controllers\Proprietor\UtilityBillController;
+use App\Http\Controllers\Proprietor\CollectiblesReportController;
+use App\Http\Controllers\Proprietor\SmsSettingsController;
+use App\Http\Controllers\Proprietor\AiSettingsController;
+use App\Http\Controllers\Proprietor\SettingsController;
 
 require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
 
@@ -67,6 +72,18 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::get('tenants/import/template', [TenantImportController::class, 'downloadTemplate'])->name('tenants.import.template');
 
         // Each module below adds its routes inside this group
+        Route::resource('utility-bills', UtilityBillController::class)->except(['show']);
+
+        Route::get('reports/collectibles', [CollectiblesReportController::class, 'index'])->name('reports.collectibles');
+
+        Route::get('settings/sms', [SmsSettingsController::class, 'edit'])->name('settings.sms.edit');
+        Route::put('settings/sms', [SmsSettingsController::class, 'update'])->name('settings.sms.update');
+
+        Route::get('settings/ai-api', [AiSettingsController::class, 'edit'])->name('settings.ai.edit');
+        Route::put('settings/ai-api', [AiSettingsController::class, 'update'])->name('settings.ai.update');
+
+        Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     });
 
 Route::middleware(['auth', 'role:tenant'])

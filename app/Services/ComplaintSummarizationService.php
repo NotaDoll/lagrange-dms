@@ -9,15 +9,19 @@ use Illuminate\Support\Facades\Http;
 
 class ComplaintSummarizationService
 {
+    public function __construct(private readonly SettingsService $settings)
+    {
+    }
+
     public function summarize(Collection $complaints, array $filters): AiSummary
     {
         $prompt = $this->buildPrompt($complaints);
 
         $startedAt = microtime(true);
 
-        $response = Http::withToken(config('services.groq.key'))
+        $response = Http::withToken($this->settings->get('ai', 'api_key') ?? config('services.groq.key'))
             ->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => config('services.groq.model'),
+                'model' => $this->settings->get('ai', 'model') ?? config('services.groq.model'),
                 'messages' => [['role' => 'user', 'content' => $prompt]],
                 'temperature' => 0.3,
                 'max_tokens' => 1000,
