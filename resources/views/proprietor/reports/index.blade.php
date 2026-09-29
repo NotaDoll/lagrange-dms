@@ -285,7 +285,7 @@
                         <div class="fr-kpi-label">Occupancy rate</div>
                         <div class="fr-kpi-value num">{{ number_format($occupancyRate, 2) }}%</div>
                         <div class="fr-meter" role="progressbar" aria-valuenow="{{ round($occupancyRate) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Occupancy rate">
-                            <span style="width: {{ min(100, max(0, $occupancyRate)) }}%"></span>
+                            <span @style(['width: ' . min(100, max(0, $occupancyRate)) . '%'])></span>
                         </div>
                         <div class="fr-kpi-note">{{ $occupiedBeds }} of {{ $totalBeds }} beds occupied</div>
                     </div>
@@ -301,7 +301,7 @@
                     <div class="fr-panel-body">
                         @if ($grandAmount > 0)
                             <div class="fr-chart">
-                                <canvas id="statusChart" role="img" aria-label="Donut chart of payment amounts by status. The table shows the same figures."></canvas>
+                                <canvas id="statusChart" data-chart='@json($chartData)' role="img" aria-label="Donut chart of payment amounts by status. The table shows the same figures."></canvas>
                                 <div class="fr-chart-center">
                                     <div class="v num">PHP {{ number_format($grandAmount, 2) }}</div>
                                     <div class="l">across {{ $grandCount }} payments</div>
@@ -335,12 +335,12 @@
                                         $share  = $grandAmount > 0 ? ($amount / $grandAmount) * 100 : 0;
                                     @endphp
                                     <tr>
-                                        <td><span class="fr-dot" style="background: {{ $meta['color'] }}"></span>{{ $meta['label'] }}</td>
+                                        <td><span class="fr-dot" @style(['background: ' . $meta['color']])></span>{{ $meta['label'] }}</td>
                                         <td class="text-end num">{{ $row?->payment_count ?? 0 }}</td>
                                         <td class="text-end num">PHP {{ number_format($amount, 2) }}</td>
                                         <td>
                                             <div class="fr-share">
-                                                <div class="bar"><span style="width: {{ $share }}%; background: {{ $meta['color'] }}"></span></div>
+                                                <div class="bar"><span @style(['width: ' . $share . '%', 'background: ' . $meta['color']])></span></div>
                                                 <span class="pct num">{{ number_format($share, 0) }}%</span>
                                             </div>
                                         </td>
@@ -366,8 +366,9 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
         <script>
             (function () {
-                var data = @json($chartData);
-                var chart = new Chart(document.getElementById('statusChart'), {
+                var canvas = document.getElementById('statusChart');
+                var data = JSON.parse(canvas.dataset.chart);
+                var chart = new Chart(canvas, {
                     type: 'doughnut',
                     data: {
                         labels: data.labels,
