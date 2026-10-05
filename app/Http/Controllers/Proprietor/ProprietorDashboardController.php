@@ -12,33 +12,65 @@ use App\Models\Tenant;
 class ProprietorDashboardController extends Controller
 {
     public function index()
-    {
-        $highRiskTenants = Tenant::with(['user', 'latestRiskFlag'])
-            ->get()
-            ->filter(fn (Tenant $tenant) => $tenant->latestRiskFlag?->risk_level === 'high')
-            ->values();
+{
+    // Tenant overview
+    $totalTenants = Tenant::count();
 
-        $unresolvedComplaintsCount = Complaint::whereIn('status', ['submitted', 'in_progress'])->count();
+    // Occupancy overview
+    $totalBeds = Bed::count();
+    $occupiedBeds = Bed::where('status', 'occupied')->count();
 
-        $totalBeds = Bed::count();
-        $occupiedBeds = Bed::where('status', 'occupied')->count();
-        $occupancyRate = $totalBeds > 0 ? round(($occupiedBeds / $totalBeds) * 100, 1) : 0;
+    $occupancyRate = $totalBeds > 0
+        ? round(($occupiedBeds / $totalBeds) * 100, 1)
+        : 0;
 
-        $pendingAndOverduePaymentsCount = Payment::whereIn('status', ['pending', 'overdue'])->count();
+    // Financial overview
+    $totalCollectedThisMonth = Payment::where('status', 'paid')
+        ->whereMonth('paid_date', now()->month)
+        ->whereYear('paid_date', now()->year)
+        ->sum('amount');
 
-        $recentAiSummaries = AiSummary::with('generatedBy')
-            ->latest()
-            ->take(3)
-            ->get();
+    $totalUnpaid = Payment::whereIn('status', ['pending', 'overdue'])
+        ->sum('amount');
 
-        return view('proprietor.dashboard', compact(
-            'highRiskTenants',
-            'unresolvedComplaintsCount',
-            'occupiedBeds',
-            'totalBeds',
-            'occupancyRate',
-            'pendingAndOverduePaymentsCount',
-            'recentAiSummaries'
-        ));
-    }
+    // Complaint overview
+    $unresolvedComplaintsCount = Complaint::whereIn(
+        'status',
+        ['submitted', 'in_progress']
+    )->count();
+
+    // High-risk tenants
+    $highRiskTenants = Tenant::with(['user', 'latestRiskFlag'])
+        ->get()
+        ->filter(
+            fn (Tenant $tenant) =>
+                $tenant->latestRiskFlag?->risk_level === 'high'
+        )
+        ->values();
+
+    // Pending + overdue payment count
+    $pendingAndOverduePaymentsCount = Payment::whereIn(
+        'status',
+        ['pending', 'overdue']
+    )->count();
+
+    // Recent AI summaries
+    $recentAiSummaries = AiSummary::with('generatedBy')
+        ->latest()
+        ->take(3)
+        ->get();
+
+    return view('proprietor.dashboard', compact(
+        'totalTenants',
+        'totalBeds',
+        'occupiedBeds',
+        'occupancyRate',
+        'totalCollectedThisMonth',
+        'totalUnpaid',
+        'unresolvedComplaintsCount',
+        'highRiskTenants',
+        'pendingAndOverduePaymentsCount',
+        'recentAiSummaries'
+    ));
+}
 }

@@ -3,95 +3,181 @@
 @section('title', 'Proprietor Dashboard')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+       <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1">Welcome, {{ auth()->user()->name }}</h1>
-            <div class="text-muted">Dashboard insights at a glance.</div>
+            <div class="text-muted">
+                Here's what's happening in your property today.
+            </div>
         </div>
     </div>
 
-    <div class="row g-3 row-cols-1 row-cols-md-2 row-cols-xl-3">
-        <div class="col">
-            <a href="{{ route('proprietor.risk.index') }}" class="text-decoration-none text-body d-block h-100">
-                <div class="card h-100 shadow-sm">
+    {{-- KPI CARDS --}}
+    <div class="row g-3 mb-4">
+
+        {{-- Total Tenants --}}
+        <div class="col-12 col-sm-6 col-xl">
+            <a
+                href="{{ route('proprietor.tenants.index') }}"
+                class="text-decoration-none text-body"
+            >
+                <div class="card h-100 dashboard-kpi-card">
                     <div class="card-body">
-                        <div class="text-uppercase small text-muted">High-Risk Tenants</div>
-                        <div class="display-6 fw-semibold mb-3">{{ $highRiskTenants->count() }}</div>
-                        @if ($highRiskTenants->isNotEmpty())
-                            <div class="small text-muted mb-2">Names</div>
-                            <div class="d-flex flex-wrap gap-2">
-                                @foreach ($highRiskTenants as $tenant)
-                                    <a href="{{ route('proprietor.risk.index') }}" class="badge text-bg-danger text-decoration-none">
-                                        {{ $tenant->user->name }}
-                                    </a>
-                                @endforeach
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small text-muted mb-1">
+                                    Total Tenants
+                                </div>
+
+                                <div class="fs-2 fw-bold">
+                                    {{ $totalTenants }}
+                                </div>
                             </div>
-                        @else
-                            <div class="text-muted small">No tenants are currently flagged high risk.</div>
-                        @endif
-                    </div>
-                </div>
-            </a>
-        </div>
 
-        <div class="col">
-            <a href="{{ route('proprietor.complaints.index') }}" class="text-decoration-none text-body d-block h-100">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="text-uppercase small text-muted">Unresolved Complaints</div>
-                        <div class="display-6 fw-semibold mb-2">{{ $unresolvedComplaintsCount }}</div>
-                        <div class="text-muted small">Complaints still waiting for resolution.</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col">
-            <a href="{{ route('proprietor.rooms.index') }}" class="text-decoration-none text-body d-block h-100">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="text-uppercase small text-muted">Occupancy Rate</div>
-                        <div class="display-6 fw-semibold mb-2">{{ $occupancyRate }}%</div>
-                        <div class="text-muted small">{{ $occupiedBeds }} occupied of {{ $totalBeds }} beds</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col">
-            <a href="{{ route('proprietor.payments.index') }}" class="text-decoration-none text-body d-block h-100">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="text-uppercase small text-muted">Pending + Overdue Payments</div>
-                        <div class="display-6 fw-semibold mb-2">{{ $pendingAndOverduePaymentsCount }}</div>
-                        <div class="text-muted small">Payments that still need attention.</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col">
-            <a href="{{ route('proprietor.complaints.summarize') }}" class="text-decoration-none text-body d-block h-100">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="text-uppercase small text-muted">Recent AI Summaries</div>
-                        <div class="mb-3">
-                            <div class="display-6 fw-semibold">{{ $recentAiSummaries->count() }}</div>
-                            <div class="text-muted small">Latest complaint summaries generated by Groq.</div>
+                            <div class="dashboard-kpi-icon">
+                                <i class="bi bi-people"></i>
+                            </div>
                         </div>
 
-                        @forelse ($recentAiSummaries as $summary)
-                            <div class="border-top pt-2 mt-2">
-                                <div class="small fw-semibold">{{ $summary->generatedBy?->name ?? 'System' }}</div>
-                                <div class="small text-muted">{{ $summary->created_at->format('M d, Y h:i A') }}</div>
-                                <div class="small">{{ \Illuminate\Support\Str::limit($summary->summary_result, 120) }}</div>
-                            </div>
-                        @empty
-                            <div class="text-muted small">No AI summaries have been generated yet.</div>
-                        @endforelse
+                        <div class="small text-muted mt-2">
+                            Registered tenants
+                        </div>
                     </div>
                 </div>
             </a>
         </div>
+
+
+        {{-- Occupancy Rate --}}
+        <div class="col-12 col-sm-6 col-xl">
+            <a
+                href="{{ route('proprietor.rooms.index') }}"
+                class="text-decoration-none text-body"
+            >
+                <div class="card h-100 dashboard-kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small text-muted mb-1">
+                                    Occupancy Rate
+                                </div>
+
+                                <div class="fs-2 fw-bold">
+                                    {{ $occupancyRate }}%
+                                </div>
+                            </div>
+
+                            <div class="dashboard-kpi-icon">
+                                <i class="bi bi-house-door"></i>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mt-2">
+                            {{ $occupiedBeds }} of {{ $totalBeds }} beds occupied
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+
+        {{-- Collected This Month --}}
+        <div class="col-12 col-sm-6 col-xl">
+            <a
+                href="{{ route('proprietor.reports.index') }}"
+                class="text-decoration-none text-body"
+            >
+                <div class="card h-100 dashboard-kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small text-muted mb-1">
+                                    Collected This Month
+                                </div>
+
+                                <div class="fs-2 fw-bold">
+                                    ₱{{ number_format($totalCollectedThisMonth, 2) }}
+                                </div>
+                            </div>
+
+                            <div class="dashboard-kpi-icon">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mt-2">
+                            Paid payments this month
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+
+        {{-- Unpaid Amount --}}
+        <div class="col-12 col-sm-6 col-xl">
+            <a
+                href="{{ route('proprietor.payments.index') }}"
+                class="text-decoration-none text-body"
+            >
+                <div class="card h-100 dashboard-kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small text-muted mb-1">
+                                    Unpaid Amount
+                                </div>
+
+                                <div class="fs-2 fw-bold">
+                                    ₱{{ number_format($totalUnpaid, 2) }}
+                                </div>
+                            </div>
+
+                            <div class="dashboard-kpi-icon">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mt-2">
+                            Pending + overdue payments
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+
+        {{-- Complaints --}}
+        <div class="col-12 col-sm-6 col-xl">
+            <a
+                href="{{ route('proprietor.complaints.index') }}"
+                class="text-decoration-none text-body"
+            >
+                <div class="card h-100 dashboard-kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small text-muted mb-1">
+                                    Needs Attention
+                                </div>
+
+                                <div class="fs-2 fw-bold">
+                                    {{ $unresolvedComplaintsCount }}
+                                </div>
+                            </div>
+
+                            <div class="dashboard-kpi-icon">
+                                <i class="bi bi-chat-left-text"></i>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mt-2">
+                            Unresolved complaints
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
     </div>
 @endsection

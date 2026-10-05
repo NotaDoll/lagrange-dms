@@ -234,6 +234,28 @@
                 padding: 24px 18px;
             }
         }
+        .dashboard-kpi-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+.dashboard-kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+.dashboard-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--theme-pink-light);
+    color: var(--theme-plum);
+    font-size: 1.2rem;
+}
+
     </style>
 </head>
 <body>

@@ -62,8 +62,8 @@ class SettingsService
                 ->map(fn (Setting $setting) => [
                     'value' => $setting->value,
                     'is_secret' => $setting->is_secret,
-                ])
+                ]) 
                 ->all()
         );
     }
-}
+}  
