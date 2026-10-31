@@ -3,10 +3,12 @@
 @section('title', 'Tenants')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h3 mb-0">Tenants</h1>
-        <a href="{{ route('proprietor.tenants.create') }}" class="btn btn-primary">Add Tenant</a>
-        <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-primary">Bulk Import</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ route('proprietor.tenants.create') }}" class="btn btn-primary">Add Tenant</a>
+            <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-primary">Bulk Import</a>
+        </div>
     </div>
 
     @if (session('success'))
@@ -21,8 +23,32 @@
         </div>
     @endif
 
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-sm-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">All tenants</div><div class="fs-4 fw-semibold">{{ $tenantCounts['all'] }}</div></div></div></div>
+        <div class="col-6 col-sm-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Active</div><div class="fs-4 fw-semibold text-success">{{ $tenantCounts['active'] }}</div></div></div></div>
+        <div class="col-6 col-sm-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Inactive</div><div class="fs-4 fw-semibold">{{ $tenantCounts['inactive'] }}</div></div></div></div>
+    </div>
+
     <div class="card">
         <div class="card-body">
+            <form method="GET" action="{{ route('proprietor.tenants.index') }}" class="row g-2 align-items-end mb-3">
+                <div class="col-12 col-md-7">
+                    <label for="tenant-search" class="form-label">Search tenants</label>
+                    <input id="tenant-search" name="search" type="search" class="form-control" value="{{ $search }}" placeholder="Name, email, phone, or emergency contact">
+                </div>
+                <div class="col-8 col-md-3">
+                    <label for="tenant-status" class="form-label">Status</label>
+                    <select id="tenant-status" name="status" class="form-select">
+                        <option value="">All statuses</option>
+                        <option value="active" @selected($status === 'active')>Active</option>
+                        <option value="inactive" @selected($status === 'inactive')>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-4 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary flex-grow-1">Filter</button>
+                    <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary">Clear</a>
+                </div>
+            </form>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>

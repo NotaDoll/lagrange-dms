@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRoomRequest;
 use App\Http\Requests\UpdateRoomRequest;
 use App\Models\Room;
+use App\Models\Bed;
 use App\Models\Tenant;
 use App\Services\RoomManagementService;
+use Illuminate\Http\Request;
 
 class RoomController extends Controller
 {
@@ -15,11 +17,48 @@ class RoomController extends Controller
     {
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $rooms = Room::with(['beds.currentAssignment.tenant.user'])
-            ->orderBy('room_number')
-            ->get();
+        $search = trim((string) $request->query('search', ''));
+        $floor = trim((string) $request->query('floor', ''));
+        $availability = $request->query('availability', '');
+
+        $query = Room::query()->with(['beds.currentAssignment.tenant.user']);
+
+        if ($search !== '') {
+            $query->where(function ($roomQuery) use ($search) {
+                $roomQuery->where('room_number', 'like', "%{$search}%")
+                    ->orWhereHas('beds.currentAssignment.tenant.user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($floor !== '') {
+            $query->where('floor', $floor);
+        }
+
+        match ($availability) {
+            'full' => $query->whereHas('beds.currentAssignment')
+                ->whereDoesntHave('beds', fn ($beds) => $beds->doesntHave('currentAssignment')),
+            'partial' => $query->whereHas('beds.currentAssignment')
+                ->whereHas('beds', fn ($beds) => $beds->where('status', 'available')->doesntHave('currentAssignment')),
+            'vacant' => $query->whereHas('beds', fn ($beds) => $beds->where('status', 'available'))
+                ->whereDoesntHave('beds', fn ($beds) => $beds->where('status', '!=', 'available')->orWhereHas('currentAssignment')),
+            'empty' => $query->doesntHave('beds'),
+            'maintenance' => $query->whereHas('beds', fn ($beds) => $beds->where('status', 'maintenance'))
+                ->whereDoesntHave('beds', fn ($beds) => $beds->where('status', '!=', 'maintenance')),
+            default => $availability = '',
+        };
+
+        $rooms = $query->orderBy('room_number')->paginate(12)->withQueryString();
+
+        $totalRooms = Room::count();
+        $totalBeds = \App\Models\Bed::count();
+        $occupiedBeds = \App\Models\RoomAssignment::where('status', 'active')->count();
+        $vacantBeds = \App\Models\Bed::where('status', 'available')->whereDoesntHave('currentAssignment')->count();
+        $rate = $totalBeds > 0 ? round($occupiedBeds / $totalBeds * 100, 1) : 0;
+        $floors = Room::query()->select('floor')->distinct()->orderBy('floor')->pluck('floor');
 
         $availableTenants = Tenant::with('user')
             ->where('status', 'active')
@@ -29,7 +68,10 @@ class RoomController extends Controller
             ->select('tenants.*')
             ->get();
 
-        return view('proprietor.rooms.index', compact('rooms', 'availableTenants'));
+        return view('proprietor.rooms.index', compact(
+            'rooms', 'availableTenants', 'search', 'floor', 'availability',
+            'totalRooms', 'totalBeds', 'occupiedBeds', 'vacantBeds', 'rate', 'floors'
+        ));
     }
 
     public function create()
@@ -62,10 +104,23 @@ class RoomController extends Controller
 
     public function destroy(Room $room)
     {
-        $room->delete();
+        $this->roomService->delete($room);
 
         return redirect()
             ->route('proprietor.rooms.index')
             ->with('success', 'Room deleted successfully.');
+    }
+
+    public function updateBedStatus(Request $request, Bed $bed)
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:available,maintenance'],
+        ]);
+
+        $this->roomService->updateBedStatus($bed, $validated['status']);
+
+        return redirect()
+            ->route('proprietor.rooms.index')
+            ->with('success', 'Bed status updated successfully.');
     }
 }

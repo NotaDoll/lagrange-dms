@@ -59,7 +59,7 @@ class NotificationsAndSmsTest extends TestCase
         ]);
     }
 
-    public function test_high_risk_tenants_receive_sms_notifications(): void
+    public function test_high_risk_tenants_receive_sms_but_guardians_without_consent_do_not(): void
     {
         Http::fake([
             'api.semaphore.co/*' => Http::response(['message_id' => 1], 200),
@@ -96,14 +96,14 @@ class NotificationsAndSmsTest extends TestCase
 
         app(PaymentRiskService::class)->calculateForTenant($tenant);
 
-        $this->assertSame(2, SmsLog::count());
+        $this->assertSame(1, SmsLog::count());
         $this->assertDatabaseHas('sms_logs', [
             'tenant_id' => $tenant->id,
             'recipient_number' => '09171234567',
             'recipient_type' => 'tenant',
             'status' => 'sent',
         ]);
-        $this->assertDatabaseHas('sms_logs', [
+        $this->assertDatabaseMissing('sms_logs', [
             'tenant_id' => $tenant->id,
             'recipient_number' => '09998887777',
             'recipient_type' => 'guardian',

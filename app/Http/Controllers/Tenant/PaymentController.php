@@ -4,43 +4,33 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\TenantBalanceService;
 
 class PaymentController extends Controller
 {
-    public function index()
+    public function index(TenantBalanceService $balanceService)
     {
         $tenant = auth()->user()->tenant()->firstOrFail();
+        $balance = $balanceService->summary($tenant);
+        $rentTerms = $balanceService->currentRent($tenant);
 
-        $paymentQuery = Payment::where('tenant_id', $tenant->id);
+        $outstandingBalance = $balance['outstanding_balance'];
+        $unpaidMonths = $balance['unpaid_months'];
+        $totalPaid = $balance['total_paid'];
+        $paidCount = $balance['paid_count'];
+        $paymentStatus = $outstandingBalance > 0 ? 'Outstanding' : 'Paid';
 
-        $outstandingBalance = (clone $paymentQuery)
-            ->whereIn('status', ['pending', 'overdue'])
-            ->sum('amount');
+        $payments = Payment::with('utilityBill.room')
+            ->where('tenant_id', $tenant->id)
 
-        $outstandingCount = (clone $paymentQuery)
-            ->whereIn('status', ['pending', 'overdue'])
-            ->count();
-
-        $totalPaid = (clone $paymentQuery)
-            ->where('status', 'paid')
-            ->sum('amount');
-
-        $paidCount = (clone $paymentQuery)
-            ->where('status', 'paid')
-            ->count();
-
-        $paymentStatus = (clone $paymentQuery)->where('status', 'overdue')->exists()
-            ? 'Overdue'
-            : ((clone $paymentQuery)->where('status', 'pending')->exists() ? 'Pending' : 'Paid');
-
-        $payments = (clone $paymentQuery)
             ->latest('due_date')
             ->paginate(15);
 
         return view('tenant.payments.index', compact(
             'payments',
+            'rentTerms',
             'outstandingBalance',
-            'outstandingCount',
+            'unpaidMonths',
             'totalPaid',
             'paidCount',
             'paymentStatus'

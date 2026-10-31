@@ -18,7 +18,7 @@ class StorePaymentRequest extends FormRequest
             'tenant_id' => ['required', 'exists:tenants,id'],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:99999999.99'],
             'due_date' => ['required', 'date'],
-            'paid_date' => ['nullable', 'date'],
+            'paid_date' => ['required_if:status,paid', 'prohibited_unless:status,paid', 'nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'status' => ['required', Rule::in(['pending', 'paid', 'overdue'])],
         ];
     }

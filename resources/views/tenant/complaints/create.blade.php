@@ -154,7 +154,7 @@
 <div class="cp-create-wrapper">
 
     <div class="cp-create-header">
-        <a href="{{ route('tenant.complaints.index') }}" class="cp-back-link">Back</a>
+        <a href="{{ route('tenant.dashboard') }}" class="cp-back-link">Back</a>
     </div>
 
     <div class="cp-create-card">
@@ -209,10 +209,11 @@
 
                 <div class="modal-actions">
                     <button type="button" class="cp-btn-cancel" data-bs-dismiss="modal">Back</button>
-                    <a href="{{ route('tenant.complaints.index') }}" class="cp-btn-submit" style="text-decoration:none; display:inline-block;">Yes</a>
+                    <a href="{{ route('tenant.dashboard') }}" class="cp-btn-submit" style="text-decoration:none; display:inline-block;">Yes</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 @endsection
+

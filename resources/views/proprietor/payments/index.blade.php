@@ -8,6 +8,11 @@
         <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary">Record Payment</a>
     </div>
 
+    @if ($errors->any())
+        <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
+    @endif
+    <p class="text-muted small">Recorded charges and payments feed Financial Report automatically. Mark an existing charge paid when collected.</p>
+    <a href="{{ route('proprietor.reports.index') }}" class="btn btn-outline-primary mb-3">Financial Report</a>
     <div class="card mb-3">
         <div class="card-body">
             <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">
@@ -48,11 +53,11 @@
                     <thead>
                         <tr>
                             <th>Tenant</th>
-                            <th>Amount</th>
+                            <th>Description</th><th>Amount</th>
                             <th>Due Date</th>
                             <th>Paid Date</th>
                             <th>Days Overdue</th>
-                            <th>Status</th>
+                            <th>Status</th><th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,7 +67,7 @@
                                     <div class="fw-semibold">{{ $payment->tenant->user->name }}</div>
                                     <div class="text-muted small">{{ $payment->tenant->user->email }}</div>
                                 </td>
-                                <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
+                                <td>{{ $payment->description }}</td><td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
                                 <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
                                 <td>{{ $payment->days_overdue }}</td>
@@ -71,11 +76,22 @@
                                         {{ ucfirst($payment->status) }}
                                     </span>
                                 </td>
+                                <td>
+                                    @if ($payment->status !== 'paid')
+                                        <form method="POST" action="{{ route('proprietor.payments.settle', $payment) }}" class="d-flex gap-2 align-items-center">
+                                            @csrf
+                                            @method('PATCH')
+                                            <label class="visually-hidden" for="paid-date-{{ $payment->id }}">Payment date for {{ $payment->tenant->user->name }}</label>
+                                            <input type="date" class="form-control form-control-sm" id="paid-date-{{ $payment->id }}" name="paid_date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
+                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
+                                        </form>
+                                    @else
+                                        <span class="text-muted small">Paid</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No payments found.</td>
-                            </tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">No payments found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

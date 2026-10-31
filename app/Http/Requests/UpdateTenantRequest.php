@@ -51,7 +51,8 @@ class UpdateTenantRequest extends FormRequest
                         return;
                     }
 
-                    if ($bed->status !== 'available' && (int) $bed->id !== (int) $currentBedId) {
+                    if ((int) $bed->id !== (int) $currentBedId
+                        && ($bed->status !== 'available' || $bed->currentAssignment()->exists())) {
                         $fail('The selected bed is no longer available.');
                     }
                 },

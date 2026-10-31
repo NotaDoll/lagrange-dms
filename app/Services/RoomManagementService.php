@@ -42,6 +42,38 @@ class RoomManagementService
         });
     }
 
+    public function delete(Room $room): void
+    {
+        DB::transaction(function () use ($room) {
+            $room = Room::query()->lockForUpdate()->findOrFail($room->id);
+
+            if ($room->beds()->whereHas('assignments')->exists() || $room->utilityBills()->exists()) {
+                throw ValidationException::withMessages([
+                    'room' => 'This room has tenant assignment or utility bill history and cannot be deleted.',
+                ]);
+            }
+
+            $room->delete();
+        });
+    }
+
+    public function updateBedStatus(Bed $bed, string $status): Bed
+    {
+        return DB::transaction(function () use ($bed, $status) {
+            $bed = Bed::query()->lockForUpdate()->findOrFail($bed->id);
+
+            if ($bed->currentAssignment()->exists() || $bed->status === 'occupied') {
+                throw ValidationException::withMessages([
+                    'bed' => 'End the active tenant assignment before changing this bed status.',
+                ]);
+            }
+
+            $bed->update(['status' => $status]);
+
+            return $bed->refresh();
+        });
+    }
+
     private function syncBeds(Room $room, int $capacity): void
     {
         $beds = $room->beds()->orderBy('id')->get();
@@ -60,12 +92,12 @@ class RoomManagementService
         if ($capacity < $beds->count()) {
             $bedsToRemove = $beds->slice($capacity);
             $unavailableBed = $bedsToRemove->first(function (Bed $bed) {
-                return $bed->status === 'occupied' || $bed->currentAssignment()->exists();
+                return $bed->status === 'occupied' || $bed->assignments()->exists();
             });
 
             if ($unavailableBed) {
                 throw ValidationException::withMessages([
-                    'capacity' => 'Capacity cannot remove beds that are currently occupied.',
+                    'capacity' => 'Capacity cannot remove occupied beds or beds with tenant assignment history.',
                 ]);
             }
 

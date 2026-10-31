@@ -8,127 +8,74 @@ use Illuminate\Support\Carbon;
 
 class PaymentRiskService
 {
-    public function __construct(private readonly SmsService $smsService)
+    public const DEFAULT_THRESHOLDS = [
+        'late_payments' => 2,
+        'consecutive_months' => 2,
+        'average_days' => 5,
+        'recent_default_days' => 30,
+    ];
+
+    public function __construct(private readonly SmsService $smsService, private readonly SettingsService $settings) {}
+
+    public function thresholds(): array
     {
+        return array_replace(self::DEFAULT_THRESHOLDS, array_intersect_key($this->settings->getGroup('risk'), self::DEFAULT_THRESHOLDS));
     }
 
-    private const LATE_PAYMENTS_WINDOW_MONTHS = 6;
-    private const LATE_PAYMENTS_THRESHOLD = 2;
-    private const CONSECUTIVE_LATE_MONTHS_THRESHOLD = 2;
-    private const AVG_DAYS_OVERDUE_THRESHOLD = 5;
-    private const RECENT_DEFAULT_DAYS_THRESHOLD = 30;
+    /** Evaluate the existing four rules without saving flags or sending SMS. */
+    public function evaluate(Tenant $tenant, ?array $thresholds = null): array
+    {
+        $tenant->loadMissing('payments');
+        $payments = $tenant->payments;
+        $late = $payments->filter(fn ($payment) => $payment->status === 'overdue' || $payment->days_overdue > 0);
+        $months = $late->map(fn ($payment) => $payment->due_date->format('Y-m'))->unique()->sort()->values();
+        $streak = 0;
+        $consecutive = 0;
+        $previous = null;
+        foreach ($months as $month) {
+            $current = Carbon::parse($month.'-01');
+            $streak = $previous && $previous->copy()->addMonth()->isSameMonth($current) ? $streak + 1 : 1;
+            $consecutive = max($consecutive, $streak);
+            $previous = $current;
+        }
+        $last = $late->sortByDesc('due_date')->first()?->due_date;
+        $metrics = [
+            'late_payments_6mo' => $late->filter(fn ($payment) => $payment->due_date->gte(now()->subMonths(6)->startOfDay()))->count(),
+            'consecutive_late_months' => $consecutive,
+            'avg_days_overdue' => round((float) $payments->avg('days_overdue'), 1),
+            'days_since_last_default' => $last ? (int) $last->copy()->startOfDay()->diffInDays(today()) : null,
+        ];
+        $thresholds ??= $this->thresholds();
+        $rules = [
+            'Repeated late payments' => $metrics['late_payments_6mo'] >= (int) $thresholds['late_payments'],
+            'Consecutive late months' => $metrics['consecutive_late_months'] >= (int) $thresholds['consecutive_months'],
+            'Average days overdue' => $metrics['avg_days_overdue'] > (float) $thresholds['average_days'],
+            'Recent default' => $metrics['days_since_last_default'] !== null && $metrics['days_since_last_default'] <= (int) $thresholds['recent_default_days'],
+        ];
+        $count = count(array_filter($rules));
+
+        return [...$metrics, 'rules' => $rules, 'rules_tripped' => $count, 'risk_level' => $count >= 2 ? 'high' : ($count === 1 ? 'medium' : 'low')];
+    }
 
     public function calculateForTenant(Tenant $tenant): RiskFlag
     {
-        $now = now();
-        $payments = $tenant->payments()
-            ->orderBy('due_date')
-            ->get();
-
-        $latePayments = $payments->filter(fn ($payment) => $this->isLatePayment($payment));
-
-        $latePayments6Mo = $latePayments
-            ->filter(fn ($payment) => $payment->due_date?->gte($now->copy()->subMonths(self::LATE_PAYMENTS_WINDOW_MONTHS)->startOfDay()))
-            ->count();
-
-        $consecutiveLateMonths = $this->maxConsecutiveLateMonths($latePayments);
-        $avgDaysOverdue = round((float) $payments->avg('days_overdue'), 1);
-        $lastDefaultDate = $latePayments
-            ->sortByDesc('due_date')
-            ->first()
-            ?->due_date;
-        $daysSinceLastDefault = $lastDefaultDate
-            ? (int) $lastDefaultDate->startOfDay()->diffInDays($now->copy()->startOfDay())
-            : null;
-
-        $triggeredIndicators = collect([
-            $latePayments6Mo >= self::LATE_PAYMENTS_THRESHOLD,
-            $consecutiveLateMonths >= self::CONSECUTIVE_LATE_MONTHS_THRESHOLD,
-            $avgDaysOverdue > self::AVG_DAYS_OVERDUE_THRESHOLD,
-            $daysSinceLastDefault !== null && $daysSinceLastDefault <= self::RECENT_DEFAULT_DAYS_THRESHOLD,
-        ])->filter()->count();
-
-        $riskLevel = match (true) {
-            $triggeredIndicators >= 2 => 'high',
-            $triggeredIndicators === 1 => 'medium',
-            default => 'low',
-        };
-
-        $riskFlag = RiskFlag::create([
+        $evaluation = $this->evaluate($tenant);
+        $flag = RiskFlag::create([
             'tenant_id' => $tenant->id,
-            'risk_level' => $riskLevel,
-            'late_payments_6mo' => $latePayments6Mo,
-            'consecutive_late_months' => $consecutiveLateMonths,
-            'avg_days_overdue' => $avgDaysOverdue,
-            'days_since_last_default' => $daysSinceLastDefault,
-            'calculated_at' => $now,
+            ...array_diff_key($evaluation, array_flip(['rules', 'rules_tripped'])),
+            'calculated_at' => now(),
         ]);
-
-        if ($riskLevel === 'high') {
-            $this->notifyHighRiskTenant($tenant);
+        if ($flag->risk_level === 'high' && $tenant->user?->contact_number) {
+            $this->smsService->send($tenant->user->contact_number, 'Your dormitory account has been flagged high risk due to repeated late payments. Please settle outstanding balances as soon as possible.');
         }
 
-        return $riskFlag;
+        // No guardian delivery: this database has no records of both required consents.
+        return $flag;
     }
 
     public function calculateForAllTenants(): int
     {
-        return Tenant::query()
-            ->where('status', 'active')
-            ->with('user')
-            ->get()
-            ->each(fn (Tenant $tenant) => $this->calculateForTenant($tenant))
-            ->count();
-    }
-
-    private function isLatePayment($payment): bool
-    {
-        return $payment->status === 'overdue' || $payment->days_overdue > 0;
-    }
-
-    private function maxConsecutiveLateMonths($latePayments): int
-    {
-        $lateMonths = $latePayments
-            ->filter(fn ($payment) => $payment->due_date !== null)
-            ->map(fn ($payment) => $payment->due_date->format('Y-m'))
-            ->unique()
-            ->sort()
-            ->values();
-
-        if ($lateMonths->isEmpty()) {
-            return 0;
-        }
-
-        $maxStreak = 1;
-        $currentStreak = 1;
-        $previousMonth = Carbon::createFromFormat('Y-m', $lateMonths->first())->startOfMonth();
-
-        foreach ($lateMonths->skip(1) as $month) {
-            $currentMonth = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-
-            if ($previousMonth->copy()->addMonth()->isSameMonth($currentMonth)) {
-                $currentStreak++;
-            } else {
-                $currentStreak = 1;
-            }
-
-            $maxStreak = max($maxStreak, $currentStreak);
-            $previousMonth = $currentMonth;
-        }
-
-        return $maxStreak;
-    }
-
-    private function notifyHighRiskTenant(Tenant $tenant): void
-    {
-        $message = 'Your dormitory account has been flagged high risk due to repeated late payments. Please settle outstanding balances as soon as possible.';
-
-        if ($tenant->user?->contact_number) {
-            $this->smsService->send($tenant->user->contact_number, $message);
-        }
-
-        if ($tenant->guardian_contact_number) {
-            $this->smsService->send($tenant->guardian_contact_number, $message);
-        }
+        return Tenant::where('status', 'active')->with(['user', 'payments'])->get()
+            ->each(fn ($tenant) => $this->calculateForTenant($tenant))->count();
     }
 }

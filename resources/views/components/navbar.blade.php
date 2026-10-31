@@ -23,24 +23,23 @@
     ];
 
     $reportLinks = [
-        ['label' => 'Income Reports', 'route' => 'proprietor.reports.index', 'active' => 'proprietor.reports.index', 'icon' => 'bi-bar-chart-fill'],
-        ['label' => 'Collectibles', 'route' => 'proprietor.reports.collectibles', 'active' => 'proprietor.reports.collectibles', 'icon' => 'bi-cash-coin'],
+        ['label' => 'Payment Ledger', 'route' => 'proprietor.payments.index', 'active' => 'proprietor.payments.*', 'icon' => 'bi-credit-card-fill'],
+        ['label' => 'Financial Report', 'route' => 'proprietor.reports.index', 'active' => 'proprietor.reports.index', 'icon' => 'bi-bar-chart-fill'],
     ];
 
     $settingsLinks = [
         ['label' => 'SMS Configuration', 'route' => 'proprietor.settings.sms.edit', 'active' => 'proprietor.settings.sms.*', 'icon' => 'bi-envelope-fill'],
-        ['label' => 'AI API', 'route' => 'proprietor.settings.ai.edit', 'active' => 'proprietor.settings.ai.*', 'icon' => 'bi-robot'],
         ['label' => 'Settings', 'route' => 'proprietor.settings.edit', 'active' => 'proprietor.settings.edit', 'icon' => 'bi-gear-fill'],
     ];
 @endphp
 
 @if ($variant === 'tenant')
-    <nav class="navbar navbar-expand-lg tenant-navbar">
+    <nav class="navbar navbar-expand-lg tenant-navbar d-none d-lg-flex">
         <div class="container-fluid">
 
             <!-- Brand / Logo Section -->
             <a class="navbar-brand-wrapper" href="{{ route('tenant.dashboard') }}">
-                <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo" class="navbar-logo" style="height: 42px; width: auto; display: block; margin-left: 60%;">
+                <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo" class="navbar-logo" style="height: 42px; width: auto; display: block; ">
             </a>
 
             <!-- Hamburger Toggle for Mobile -->
@@ -64,10 +63,12 @@
                         <a class="nav-link {{ request()->routeIs('tenant.payments.*') ? 'active' : '' }}" href="{{ route('tenant.payments.index') }}">Payments</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.index') }}">Complaints</a>
+                        <a class="nav-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.create') }}">Complaints</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('tenant.announcements.*') ? 'active' : '' }}" href="{{ route('tenant.announcements.index') }}">Announcements</a>
+                    </li>                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('tenant.faq.*') ? 'active' : '' }}" href="{{ route('tenant.faq.index') }}">FAQs</a>
                     </li>
                 </ul>
 
@@ -76,15 +77,10 @@
 
                 <!-- Right Side Actions (Bell & Avatar Dropdown) -->
                 <div class="nav-right-actions">
-
-                    <!-- Bell with Badge (Added onclick and id) -->
-                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" id="bellLink" onclick="clearNotificationBadge()">
-                        <!-- Bell Icon SVG -->
-                       <svg width="24" height="24" viewBox="0 0 0.72 0.72" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.444 0.595a0.023 0.023 0 0 1 0.022 0.034 0.093 0.093 0 0 1 -0.025 0.029c-0.011 0.008 -0.023 0.014 -0.036 0.019s-0.027 0.006 -0.041 0.006 -0.028 -0.002 -0.041 -0.006 -0.025 -0.01 -0.036 -0.019a0.093 0.093 0 0 1 -0.025 -0.029 0.023 0.023 0 0 1 0.022 -0.034c0.006 0.001 0.051 0.005 0.08 0.005s0.075 -0.004 0.08 -0.005M0.256 0.063a0.259 0.259 0 0 1 0.216 -0.003l0.006 0.003c0.072 0.032 0.118 0.102 0.118 0.178v0.038c0 0.03 0.007 0.061 0.02 0.088l0.008 0.017c0.037 0.076 -0.011 0.164 -0.097 0.18l-0.005 0.001a0.915 0.915 0 0 1 -0.32 0c-0.087 -0.015 -0.132 -0.108 -0.091 -0.182l0.007 -0.012A0.198 0.198 0 0 0 0.146 0.272V0.234C0.146 0.161 0.188 0.095 0.256 0.063" fill-rule="evenodd" clip-rule="evenodd" fill="#000"/></svg>
-                        <span class="badge" id="notif-badge">0</span>
-                    </a>
-
-                    <!-- User Avatar Dropdown -->
+                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" aria-label="Notifications" onclick="clearNotificationBadge()">
+                        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+                        <span class="badge notif-badge">0</span>
+                    </a><!-- User Avatar Dropdown -->
                     <div class="dropdown">
                         <button class="nav-user-avatar" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ $userInitial }}
@@ -101,7 +97,7 @@
                             </li>
                             <div class="user-profile-divider"></div>
                             <li>
-                                <a href="{{ route('profile.edit') }}" class="dropdown-item user-profile-action">
+                                <a href="{{ route('tenant.password.edit') }}" class="dropdown-item user-profile-action">
                                     <svg viewBox="0 0 24 24" aria-hidden="true">
                                         <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
@@ -126,6 +122,50 @@
             </div>
         </div>
     </nav>
+
+    <nav class="tenant-mobile-topbar d-lg-none" aria-label="Tenant mobile navigation">
+        <a href="{{ route('tenant.dashboard') }}" class="tenant-mobile-brand" aria-label="La Grange dashboard">
+            <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo">
+        </a>
+        <button class="tenant-mobile-menu-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#tenantSidebar" aria-controls="tenantSidebar" aria-label="Open navigation menu">
+            <span class="tenant-menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
+    </nav>
+
+    <div class="offcanvas offcanvas-start tenant-mobile-sidebar d-lg-none" tabindex="-1" id="tenantSidebar" aria-labelledby="tenantSidebarTitle">
+        <div class="offcanvas-header">
+            <div class="tenant-sidebar-brand" id="tenantSidebarTitle">
+                <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo">
+                <div class="tenant-sidebar-user">{{ $user->name ?? 'Tenant' }}</div>
+                <div class="tenant-sidebar-room">{{ $roomLabel }}</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column">
+            <div class="tenant-sidebar-section-label">MENU</div>
+            <nav class="tenant-sidebar-links" aria-label="Main menu">
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.dashboard') ? 'active' : '' }}" href="{{ route('tenant.dashboard') }}"><i class="bi bi-grid-1x2-fill" aria-hidden="true"></i><span>Dashboard</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.payments.*') ? 'active' : '' }}" href="{{ route('tenant.payments.index') }}"><i class="bi bi-credit-card-fill" aria-hidden="true"></i><span>Payments</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.create') }}"><i class="bi bi-chat-left-text-fill" aria-hidden="true"></i><span>Complaints</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.announcements.*') ? 'active' : '' }}" href="{{ route('tenant.announcements.index') }}"><i class="bi bi-megaphone-fill" aria-hidden="true"></i><span>Announcements</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.faq.*') ? 'active' : '' }}" href="{{ route('tenant.faq.index') }}"><i class="bi bi-question-circle-fill" aria-hidden="true"></i><span>FAQs</span></a>
+            </nav>
+
+            <div class="tenant-sidebar-section-label mt-4">ACCOUNT</div>
+            <nav class="tenant-sidebar-links" aria-label="Account menu">
+                                <a class="tenant-sidebar-link {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" onclick="clearNotificationBadge()"><i class="bi bi-bell-fill" aria-hidden="true"></i><span>Notifications</span><span class="badge rounded-pill notif-badge">0</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.password.*') ? 'active' : '' }}" href="{{ route('tenant.password.edit') }}"><i class="bi bi-person-fill" aria-hidden="true"></i><span>Change password</span></a>
+            </nav>
+
+            <div class="tenant-sidebar-footer mt-auto">
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="tenant-sidebar-logout"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Logout</button>
+                </form>
+                <div class="tenant-sidebar-footer-note">La Grange Dormitory</div>
+            </div>
+        </div>
+    </div>
 @elseif ($variant === 'proprietor-sidebar')
     <!-- Sidebar: visible on lg+ screens -->
     <nav class="sidebar flex-shrink-0 d-none d-lg-flex flex-column">
@@ -295,3 +335,9 @@
         </div>
     </nav>
 @endif
+
+
+
+
+
+

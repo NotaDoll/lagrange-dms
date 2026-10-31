@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') — La Grange DMS</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -20,7 +21,7 @@
         }
 
         .sidebar {
-            width: 270px;
+            width: 300px;
             min-height: 100vh;
             background: #ffffff;
             border-right: 1px solid #f0f0f0;
@@ -44,24 +45,27 @@
         }
 
         .sidebar .nav-link {
+            white-space: nowrap;
+            line-height: 1.5;
             color: #9ca3af;
-            border-radius: 999px;
-            font-size: 1rem;
-            font-weight: 500;
-            padding: 11px 18px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 400;
+            padding: 11px 12px;
             margin-bottom: 6px;
             transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-        }
+        } 
 
-        .sidebar .nav-link.active,
+        
         .sidebar .nav-link:hover {
             color: #1a1a1a;
-            background-color: var(--theme-pink-light);
+            background-color:var(--theme-pink-light);
         }
 
         .sidebar .nav-link.active {
-            color: var(--theme-plum);
-            font-weight: 700;
+            color: #fffeff;
+            font-weight: 600;
+            background-color: #5e1049;
             box-shadow: inset 0 0 0 1px rgba(192, 36, 159, 0.12);
         }
 
@@ -256,6 +260,36 @@
     font-size: 1.2rem;
 }
 
+            @media (max-width: 575.98px) {
+            .proprietor-main { padding: 18px 14px; }
+            .proprietor-mobile-navbar .container-fluid { padding-left: 0; padding-right: 0; }
+            .proprietor-mobile-navbar .navbar-brand img { max-width: 150px; height: auto; }
+            .card-body { padding: 1rem; }
+            .table { min-width: 640px; }
+        }
+        @media screen and (min-width: 992px) {
+            .sidebar {
+                position: fixed;
+                inset: 0 auto 0 0;
+                z-index: 1030;
+                width: 300px;
+                min-width: 300px;
+                max-width: 300px;
+                height: 100vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                scrollbar-gutter: stable;
+                overscroll-behavior-y: contain;
+            }
+            .sidebar > * { flex-shrink: 0; }
+            .proprietor-content {
+                min-width: 0;
+                width: calc(100% - 300px);
+                margin-left: 300px;
+            }
+        }
+        .proprietor-main { min-width: 0; }
+        .table-responsive { -webkit-overflow-scrolling: touch; }
     </style>
 </head>
 <body>
@@ -276,6 +310,20 @@
     </div>
 
     <script>
+    (() => {
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar) return;
+        const key = 'proprietorSidebarScrollTop';
+        try {
+            if (window.matchMedia('(min-width: 992px)').matches) {
+                sidebar.scrollTop = Number(sessionStorage.getItem(key)) || 0;
+            }
+        } catch (_) {}
+        sidebar.addEventListener('scroll', () => {
+            if (!window.matchMedia('(min-width: 992px)').matches) return;
+            try { sessionStorage.setItem(key, String(sidebar.scrollTop)); } catch (_) {}
+        }, { passive: true });
+    })();
     function clearNotificationBadge() {
         const badge = document.getElementById('notif-badge');
         if (badge) {

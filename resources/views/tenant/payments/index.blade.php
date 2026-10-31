@@ -6,6 +6,7 @@
     @php
         $statusClass = match (strtolower($paymentStatus)) {
             'overdue' => 'red',
+            'outstanding' => 'red',
             'pending' => 'orange',
             default => 'green',
         };
@@ -16,13 +17,16 @@
         <p>Review your balance, payment standing, and transaction history.</p>
     </div>
 
+
+
     <div class="theme-stat-grid">
         <div class="theme-stat-card">
             <div class="theme-stat-label">Outstanding Balance</div>
             <div class="theme-stat-value">PHP {{ number_format((float) $outstandingBalance, 2) }}</div>
-            <div class="theme-stat-sub {{ $outstandingCount > 0 ? 'red' : 'muted' }}">
-                {{ $outstandingCount }} {{ Str::plural('unpaid transaction', $outstandingCount) }}
+            <div class="theme-stat-sub {{ $unpaidMonths > 0 ? 'red' : 'muted' }}">
+                {{ $unpaidMonths }} {{ Str::plural('billing month with unpaid charges', $unpaidMonths) }} · includes utility shares
             </div>
+            @include('tenant.current-rent')
         </div>
 
         <div class="theme-stat-card">
@@ -71,7 +75,7 @@
                         <tr>
                             <td data-label="Receipt No.">PAY-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</td>
                             <td data-label="Description">
-                                {{ ucfirst($payment->status) }} dorm payment due {{ $payment->due_date->format('M d, Y') }}
+                                {{ ucfirst($payment->status) }} {{ $payment->description }} due {{ $payment->due_date->format('M d, Y') }}
                             </td>
                             <td data-label="Amount">PHP {{ number_format((float) $payment->amount, 2) }}</td>
                             <td data-label="Date">{{ ($payment->paid_date ?? $payment->due_date)->format('M d, Y') }}</td>
@@ -112,3 +116,4 @@
         </div>
     @endif
 @endsection
+

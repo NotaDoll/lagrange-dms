@@ -8,7 +8,7 @@
         <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Back</a>
     </div>
 
-    <div class="card">
+    <p class="text-muted small">Record a new charge or payment. To collect an existing charge, use Mark paid in Payment Ledger.</p><div class="card">
         <div class="card-body">
             <form method="POST" action="{{ route('proprietor.payments.store') }}">
                 @csrf
@@ -47,7 +47,8 @@
 
                     <div class="col-md-4">
                         <label for="paid_date" class="form-label">Paid Date</label>
-                        <input type="date" class="form-control @error('paid_date') is-invalid @enderror" id="paid_date" name="paid_date" value="{{ old('paid_date') }}">
+                        <input type="date" class="form-control @error('paid_date') is-invalid @enderror" id="paid_date" name="paid_date" value="{{ old('paid_date') }}" max="{{ today()->toDateString() }}">
+                        <div class="form-text">Required for Paid status. Leave blank for Pending or Overdue.</div>
                         @error('paid_date')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror

@@ -17,9 +17,9 @@ class RoomAssignmentService
             $tenant = Tenant::whereKey($tenantId)->lockForUpdate()->firstOrFail();
             $bed = Bed::whereKey($bedId)->lockForUpdate()->firstOrFail();
 
-            if ($bed->status === 'occupied' || $bed->currentAssignment()->exists()) {
+            if ($bed->status !== 'available' || $bed->currentAssignment()->exists()) {
                 throw ValidationException::withMessages([
-                    'bed_id' => 'This bed is already occupied.',
+                    'bed_id' => 'This bed is not available for assignment.',
                 ]);
             }
 
@@ -28,8 +28,6 @@ class RoomAssignmentService
                     'tenant_id' => 'This tenant already has an active assignment.',
                 ]);
             }
-
-            $bed->update(['status' => 'occupied']);
 
             return RoomAssignment::create([
                 'tenant_id' => $tenant->id,
@@ -53,8 +51,6 @@ class RoomAssignmentService
                 'end_date' => Carbon::today(),
                 'status' => 'ended',
             ]);
-
-            $assignment->bed()->update(['status' => 'available']);
 
             return $assignment->refresh();
         });

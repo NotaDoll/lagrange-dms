@@ -52,7 +52,7 @@
             @foreach ($availableBeds ?? [] as $bed)
                 <option value="{{ $bed->id }}"
                     @selected(old('bed_id', $tenant->currentAssignment->bed_id ?? '') == $bed->id)>
-                    Room {{ $bed->room->room_number }} — {{ $bed->bed_label }}
+                    Room {{ $bed->room->room_number }} — {{ $bed->bed_label }} — ₱{{ number_format((float) $bed->room->monthly_rate, 2) }}/month
                     @if (isset($tenant) && $tenant->currentAssignment?->bed_id === $bed->id)
                         (current)
                     @endif

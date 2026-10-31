@@ -17,7 +17,6 @@ use App\Http\Controllers\Tenant\AnnouncementController as TenantAnnouncementCont
 use App\Http\Controllers\Tenant\ComplaintController as TenantComplaintController;
 use App\Http\Controllers\Tenant\FaqController as TenantFaqController;
 use App\Http\Controllers\Tenant\PaymentController as TenantPaymentController;
-use App\Http\Controllers\Tenant\ProfileController as TenantProfileController;
 use App\Http\Controllers\Tenant\TenantDashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -25,7 +24,6 @@ use App\Http\Controllers\Proprietor\TenantImportController;
 use App\Http\Controllers\Proprietor\UtilityBillController;
 use App\Http\Controllers\Proprietor\CollectiblesReportController;
 use App\Http\Controllers\Proprietor\SmsSettingsController;
-use App\Http\Controllers\Proprietor\AiSettingsController;
 use App\Http\Controllers\Proprietor\SettingsController;
 
 require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
@@ -33,12 +31,15 @@ require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
 Route::get('/', fn () => redirect()->route('login'));
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+});
+
+Route::middleware(['auth', 'role:proprietor'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 Route::middleware('auth')->get('/dashboard', function () {
@@ -52,9 +53,13 @@ Route::middleware(['auth', 'role:proprietor'])
     ->name('proprietor.')
     ->group(function () {
         Route::get('/dashboard', [ProprietorDashboardController::class, 'index'])->name('dashboard');
+        Route::post('dashboard/tenants/{tenant}/sms', [ProprietorDashboardController::class, 'sendSms'])->middleware('throttle:10,1')->name('dashboard.sms');
+        Route::post('dashboard/summary', [ProprietorDashboardController::class, 'generateSummary'])->middleware('throttle:3,1')->name('dashboard.summary');
         Route::resource('tenants', TenantController::class)->except(['show']);
         Route::resource('rooms', RoomController::class)->except(['show']);
+        Route::patch('beds/{bed}/status', [RoomController::class, 'updateBedStatus'])->name('beds.status.update');
         Route::resource('payments', ProprietorPaymentController::class)->only(['index', 'create', 'store']);
+        Route::patch('payments/{payment}/settle', [ProprietorPaymentController::class, 'settle'])->name('payments.settle');
         Route::get('risk', [RiskDashboardController::class, 'index'])->name('risk.index');
         Route::post('risk/recalculate', [RiskDashboardController::class, 'recalculate'])->name('risk.recalculate');
         Route::get('complaints/summarize', [AiSummaryController::class, 'index'])->name('complaints.summarize');
@@ -79,9 +84,6 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::get('settings/sms', [SmsSettingsController::class, 'edit'])->name('settings.sms.edit');
         Route::put('settings/sms', [SmsSettingsController::class, 'update'])->name('settings.sms.update');
 
-        Route::get('settings/ai-api', [AiSettingsController::class, 'edit'])->name('settings.ai.edit');
-        Route::put('settings/ai-api', [AiSettingsController::class, 'update'])->name('settings.ai.update');
-
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     });
@@ -91,12 +93,15 @@ Route::middleware(['auth', 'role:tenant'])
     ->name('tenant.')
     ->group(function () {
         Route::get('/dashboard', [TenantDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/profile', [TenantProfileController::class, 'show'])->name('profile.show');
+        Route::view('/password', 'tenant.password')->name('password.edit');
         Route::get('/payments', [TenantPaymentController::class, 'index'])->name('payments.index');
-        Route::get('/complaints', [TenantComplaintController::class, 'index'])->name('complaints.index');
         Route::get('/complaints/create', [TenantComplaintController::class, 'create'])->name('complaints.create');
         Route::post('/complaints', [TenantComplaintController::class, 'store'])->name('complaints.store');
         Route::get('/announcements', [TenantAnnouncementController::class, 'index'])->name('announcements.index');
         Route::get('/faq', [TenantFaqController::class, 'index'])->name('faq.index');
         // Each module below adds its routes inside this group
     });
+
+
+
+

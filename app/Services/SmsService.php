@@ -9,20 +9,18 @@ use Illuminate\Support\Str;
 
 class SmsService
 {
-    public function __construct(private readonly SettingsService $settings)
-    {
-    }
+    public function __construct(private readonly SettingsService $settings) {}
 
-    public function send(string $number, string $message): void
+    public function send(string $number, string $message, ?Tenant $recipientTenant = null): bool
     {
         $normalizedNumber = $this->normalizeNumber($number);
-        $tenant = Tenant::with('user')->get()->first(function (Tenant $tenant) use ($normalizedNumber) {
+        $tenant = $recipientTenant ?? Tenant::with('user')->get()->first(function (Tenant $tenant) use ($normalizedNumber) {
             return $this->normalizeNumber($tenant->user?->contact_number) === $normalizedNumber
                 || $this->normalizeNumber($tenant->emergency_contact_number) === $normalizedNumber
                 || $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber;
         });
 
-        $recipientType = $tenant && $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber
+        $recipientType = ! $recipientTenant && $tenant && $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber
             ? 'guardian'
             : 'tenant';
 
@@ -31,7 +29,7 @@ class SmsService
         try {
             $apiKey = $this->settings->get('sms', 'api_key') ?? config('services.semaphore.key');
 
-            $response = Http::asForm()->post('https://api.semaphore.co/api/v4/messages', [
+            $response = Http::asForm()->connectTimeout(5)->timeout(15)->post('https://api.semaphore.co/api/v4/messages', [
                 'apikey' => $apiKey,
                 'number' => $number,
                 'message' => $message,
@@ -51,6 +49,8 @@ class SmsService
             'status' => $status,
             'sent_at' => now(),
         ]);
+
+        return $status === 'sent';
     }
 
     private function normalizeNumber(?string $number): string

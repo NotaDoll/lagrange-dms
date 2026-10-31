@@ -3,29 +3,27 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\Announcement;
+use App\Services\TenantBalanceService;
 use Illuminate\View\View;
-use App\Models\Complaint; // Make sure to import the Complaint model!
-use App\Models\Announcement; // Make sure to import the Announcement model!
 
 class TenantDashboardController extends Controller
 {
-    public function index(): View
+    public function index(TenantBalanceService $balanceService): View
     {
-        // 1. Get the current tenant linked to the logged-in user
-        // Note: This assumes your User model has a 'tenant' relationship.
-        $tenant = auth()->user()->tenant;
+        $tenant = auth()->user()->tenant()->firstOrFail();
+        $balance = $balanceService->summary($tenant);
+        $rentTerms = $balanceService->currentRent($tenant);
+        $outstandingBalance = $balance['outstanding_balance'];
 
-        // 2. Count the total complaints for this specific tenant
-        $complaintsCount = Complaint::where('tenant_id', $tenant->id)->count();
-
-        // 3. Count the total announcements (You can adjust this if you have an 'unread' scope later)
         $announcementsCount = Announcement::count();
-
-        // 4. Get the most recent announcement for the dashboard summary.
         $latestAnnouncement = Announcement::latest()->first();
 
-        // 5. Pass both counts and the latest title to the dashboard view
-        return view('tenant.dashboard', compact('complaintsCount', 'announcementsCount', 'latestAnnouncement'));
+        return view('tenant.dashboard', compact(
+            'rentTerms',
+            'outstandingBalance',
+            'announcementsCount',
+            'latestAnnouncement'
+        ));
     }
 }

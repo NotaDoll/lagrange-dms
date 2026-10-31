@@ -123,14 +123,7 @@
             ];
         });
 
-        $totalRooms = $vm->count();
-        $totalBeds = $vm->sum('total');
-        $occupiedBeds = $vm->sum('occ');
-        $vacantBeds = $vm->sum('vac');
-        $rate = $totalBeds > 0 ? round($occupiedBeds / $totalBeds * 100, 1) : 0;
-
-        $floors = $vm->map(fn ($v) => $v->room->floor)->unique()->sort()->values();
-        $types = $vm->pluck('type')->filter()->unique()->sort()->values();
+        $filteredRoomCount = $rooms->total();
     @endphp
 
     <div class="rm" id="rm">
@@ -146,9 +139,13 @@
             </div>
         </div>
 
+        @if (session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+
         @if ($errors->any())
             <div class="alert alert-danger">
-                <div class="fw-semibold">Please check the room assignment details.</div>
+                <div class="fw-semibold">Please check the room or bed details.</div>
                 <ul class="mb-0">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -178,42 +175,37 @@
         {{-- Filters and view toggle --}}
         <div class="rm-bar mb-3">
             <div class="collapse show" id="rmFilters">
-                <div class="row g-3 align-items-end mb-3">
+                <form method="GET" action="{{ route('proprietor.rooms.index') }}" class="row g-3 align-items-end mb-3">
                     <div class="col-md-6 col-xl-3">
                         <label for="rmSearch">Search</label>
-                        <input type="search" id="rmSearch" class="form-control" placeholder="Room number or tenant name">
+                        <input type="search" id="rmSearch" name="search" value="{{ $search }}" class="form-control" placeholder="Room number or tenant name">
                     </div>
                     <div class="col-6 col-md-3 col-xl-2">
                         <label for="rmFloor">Floor</label>
-                        <select id="rmFloor" class="form-select">
+                        <select id="rmFloor" name="floor" class="form-select">
                             <option value="">All floors</option>
-                            @foreach ($floors as $f)<option value="{{ $f }}">Floor {{ $f }}</option>@endforeach
+                            @foreach ($floors as $f)<option value="{{ $f }}" @selected($floor === (string) $f)>Floor {{ $f }}</option>@endforeach
                         </select>
                     </div>
                     <div class="col-6 col-md-3 col-xl-3">
                         <label for="rmState">Availability</label>
-                        <select id="rmState" class="form-select">
+                        <select id="rmState" name="availability" class="form-select">
                             <option value="">All statuses</option>
-                            <option value="full">Fully occupied</option>
-                            <option value="partial">Partially available</option>
-                            <option value="vacant">Fully vacant</option>
-                            <option value="maintenance">Maintenance</option>
+                            <option value="full" @selected($availability === 'full')>Fully occupied</option>
+                            <option value="partial" @selected($availability === 'partial')>Partially available</option>
+                            <option value="vacant" @selected($availability === 'vacant')>Fully vacant</option>
+                            <option value="maintenance" @selected($availability === 'maintenance')>Maintenance</option>
+                            <option value="empty" @selected($availability === 'empty')>No beds</option>
                         </select>
                     </div>
-                    @if ($types->isNotEmpty())
-                        <div class="col-md-6 col-xl-2">
-                            <label for="rmType">Room type / gender</label>
-                            <select id="rmType" class="form-select">
-                                <option value="">All</option>
-                                @foreach ($types as $t)<option value="{{ Str::lower($t) }}">{{ Str::headline($t) }}</option>@endforeach
-                            </select>
-                        </div>
-                    @endif
-                    <div class="col-auto"><button type="button" class="btn btn-outline-secondary" id="rmReset">Reset</button></div>
-                </div>
+                    <div class="col-auto d-flex gap-2">
+                        <button type="submit" class="btn btn-outline-primary">Apply filters</button>
+                        <a href="{{ route('proprietor.rooms.index') }}" class="btn btn-outline-secondary">Clear</a>
+                    </div>
+                </form>
             </div>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div class="rm-count" id="rmCount" aria-live="polite">Showing {{ $totalRooms }} of {{ $totalRooms }} rooms</div>
+                <div class="rm-count" id="rmCount" aria-live="polite">Showing {{ $rooms->count() }} of {{ $filteredRoomCount }} matching rooms ({{ $totalRooms }} total)</div>
                 <div class="rm-seg" role="group" aria-label="Switch view">
                     <button type="button" data-view="grid" aria-pressed="true"><i class="bi bi-grid me-1"></i>Card grid</button>
                     <button type="button" data-view="table" aria-pressed="false"><i class="bi bi-table me-1"></i>Data table</button>
@@ -222,7 +214,13 @@
         </div>
 
         @if ($vm->isEmpty())
-            <div class="rm-empty"><i class="bi bi-door-closed" aria-hidden="true"></i>No rooms yet. <a href="{{ route('proprietor.rooms.create') }}">Add your first room</a>.</div>
+            <div class="rm-empty"><i class="bi bi-door-closed" aria-hidden="true"></i>
+                @if ($totalRooms === 0)
+                    No rooms yet. <a href="{{ route('proprietor.rooms.create') }}">Add your first room</a>.
+                @else
+                    No rooms match these filters. <a href="{{ route('proprietor.rooms.index') }}">Clear filters</a>.
+                @endif
+            </div>
         @else
             {{-- Card grid --}}
             <div id="rmGrid" class="row g-3">
@@ -255,21 +253,32 @@
                                             @if ($tenant)
                                                 <span class="rm-avatar" aria-hidden="true">{{ $initials($tenant->user->name) }}</span>
                                                 <span class="n">{{ $tenant->user->name }}</span>
-                                            @elseif ($bed->status === 'available')
+                                        @elseif ($bed->status === 'available')
                                                 <span class="rm-avatar is-free" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
                                                 <span class="rm-bed-free">Vacant</span>
                                             @else
                                                 <span class="rm-avatar is-other" aria-hidden="true"><i class="bi bi-tools"></i></span>
-                                                <span class="rm-pill b-{{ $cls }}">{{ ucfirst($bed->status) }}</span>
+                                            <span class="rm-pill b-{{ $cls }}">Maintenance</span>
                                             @endif
                                         </div>
                                         @if ($bed->status === 'available')
                                             <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#assignBedModal{{ $bed->id }}"><i class="bi bi-person-plus me-1"></i>Quick assign</button>
-                                        @elseif ($assignment)
+                                        @endif
+                                        @if ($assignment)
                                             <form method="POST" action="{{ route('proprietor.room-assignments.update', $assignment) }}" onsubmit="return confirm('End this tenant assignment?');">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button type="submit" class="btn btn-outline-secondary btn-sm" title="End assignment"><i class="bi bi-box-arrow-right me-1"></i>End</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('proprietor.beds.status.update', $bed) }}" class="d-flex align-items-center gap-1">
+                                                @csrf
+                                                @method('PATCH')
+                                                <select class="form-select form-select-sm" name="status" aria-label="Status for {{ $bed->bed_label }} in Room {{ $room->room_number }}">
+                                                    <option value="available" @selected($bed->status === 'available')>Available</option>
+                                                    <option value="maintenance" @selected($bed->status === 'maintenance')>Maintenance</option>
+                                                </select>
+                                                <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
                                             </form>
                                         @endif
                                     </div>
@@ -327,6 +336,10 @@
             </div>
 
             <div class="rm-empty mt-3" id="rmNoMatch" hidden><i class="bi bi-search" aria-hidden="true"></i>No rooms match these filters. Try clearing one.</div>
+        @endif
+
+        @if ($rooms->hasPages())
+            <div class="mt-3">{{ $rooms->links() }}</div>
         @endif
     </div>
 
@@ -409,12 +422,6 @@
             [f.q, f.floor, f.state, f.type].forEach(function (el) {
                 if (el) { el.addEventListener('input', apply); el.addEventListener('change', apply); }
             });
-            $('rmReset').addEventListener('click', function () {
-                f.q.value = ''; f.floor.value = ''; f.state.value = '';
-                if (f.type) f.type.value = '';
-                apply();
-            });
-
             // Put the cursor in the tenant list when an assign modal opens
             document.addEventListener('shown.bs.modal', function (e) {
                 var sel = e.target.querySelector('select');

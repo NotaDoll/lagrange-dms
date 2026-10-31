@@ -7,6 +7,7 @@ use App\Models\RoomAssignment;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TenantManagementService
 {
@@ -106,8 +107,10 @@ class TenantManagementService
     {
         $bed = Bed::lockForUpdate()->findOrFail($bedId);
 
-        if ($bed->status !== 'available') {
-            return;
+        if ($bed->status !== 'available' || $bed->currentAssignment()->exists()) {
+            throw ValidationException::withMessages([
+                'bed_id' => 'The selected bed is no longer available. Please choose another.',
+            ]);
         }
 
         RoomAssignment::create([
@@ -117,7 +120,6 @@ class TenantManagementService
             'status' => 'active',
         ]);
 
-        $bed->update(['status' => 'occupied']);
     }
 
     private function reassignBed(Tenant $tenant, ?int $newBedId): void
@@ -137,8 +139,10 @@ class TenantManagementService
         if ($newBedId) {
             $bed = Bed::lockForUpdate()->find($newBedId);
 
-            if (! $bed || $bed->status !== 'available') {
-                return;
+            if (! $bed || $bed->status !== 'available' || $bed->currentAssignment()->exists()) {
+                throw ValidationException::withMessages([
+                    'bed_id' => 'The selected bed is no longer available. Please choose another.',
+                ]);
             }
 
             RoomAssignment::create([
@@ -148,7 +152,6 @@ class TenantManagementService
                 'status' => 'active',
             ]);
 
-            $bed->update(['status' => 'occupied']);
         }
     }
 }

@@ -21,22 +21,25 @@
         <h1>Dashboard</h1>
     </div>
 
+
+
     <!-- Cards Section -->
     <div class="db-cards-grid">
         <!-- Outstanding Balance Card - Kept, but data cleared -->
         <div class="db-card">
             <div class="db-card-title">OUTSTANDING BALANCE</div>
             <div class="db-card-value currency">
-                <span>₱</span>0.00
+                <span>₱</span>{{ number_format((float) $outstandingBalance, 2) }}
             </div>
-            <!-- Removed the red "Due by..." text -->
+            <div class="db-card-sub muted">Unpaid rent and utility shares</div>
+            @include('tenant.current-rent')
         </div>
 
         <!-- Pending Complaints Card -->
-        <a href="{{ route('tenant.complaints.index') }}" class="db-card db-card-link">
-            <div class="db-card-title">PENDING COMPLAINTS</div>
-            <div class="db-card-value">{{ $complaintsCount }}</div>
-            <div class="db-card-sub orange">{{ $complaintsCount > 0 ? 'Under Review' : 'No pending complaints' }}</div>
+        <a href="{{ route('tenant.complaints.create') }}" class="db-card db-card-link">
+            <div class="db-card-title">SUBMIT A COMPLAINT</div>
+            <div class="db-card-value">Create</div>
+            <div class="db-card-sub orange">Tell us about an issue</div>
         </a>
 
         <!-- Unread Announcements Card -->
@@ -100,148 +103,10 @@
     </div>
 
 </div>
-    
-    {{-- NEEDS YOUR ATTENTION --}}
-    <div class="dashboard-section mb-4">
-
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h2 class="h5 fw-bold mb-1">Needs Your Attention</h2>
-                <div class="text-muted small">
-                    Important items that may require action.
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3">
-
-            {{-- Overdue Payments --}}
-            <div class="col-12 col-md-4">
-                <a
-                    href="{{ route('proprietor.payments.index') }}"
-                    class="text-decoration-none text-body"
-                >
-                    <div class="card h-100 attention-card attention-card-danger">
-                        <div class="card-body">
-
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div class="attention-icon attention-icon-danger">
-                                    <i class="bi bi-exclamation-circle"></i>
-                                </div>
-
-                                <span class="badge rounded-pill text-bg-danger">
-                                    Payment
-                                </span>
-                            </div>
-
-                            <div class="fs-3 fw-bold mb-1">
-                                {{ $overduePaymentsCount }}
-                            </div>
-
-                            <div class="fw-semibold mb-1">
-                                Overdue Payments
-                            </div>
-
-                            <div class="text-muted small">
-                                Payment{{ $overduePaymentsCount === 1 ? '' : 's' }}
-                                past the due date.
-                            </div>
-
-                            <div class="attention-action mt-3">
-                                Review payments
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-
-            {{-- High-Risk Tenants --}}
-            <div class="col-12 col-md-4">
-                <a
-                    href="{{ route('proprietor.risk.index') }}"
-                    class="text-decoration-none text-body"
-                >
-                    <div class="card h-100 attention-card attention-card-warning">
-                        <div class="card-body">
-
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div class="attention-icon attention-icon-warning">
-                                    <i class="bi bi-person-exclamation"></i>
-                                </div>
-
-                                <span class="badge rounded-pill text-bg-warning">
-                                    Tenant Risk
-                                </span>
-                            </div>
-
-                            <div class="fs-3 fw-bold mb-1">
-                                {{ $highRiskTenants->count() }}
-                            </div>
-
-                            <div class="fw-semibold mb-1">
-                                High-Risk Tenants
-                            </div>
-
-                            <div class="text-muted small">
-                                Tenants who may need follow-up.
-                            </div>
-
-                            <div class="attention-action mt-3">
-                                Review tenant risk
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-
-            {{-- Unresolved Complaints --}}
-            <div class="col-12 col-md-4">
-                <a
-                    href="{{ route('proprietor.complaints.index') }}"
-                    class="text-decoration-none text-body"
-                >
-                    <div class="card h-100 attention-card attention-card-info">
-                        <div class="card-body">
-
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div class="attention-icon attention-icon-info">
-                                    <i class="bi bi-chat-left-dots"></i>
-                                </div>
-
-                                <span class="badge rounded-pill text-bg-primary">
-                                    Complaints
-                                </span>
-                            </div>
-
-                            <div class="fs-3 fw-bold mb-1">
-                                {{ $unresolvedComplaintsCount }}
-                            </div>
-
-                            <div class="fw-semibold mb-1">
-                                Unresolved Complaints
-                            </div>
-
-                            <div class="text-muted small">
-                                Complaints still waiting for resolution.
-                            </div>
-
-                            <div class="attention-action mt-3">
-                                Review complaints
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-        </div>
-    </div>
-
 @endsection
+
+
+
+
+
+
