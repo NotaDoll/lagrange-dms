@@ -128,7 +128,7 @@ class ComplaintSummaryController extends Controller
             'summary' => $summary->summary,
             'complaints_missing' => $complaints->count() < $summary->complaint_count,
             'complaints' => $complaints->map(fn (Complaint $complaint) => [
-                'tenant' => $complaint->tenant?->user?->name ?? 'Tenant unavailable',
+                'tenant' => $complaint->tenant?->name ?? 'Tenant unavailable',
                 'category' => $complaint->category,
                 'date' => $complaint->created_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('M d, Y'),
             ])->all(),

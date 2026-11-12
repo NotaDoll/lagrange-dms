@@ -72,11 +72,11 @@ class UtilityBillController extends Controller
     private function formData(): array
     {
         $rooms = Room::orderBy('room_number')->get();
-        $roomAssignments = RoomAssignment::with(['tenant.user', 'bed'])->get()->map(fn ($assignment) => [
+        $roomAssignments = RoomAssignment::billable()->with(['tenant.user', 'bed'])->get()->map(fn ($assignment) => [
             'room_id' => $assignment->bed->room_id,
             'tenant_id' => $assignment->tenant_id,
-            'name' => $assignment->tenant->user->name,
-            'start' => $assignment->start_date->toDateString(),
+            'name' => $assignment->tenant->name,
+            'start' => max($assignment->start_date->toDateString(), $assignment->tenant->move_in_date?->toDateString() ?? ''),
             'end' => $assignment->end_date?->toDateString(),
         ]);
 

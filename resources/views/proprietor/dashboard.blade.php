@@ -49,7 +49,7 @@
                     <tbody>
                         @forelse ($followUps as $row)
                             <tr>
-                                <td class="fw-semibold">{{ $row->tenant->user->name }}</td>
+                                <td class="fw-semibold">{{ $row->tenant->name }}</td>
                                 <td>{{ $row->tenant->currentAssignment?->bed?->room?->room_number ?? 'Unassigned' }}</td>
                                 <td><span title="{{ implode(', ', array_keys(array_filter($row->rules))) }}">{{ $row->rules_tripped }} of 4</span><details class="pd-note"><summary>Rule details</summary><ul class="ps-3 mb-0">@foreach (array_keys(array_filter($row->rules)) as $rule)<li>{{ $rule }}</li>@endforeach</ul></details></td>
                                 <td><span class="pd-tag pd-{{ $row->risk_level }}">{{ ucfirst($row->risk_level) }}</span></td>
@@ -75,7 +75,13 @@
                                 </td>
                                 <td>
                                     @if ($row->risk_level === 'high')
-                                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms" data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}" @disabled($row->sms_sent)>{{ $row->sms_sent ? 'SMS sent' : 'Send SMS' }}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms" data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}" @disabled($row->sms_sent)>{{ match ($row->sms_status) {
+                                            'queued' => 'SMS queued',
+                                            'unknown' => 'SMS unconfirmed',
+                                            'delivered' => 'SMS delivered',
+                                            'sent' => 'SMS sent',
+                                            default => 'Send SMS',
+                                        } }}</button>
                                     @endif
                                     <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.index', ['tenant_id' => $row->tenant->id]) }}">View</a>
                                 </td>

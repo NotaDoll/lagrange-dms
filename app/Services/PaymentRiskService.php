@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\RiskFlag;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Carbon;
 
 class PaymentRiskService
@@ -65,8 +66,12 @@ class PaymentRiskService
             ...array_diff_key($evaluation, array_flip(['rules', 'rules_tripped'])),
             'calculated_at' => now(),
         ]);
-        if ($flag->risk_level === 'high' && $tenant->user?->contact_number) {
-            $this->smsService->send($tenant->user->contact_number, 'Your dormitory account has been flagged high risk due to repeated late payments. Please settle outstanding balances as soon as possible.');
+        if ($flag->risk_level === 'high' && $tenant->contact_number) {
+            Cache::lock('dashboard.sms.'.$tenant->id, 30)->get(function () use ($tenant) {
+                if (! $tenant->smsLogs()->paymentFollowUpToday()->exists()) {
+                    $this->smsService->send($tenant->contact_number, 'Your dormitory account has been flagged high risk due to repeated late payments. Please settle outstanding balances as soon as possible.', $tenant);
+                }
+            });
         }
 
         // No guardian delivery: this database has no records of both required consents.

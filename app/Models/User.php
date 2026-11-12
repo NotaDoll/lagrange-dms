@@ -12,7 +12,7 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-    'name', 'first_name', 'middle_name', 'last_name', 'email', 'password', 'role', 'contact_number',
+    'name', 'first_name', 'middle_name', 'last_name', 'email', 'password', 'role', 'contact_number', 'must_change_password',
     ];
 
     protected $hidden = [
@@ -22,6 +22,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'must_change_password' => 'boolean',
     ];
 
     public function tenant()

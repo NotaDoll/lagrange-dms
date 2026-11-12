@@ -20,7 +20,7 @@
                             <option value="">Select tenant</option>
                             @foreach ($tenants as $tenant)
                                 <option value="{{ $tenant->id }}" @selected((string) old('tenant_id') === (string) $tenant->id)>
-                                    {{ $tenant->user->name }} - {{ $tenant->user->email }}
+                                    {{ $tenant->name }} - {{ $tenant->email }}
                                 </option>
                             @endforeach
                         </select>

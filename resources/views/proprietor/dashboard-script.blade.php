@@ -19,7 +19,8 @@
         try {
             const data = await post(button.dataset.url);
             show('pd-sms-message', data.message);
-            button.textContent = 'SMS sent';
+            const labels = { queued: 'SMS queued', unknown: 'SMS unconfirmed', delivered: 'SMS delivered', sent: 'SMS sent' };
+            button.textContent = labels[data.status] || 'SMS sent';
         } catch (error) {
             show('pd-sms-message', error.message, true);
             button.textContent = 'Send SMS';

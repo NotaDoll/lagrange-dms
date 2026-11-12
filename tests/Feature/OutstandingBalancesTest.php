@@ -31,14 +31,14 @@ class OutstandingBalancesTest extends TestCase
         $tenant = $this->assignedTenant('101');
         $this->actingAs(User::factory()->create(['role' => 'proprietor']))
             ->get(route('proprietor.reports.index'))->assertOk()->assertSee('Current unpaid balances')
-            ->assertSee($tenant->user->name)->assertSee('2,600.00')
-            ->assertViewHas('currentOutstanding', 2600.0)->assertViewHas('unpaidTenantCount', 1)
-            ->assertViewHas('totalOutstanding', 2600.0)->assertViewHas('totalBilled', 2600.0)->assertViewHas('totalOverdue', 2600.0)
+            ->assertSee($tenant->user->name)->assertSee('2,222.58')
+            ->assertViewHas('currentOutstanding', 2222.58)->assertViewHas('unpaidTenantCount', 1)
+            ->assertViewHas('totalOutstanding', 2222.58)->assertViewHas('totalBilled', 2222.58)->assertViewHas('totalOverdue', 2222.58)
             ->assertViewHas('balanceRows', fn ($rows) => $rows->first()->unpaid_months === 2);
         $this->get(route('proprietor.reports.index', ['date_from' => '2026-10-01', 'date_to' => '2026-10-31']))
-            ->assertOk()->assertViewHas('totalOutstanding', 0.0)->assertViewHas('currentOutstanding', 2600.0);
+            ->assertOk()->assertViewHas('totalOutstanding', 0.0)->assertViewHas('currentOutstanding', 2222.58);
         $this->get(route('proprietor.reports.index', ['date_from' => '2026-08-31', 'date_to' => '2026-09-29']))
-            ->assertOk()->assertViewHas('totalBilled', 1300.0)->assertViewHas('totalOutstanding', 1300.0);
+            ->assertOk()->assertViewHas('totalBilled', 922.58)->assertViewHas('totalOutstanding', 922.58);
         $this->assertDatabaseCount('payments', 0);
     }
 
@@ -51,7 +51,7 @@ class OutstandingBalancesTest extends TestCase
         Payment::create(['tenant_id' => $tenant->id, 'amount' => 800, 'due_date' => '2026-08-31', 'status' => 'overdue']);
         $september = Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => '2026-09-30', 'status' => 'overdue']);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
-        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('currentOutstanding', 4700.0)->assertViewHas('unpaidTenantCount', 2);
+        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('currentOutstanding', 4322.58)->assertViewHas('unpaidTenantCount', 2);
         $this->get(route('proprietor.reports.index', ['tenant_id' => $tenant->id]))
             ->assertOk()->assertViewHas('currentOutstanding', 2100.0)->assertViewHas('unpaidTenantCount', 1)
             ->assertViewHas('totalBilled', 2600.0)->assertViewHas('totalCollected', 500.0)->assertViewHas('totalOutstanding', 2100.0);
@@ -60,7 +60,7 @@ class OutstandingBalancesTest extends TestCase
             ->assertOk()->assertViewHas('currentOutstanding', 800.0)
             ->assertViewHas('balanceRows', fn ($rows) => $rows->first()->unpaid_months === 1);
         $this->get(route('proprietor.reports.index', ['tenant_id' => $other->id]))
-            ->assertViewHas('currentOutstanding', 2600.0);
+            ->assertViewHas('currentOutstanding', 2222.58);
     }
 
     public function test_explicit_debts_without_assignment_are_included_but_future_charges_are_excluded(): void

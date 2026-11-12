@@ -20,8 +20,9 @@ class RoomController extends Controller
     public function index(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
-        $floor = trim((string) $request->query('floor', ''));
         $availability = $request->query('availability', '');
+        $type = $request->query('type');
+        $type = is_string($type) ? Room::normalizeType($type) : null;
 
         $query = Room::query()->with(['beds.currentAssignment.tenant.user']);
 
@@ -34,8 +35,9 @@ class RoomController extends Controller
             });
         }
 
-        if ($floor !== '') {
-            $query->where('floor', $floor);
+        if ($type !== null) {
+            $roomIds = Room::all()->filter(fn (Room $room) => $room->catalogType() === $type)->modelKeys();
+            $query->whereKey($roomIds);
         }
 
         match ($availability) {
@@ -51,26 +53,22 @@ class RoomController extends Controller
             default => $availability = '',
         };
 
-        $rooms = $query->orderBy('room_number')->paginate(12)->withQueryString();
+        $rooms = $query->orderBy('room_number')->paginate(12)->appends($request->only(['search', 'type', 'availability']));
 
         $totalRooms = Room::count();
         $totalBeds = \App\Models\Bed::count();
         $occupiedBeds = \App\Models\RoomAssignment::where('status', 'active')->count();
         $vacantBeds = \App\Models\Bed::where('status', 'available')->whereDoesntHave('currentAssignment')->count();
         $rate = $totalBeds > 0 ? round($occupiedBeds / $totalBeds * 100, 1) : 0;
-        $floors = Room::query()->select('floor')->distinct()->orderBy('floor')->pluck('floor');
 
         $availableTenants = Tenant::with('user')
             ->where('status', 'active')
             ->whereDoesntHave('currentAssignment')
-            ->join('users', 'tenants.user_id', '=', 'users.id')
-            ->orderBy('users.name')
-            ->select('tenants.*')
-            ->get();
+            ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('proprietor.rooms.index', compact(
-            'rooms', 'availableTenants', 'search', 'floor', 'availability',
-            'totalRooms', 'totalBeds', 'occupiedBeds', 'vacantBeds', 'rate', 'floors'
+            'rooms', 'availableTenants', 'search', 'availability', 'type',
+            'totalRooms', 'totalBeds', 'occupiedBeds', 'vacantBeds', 'rate'
         ));
     }
 

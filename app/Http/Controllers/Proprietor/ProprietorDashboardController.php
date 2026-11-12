@@ -22,7 +22,7 @@ class ProprietorDashboardController extends Controller
     public function sendSms(Tenant $tenant, PaymentRiskService $risk, SmsService $sms)
     {
         abort_unless($tenant->status === 'active' && $risk->evaluate($tenant)['risk_level'] === 'high', 422, 'SMS follow-up is available only for active high-risk tenants.');
-        if (! filled($tenant->user?->contact_number)) {
+        if (! filled($tenant->contact_number)) {
             return response()->json(['message' => 'This tenant has no contact number. Update their profile first.'], 422);
         }
         $lock = Cache::lock('dashboard.sms.'.$tenant->id, 30);
@@ -30,12 +30,26 @@ class ProprietorDashboardController extends Controller
             return response()->json(['message' => 'A follow-up is already being sent. Please wait.'], 409);
         }
         try {
-            if ($tenant->smsLogs()->where('status', 'sent')->where('recipient_type', 'tenant')->whereDate('sent_at', today())->where(fn ($query) => $query->where('message', 'like', 'Payment follow-up:%')->orWhere('message', 'like', 'Your dormitory account has been flagged high risk%'))->exists()) {
-                return response()->json(['message' => 'SMS already sent today.', 'sent' => true]);
-            }
-            $sent = $sms->send($tenant->user->contact_number, 'Payment follow-up: Your dormitory account is flagged high risk due to repeated late payments. Please contact the proprietor to settle outstanding balances.', $tenant);
+            $existing = $tenant->smsLogs()->paymentFollowUpToday()->latest('id')->first();
+            $status = $existing?->status ?? $sms->send(
+                $tenant->contact_number,
+                'Payment follow-up: Your dormitory account is flagged high risk due to repeated late payments. Please contact the proprietor to settle outstanding balances.',
+                $tenant
+            )->status;
 
-            return response()->json(['message' => $sent ? 'SMS sent to the tenant.' : 'SMS could not be sent. Check your SMS configuration and try again.', 'sent' => $sent], $sent ? 200 : 502);
+            $message = match ($status) {
+                'queued' => $existing ? 'An SMS follow-up is already queued today.' : 'SMS queued in TextBee.',
+                'unknown' => 'SMS status is unconfirmed. Check TextBee history before sending again.',
+                'delivered' => 'SMS already delivered today.',
+                'sent' => $existing ? 'SMS already sent today.' : 'SMS sent to the tenant.',
+                default => 'SMS could not be sent. Check your SMS configuration and try again.',
+            };
+
+            return response()->json([
+                'message' => $message,
+                'status' => $status,
+                'sent' => in_array($status, ['sent', 'delivered'], true),
+            ], $status === 'failed' ? 502 : 200);
         } finally {
             $lock->release();
         }

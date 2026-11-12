@@ -28,11 +28,14 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $user = $request->user();
+        if ($user->isTenant() && $user->must_change_password) {
+            return redirect()->route('tenant.password.edit');
+        }
+
         return redirect()->intended(
-    auth()->user()->role === 'proprietor'
-        ? route('proprietor.dashboard')
-        : route('tenant.dashboard')
-);
+            $user->isProprietor() ? route('proprietor.dashboard') : route('tenant.dashboard')
+        );
     }
 
     /**

@@ -115,10 +115,10 @@
                 : ($mnt === $total ? 'maintenance'
                 : ($vac === 0 && $mnt === 0 ? 'full'
                 : ($occ === 0 && $mnt === 0 ? 'vacant' : 'partial')));
-            $names = $beds->map(fn ($b) => $b->currentAssignment?->tenant?->user?->name)->filter()->implode(' ');
+            $names = $beds->map(fn ($b) => $b->currentAssignment?->tenant?->name)->filter()->implode(' ');
             return (object) [
                 'room' => $room, 'total' => $total, 'occ' => $occ, 'vac' => $vac, 'state' => $state,
-                'search' => Str::lower($room->room_number . ' ' . $names),
+                'search' => Str::lower($room->displayName() . ' ' . $room->room_number . ' ' . $names),
                 'type' => $room->gender ?? $room->room_type ?? null,
             ];
         });
@@ -181,10 +181,12 @@
                         <input type="search" id="rmSearch" name="search" value="{{ $search }}" class="form-control" placeholder="Room number or tenant name">
                     </div>
                     <div class="col-6 col-md-3 col-xl-2">
-                        <label for="rmFloor">Floor</label>
-                        <select id="rmFloor" name="floor" class="form-select">
-                            <option value="">All floors</option>
-                            @foreach ($floors as $f)<option value="{{ $f }}" @selected($floor === (string) $f)>Floor {{ $f }}</option>@endforeach
+                        <label for="rmType">Room Type</label>
+                        <select id="rmType" name="type" class="form-select">
+                            <option value="">All types</option>
+                            @foreach (array_keys(config('dorm.room_types')) as $roomType)
+                                <option value="{{ $roomType }}" @selected($type === $roomType)>{{ $roomType }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-6 col-md-3 col-xl-3">
@@ -227,12 +229,12 @@
                 @foreach ($vm as $v)
                     @php $room = $v->room; @endphp
                     <div class="col-md-6 col-xl-4 rm-item" id="room-{{ $room->id }}"
-                         data-floor="{{ $room->floor }}" data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
+                         data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
                         <article class="rm-card">
                             <div class="rm-card-head d-flex justify-content-between align-items-start gap-2">
                                 <div>
-                                    <h2 class="rm-room">Room {{ $room->room_number }}</h2>
-                                    <div class="rm-meta">Floor {{ $room->floor }} &middot; PHP {{ number_format((float) $room->monthly_rate, 2) }} per month</div>
+                                    <h2 class="rm-room">{{ $room->displayName() }}</h2>
+                                    <div class="rm-meta">PHP {{ number_format((float) $room->monthly_rate, 2) }} per month</div>
                                 </div>
                                 <span class="rm-pill st-{{ $v->state }}">{{ $stateLabels[$v->state] }}</span>
                             </div>
@@ -248,11 +250,11 @@
                                         $cls = in_array($bed->status, ['available', 'occupied']) ? $bed->status : 'other';
                                     @endphp
                                     <div class="rm-bed">
-                                        <div class="rm-bed-label">{{ $bed->bed_label }}</div>
+                                        <div class="rm-bed-label">{{ $bed->locationLabel() }}</div>
                                         <div class="rm-bed-who">
                                             @if ($tenant)
-                                                <span class="rm-avatar" aria-hidden="true">{{ $initials($tenant->user->name) }}</span>
-                                                <span class="n">{{ $tenant->user->name }}</span>
+                                                <span class="rm-avatar" aria-hidden="true">{{ $initials($tenant->name) }}</span>
+                                                <span class="n">{{ $tenant->name }}</span>
                                         @elseif ($bed->status === 'available')
                                                 <span class="rm-avatar is-free" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
                                                 <span class="rm-bed-free">Vacant</span>
@@ -274,7 +276,7 @@
                                             <form method="POST" action="{{ route('proprietor.beds.status.update', $bed) }}" class="d-flex align-items-center gap-1">
                                                 @csrf
                                                 @method('PATCH')
-                                                <select class="form-select form-select-sm" name="status" aria-label="Status for {{ $bed->bed_label }} in Room {{ $room->room_number }}">
+                                                <select class="form-select form-select-sm" name="status" aria-label="Status for {{ $bed->locationLabel() }}">
                                                     <option value="available" @selected($bed->status === 'available')>Available</option>
                                                     <option value="maintenance" @selected($bed->status === 'maintenance')>Maintenance</option>
                                                 </select>
@@ -306,7 +308,6 @@
                         <thead>
                             <tr>
                                 <th scope="col">Room</th>
-                                <th scope="col">Floor</th>
                                 <th scope="col">Capacity</th>
                                 <th scope="col">Occupied beds</th>
                                 <th scope="col">Monthly rate</th>
@@ -317,9 +318,8 @@
                         <tbody>
                             @foreach ($vm as $v)
                                 @php $room = $v->room; @endphp
-                                <tr class="rm-item" data-floor="{{ $room->floor }}" data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
-                                    <td class="fw-semibold">Room {{ $room->room_number }}</td>
-                                    <td>{{ $room->floor }}</td>
+                                <tr class="rm-item" data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
+                                    <td class="fw-semibold">{{ $room->displayName() }}</td>
                                     <td>{{ $room->capacity }}</td>
                                     <td>{{ $v->occ }} / {{ $room->capacity }}</td>
                                     <td>PHP {{ number_format((float) $room->monthly_rate, 2) }}</td>
@@ -353,7 +353,7 @@
                             @csrf
                             <input type="hidden" name="bed_id" value="{{ $bed->id }}">
                             <div class="modal-header">
-                                <h2 class="modal-title h5 fw-semibold" id="assignBedModalLabel{{ $bed->id }}">Assign {{ $bed->bed_label }} in Room {{ $v->room->room_number }}</h2>
+                                <h2 class="modal-title h5 fw-semibold" id="assignBedModalLabel{{ $bed->id }}">Assign {{ $bed->locationLabel() }}</h2>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
@@ -364,7 +364,7 @@
                                     <select class="form-select" id="tenant_id_{{ $bed->id }}" name="tenant_id" required>
                                         <option value="">Select tenant</option>
                                         @foreach ($availableTenants as $tenant)
-                                            <option value="{{ $tenant->id }}">{{ $tenant->user->name }} - {{ $tenant->user->email }}</option>
+                                            <option value="{{ $tenant->id }}">{{ $tenant->name }} - {{ $tenant->email }}</option>
                                         @endforeach
                                     </select>
                                 @endif
@@ -405,12 +405,11 @@
             try { saved = localStorage.getItem('rm-view'); } catch (e) {}
             setView(saved === 'table' ? 'table' : 'grid');
 
-            var f = { q: $('rmSearch'), floor: $('rmFloor'), state: $('rmState'), type: $('rmType') };
+            var f = { q: $('rmSearch'), state: $('rmState'), type: $('rmType') };
             function apply() {
                 var q = f.q.value.trim().toLowerCase(), shown = 0;
                 items.forEach(function (el) {
                     var ok = (!q || el.dataset.search.indexOf(q) > -1)
-                        && (!f.floor.value || el.dataset.floor === f.floor.value)
                         && (!f.state.value || el.dataset.state === f.state.value)
                         && (!f.type || !f.type.value || el.dataset.type === f.type.value);
                     el.hidden = !ok;
@@ -419,7 +418,7 @@
                 $('rmCount').textContent = 'Showing ' + shown + ' of ' + rooms + ' rooms';
                 noMatch.hidden = shown !== 0;
             }
-            [f.q, f.floor, f.state, f.type].forEach(function (el) {
+            [f.q, f.state, f.type].forEach(function (el) {
                 if (el) { el.addEventListener('input', apply); el.addEventListener('change', apply); }
             });
             // Put the cursor in the tenant list when an assign modal opens

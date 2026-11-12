@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class ProfileController extends Controller
 {
-    public function show()
+    public function show(Request $request): Response
     {
-        $tenant = auth()->user()
-            ->tenant()
-            ->with(['currentAssignment.bed.room'])
-            ->firstOrFail();
+        $user = $request->user();
+        $tenant = $user->tenant()->with('currentAssignment.bed.room')->first();
+        $tenant?->setRelation('user', $user);
 
-        return view('tenant.profile', compact('tenant'));
+        return response()->view('tenant.profile', compact('tenant'))
+            ->header('Cache-Control', 'private, no-store');
     }
 }

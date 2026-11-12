@@ -7,12 +7,13 @@ use App\Http\Requests\StoreTenantRequest;
 use App\Http\Requests\UpdateTenantRequest;
 use App\Models\Tenant;
 use App\Services\TenantManagementService;
-use App\Models\Bed;
+use App\Services\RoomAvailability;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class TenantController extends Controller
 {
-    public function __construct(private readonly TenantManagementService $tenantService)
+    public function __construct(private readonly TenantManagementService $tenantService, private readonly RoomAvailability $rooms)
     {
     }
 
@@ -21,20 +22,25 @@ class TenantController extends Controller
         $search = trim((string) $request->query('search', ''));
         $status = $request->query('status', '');
 
-        $query = Tenant::query()->with(['user', 'currentAssignment.bed.room']);
+        $query = Tenant::query()->with(['user', 'currentAssignment.bed.room', 'consentRecorder']);
 
         if ($search !== '') {
-            $query->where(function ($tenantQuery) use ($search) {
+            $hasContactProfile = Schema::hasColumn('tenants', 'email');
+            $query->where(function ($tenantQuery) use ($search, $hasContactProfile) {
                 $tenantQuery->whereHas('user', function ($userQuery) use ($search) {
                     $userQuery->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('contact_number', 'like', "%{$search}%");
-                })->orWhere('emergency_contact_name', 'like', "%{$search}%")
+                })->when($hasContactProfile, fn ($query) => $query
+                    ->orWhere('tenants.name', 'like', "%{$search}%")
+                    ->orWhere('tenants.email', 'like', "%{$search}%")
+                    ->orWhere('tenants.contact_number', 'like', "%{$search}%"))
+                    ->orWhere('emergency_contact_name', 'like', "%{$search}%")
                     ->orWhere('emergency_contact_number', 'like', "%{$search}%");
             });
         }
 
-        if (in_array($status, ['active', 'inactive'], true)) {
+        if (is_string($status) && isset(Tenant::STATUS_LABELS[$status])) {
             $query->where('status', $status);
         } else {
             $status = '';
@@ -55,52 +61,39 @@ class TenantController extends Controller
     }
 
     public function create()
-{
-    $availableBeds = Bed::with('room')
-        ->where('status', 'available')
-        ->get()
-        ->sortBy(fn ($bed) => $bed->room->room_number . $bed->bed_label);
-
-    return view('proprietor.tenants.create', compact('availableBeds'));
-}
+    {
+        return view('proprietor.tenants.create', ['roomAvailability' => $this->rooms->forTenant()]);
+    }
 
     public function store(StoreTenantRequest $request)
-{
-    $result = $this->tenantService->create($request->validated());
-
-    return redirect()
-        ->route('proprietor.tenants.index')
-        ->with('success', 'Tenant created successfully.')
-        ->with('temp_password', $result['temp_password'])
-        ->with('temp_password_email', $result['tenant']->user->email);
-}
-    public function edit(Tenant $tenant)
-{
-    $tenant->load(['user', 'currentAssignment.bed.room']);
-
-    $currentBedId = $tenant->currentAssignment?->bed_id;
-
-    $availableBeds = Bed::with('room')
-        ->where(function ($query) use ($currentBedId) {
-            $query->where('status', 'available');
-
-            if ($currentBedId) {
-                $query->orWhere('id', $currentBedId);
-            }
-        })
-        ->get()
-        ->sortBy(fn ($bed) => $bed->room->room_number . $bed->bed_label);
-
-    return view('proprietor.tenants.edit', compact('tenant', 'availableBeds'));
-}
-
-    public function update(UpdateTenantRequest $request, Tenant $tenant)
     {
-        $this->tenantService->update($tenant, $request->validated());
+        $tenant = $this->tenantService->create($request->validated(), $request->user()->id);
 
         return redirect()
             ->route('proprietor.tenants.index')
-            ->with('success', 'Tenant updated successfully.');
+            ->with($tenant->user_id ? 'success' : 'notice', $tenant->user_id
+                ? 'Tenant created successfully.'
+                : 'Tenant saved. A login with this email already exists, so no new account was created.');
+    }
+
+    public function edit(Tenant $tenant)
+    {
+        $tenant->load(['user', 'currentAssignment.bed.room']);
+        return view('proprietor.tenants.edit', [
+            'tenant' => $tenant,
+            'roomAvailability' => $this->rooms->forTenant($tenant),
+        ]);
+    }
+
+    public function update(UpdateTenantRequest $request, Tenant $tenant)
+    {
+        $loginEmailSkipped = $this->tenantService->update($tenant, $request->validated(), $request->user()->id);
+
+        return redirect()
+            ->route('proprietor.tenants.index')
+            ->with($loginEmailSkipped ? 'notice' : 'success', $loginEmailSkipped
+                ? 'Tenant saved. The login email was kept because another account already uses that email.'
+                : 'Tenant updated successfully.');
     }
 
     public function destroy(Tenant $tenant)

@@ -43,7 +43,11 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
+                $clearsTemporaryPassword = $user->isTenant() && $user->must_change_password
+                    && ! Hash::check($request->password, $user->password);
+
                 $user->forceFill([
+                    ...($clearsTemporaryPassword ? ['must_change_password' => false] : []),
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();

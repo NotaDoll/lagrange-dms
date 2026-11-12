@@ -20,6 +20,6 @@
             @error('answer')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
         <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{{ route('proprietor.faqs.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        <a href="{{ route('proprietor.announcements-faqs.index', ['tab' => 'faqs']) }}" class="btn btn-outline-secondary">Cancel</a>
     </form>
 @endsection

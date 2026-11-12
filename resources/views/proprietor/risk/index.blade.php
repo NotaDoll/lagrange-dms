@@ -36,8 +36,8 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <div class="fw-semibold">{{ $tenant->user->name }}</div>
-                                    <div class="text-muted small">{{ $tenant->user->email }}</div>
+                                    <div class="fw-semibold">{{ $tenant->name }}</div>
+                                    <div class="text-muted small">{{ $tenant->email }}</div>
                                 </td>
                                 <td>
                                     <span class="badge text-bg-{{ $badgeClass }}">

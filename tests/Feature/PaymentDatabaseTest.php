@@ -15,7 +15,7 @@ class PaymentDatabaseTest extends TestCase
     public function test_recording_and_settling_a_charge_updates_ledger_and_report_without_duplication(): void
     {
         $this->travelTo(now()->setDate(2026, 10, 19));
-        $tenant = Tenant::create(['user_id' => User::factory()->create()->id]);
+        $tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => '2026-10-01']);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
         $this->post(route('proprietor.payments.store'), [
             'tenant_id' => $tenant->id, 'amount' => 2500, 'due_date' => '2026-10-01', 'status' => 'pending',
@@ -36,7 +36,7 @@ class PaymentDatabaseTest extends TestCase
 
     public function test_paid_entries_require_real_payment_date_and_unpaid_entries_cannot_have_one(): void
     {
-        $tenant = Tenant::create(['user_id' => User::factory()->create()->id]);
+        $tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => today()->toDateString()]);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
         $entry = ['tenant_id' => $tenant->id, 'amount' => 2000, 'due_date' => today()->toDateString(), 'status' => 'paid'];
         $this->post(route('proprietor.payments.store'), $entry)->assertSessionHasErrors('paid_date');

@@ -35,7 +35,7 @@
                             <details class="small mt-2"><summary>{{ $bill->payments->count() }} tenant shares</summary>
                                 <ul class="list-unstyled mt-2 mb-0">
                                     @forelse ($bill->payments as $share)
-                                        <li class="py-1">{{ $share->tenant->user->name }} — ₱{{ number_format((float) $share->amount, 2) }} <span class="badge text-bg-{{ $share->status === 'paid' ? 'success' : 'secondary' }}">{{ ucfirst($share->status) }}</span> @if ($share->status !== 'paid')<a href="{{ route('proprietor.payments.index', ['tenant_id' => $share->tenant_id]) }}">Record collection</a>@endif</li>
+                                        <li class="py-1">{{ $share->tenant->name }} — ₱{{ number_format((float) $share->amount, 2) }} <span class="badge text-bg-{{ $share->status === 'paid' ? 'success' : 'secondary' }}">{{ ucfirst($share->status) }}</span> @if ($share->status !== 'paid')<a href="{{ route('proprietor.payments.index', ['tenant_id' => $share->tenant_id]) }}">Record collection</a>@endif</li>
                                     @empty
                                         <li class="text-muted">No shares allocated. Edit and save this bill to allocate it.</li>
                                     @endforelse

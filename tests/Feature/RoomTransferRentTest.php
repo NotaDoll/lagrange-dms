@@ -42,7 +42,7 @@ class RoomTransferRentTest extends TestCase
 
     public function test_current_rent_updates_immediately_but_previous_months_keep_old_rent(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 19));
+        $this->travelTo(now()->setDate(2026, 10, 19)->setTime(12, 0));
         $tenant = $this->tenant($this->bed('OLD', 1300));
         $new = $this->bed('NEW', 1500);
         $service = app(TenantBalanceService::class);
@@ -53,35 +53,35 @@ class RoomTransferRentTest extends TestCase
             $this->get(route($route))->assertOk()->assertSee('1,500.00')
                 ->assertViewHas('rentTerms', fn ($terms) => $terms['room'] === 'NEW' && $terms['monthly_rate'] === 1500.0
                     && $terms['effective_from']->toDateString() === '2026-10-19')
-                ->assertViewHas('outstandingBalance', 2600.0);
+                ->assertViewHas('outstandingBalance', 2222.58);
         }
-        $this->travelTo(now()->setDate(2026, 10, 31));
-        $this->assertSame(4100.0, $service->summary($tenant->fresh())['outstanding_balance']);
+        $this->travelTo(now()->setDate(2026, 10, 31)->setTime(12, 0));
+        $this->assertSame(3722.58, $service->summary($tenant->fresh())['outstanding_balance']);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']))
-            ->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 4100.0);
+            ->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 3722.58);
     }
 
     public function test_latest_transfer_wins_when_multiple_assignments_start_on_the_same_day(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 31));
+        $this->travelTo(now()->setDate(2026, 10, 31)->setTime(12, 0));
         $tenant = $this->tenant($this->bed('OLD', 1300));
         $this->transfer($tenant, $this->bed('FIRST', 1500));
         $this->transfer($tenant, $this->bed('LATEST', 1800));
         $service = app(TenantBalanceService::class);
         $this->assertSame(1800.0, $service->currentRent($tenant)['monthly_rate']);
-        $this->assertSame(4400.0, $service->summary($tenant->fresh())['outstanding_balance']);
+        $this->assertSame(4022.58, $service->summary($tenant->fresh())['outstanding_balance']);
         $this->actingAs($tenant->user)->get(route('tenant.payments.index'))->assertOk()
             ->assertViewHas('rentTerms', fn ($terms) => $terms['room'] === 'LATEST')
-            ->assertViewHas('outstandingBalance', 4400.0);
+            ->assertViewHas('outstandingBalance', 4022.58);
     }
 
     public function test_unassigned_tenant_retains_existing_debt_without_showing_an_active_rent(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 19));
+        $this->travelTo(now()->setDate(2026, 10, 19)->setTime(12, 0));
         $tenant = $this->tenant($this->bed('OLD', 1300));
         $this->transfer($tenant, null);
         $this->actingAs($tenant->user)->get(route('tenant.dashboard'))->assertOk()
             ->assertSee('No room is currently assigned.')
-            ->assertViewHas('rentTerms', null)->assertViewHas('outstandingBalance', 2600.0);
+            ->assertViewHas('rentTerms', null)->assertViewHas('outstandingBalance', 2222.58);
     }
 }

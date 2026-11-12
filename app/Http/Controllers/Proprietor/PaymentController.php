@@ -21,7 +21,7 @@ class PaymentController extends Controller
     {
         $tenantId = $request->query('tenant_id');
         $status = $request->query('status');
-        $payments = Payment::with(['tenant.user', 'utilityBill.room'])
+        $payments = Payment::with(['tenant.user', 'tenant.currentAssignment.bed.room', 'utilityBill.room'])
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
             ->when($status, fn ($query) => $query->where('status', $status))
             ->latest('due_date')
@@ -29,10 +29,7 @@ class PaymentController extends Controller
             ->withQueryString();
 
         $tenants = Tenant::with('user')
-            ->join('users', 'tenants.user_id', '=', 'users.id')
-            ->orderBy('users.name')
-            ->select('tenants.*')
-            ->get();
+            ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('proprietor.payments.index', compact('payments', 'tenants', 'tenantId', 'status'));
     }
@@ -40,10 +37,7 @@ class PaymentController extends Controller
     public function create()
     {
         $tenants = Tenant::with('user')
-            ->join('users', 'tenants.user_id', '=', 'users.id')
-            ->orderBy('users.name')
-            ->select('tenants.*')
-            ->get();
+            ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('proprietor.payments.create', compact('tenants'));
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAnnouncementRequest;
 use App\Http\Requests\UpdateAnnouncementRequest;
 use App\Models\Announcement;
+use Illuminate\Http\Request;
 use App\Models\Tenant;
 use App\Services\NotificationService;
 
@@ -15,13 +16,12 @@ class AnnouncementController extends Controller
     {
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $announcements = Announcement::with('creator')
-            ->latest()
-            ->paginate(10);
-
-        return view('proprietor.announcements.index', compact('announcements'));
+        return redirect()->route('proprietor.announcements-faqs.index', [
+            ...$request->query(),
+            'tab' => 'announcements',
+        ]);
     }
 
     public function create()
@@ -48,7 +48,7 @@ class AnnouncementController extends Controller
             });
 
         return redirect()
-            ->route('proprietor.announcements.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'announcements'])
             ->with('success', 'Announcement created successfully.');
     }
 
@@ -62,7 +62,7 @@ class AnnouncementController extends Controller
         $announcement->update($request->validated());
 
         return redirect()
-            ->route('proprietor.announcements.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'announcements'])
             ->with('success', 'Announcement updated successfully.');
     }
 
@@ -71,7 +71,7 @@ class AnnouncementController extends Controller
         $announcement->delete();
 
         return redirect()
-            ->route('proprietor.announcements.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'announcements'])
             ->with('success', 'Announcement deleted successfully.');
     }
 }

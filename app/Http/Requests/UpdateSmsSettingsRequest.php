@@ -13,6 +13,13 @@ class UpdateSmsSettingsRequest extends FormRequest
 
     public function rules(): array
     {
+        if (config('services.sms_provider') === 'textbee') {
+            return [
+                'device_id' => ['nullable', 'string', 'max:100', 'alpha_dash:ascii'],
+                'sim_subscription_id' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            ];
+        }
+
         return [
             'api_key' => ['nullable', 'string', 'max:255'],
             'sender_name' => ['nullable', 'string', 'max:50'],

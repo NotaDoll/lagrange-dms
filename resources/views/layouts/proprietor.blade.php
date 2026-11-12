@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') — La Grange DMS</title>
+    <script>
+        try {
+            if (localStorage.getItem('proprietor-sidebar-collapsed') === 'true') {
+                document.documentElement.classList.add('proprietor-sidebar-collapsed');
+            }
+        } catch (error) {}
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @include('partials.theme')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -20,101 +27,109 @@
             color: var(--theme-text-dark);
         }
 
-        .sidebar {
-            width: 300px;
-            min-height: 100vh;
-            background: #ffffff;
+        .proprietor-sidebar {
+            --bs-offcanvas-width: min(300px, 100vw);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            padding: clamp(.5rem, 1.8vh, 1rem) 1rem;
+            background-color: #fff !important;
             border-right: 1px solid #f0f0f0;
             box-shadow: 4px 0 18px rgba(94, 16, 73, 0.05);
-            padding: 22px 18px;
+        }
+
+        .proprietor-sidebar > * { flex-shrink: 0; }
+
+        .proprietor-sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            margin-bottom: clamp(.5rem, 1.5vh, .9rem);
         }
 
         .proprietor-logo-link {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 0 24px;
-            margin-bottom: 10px;
-            text-decoration: none;
+            flex: 1;
+            min-width: 0;
+            min-height: 40px;
         }
 
         .proprietor-logo {
-            height: 54px;
+            max-height: 54px;
+            max-width: 100%;
             width: auto;
-            display: block;
+            height: auto;
+            object-fit: contain;
         }
 
-        .sidebar .nav-link {
-            white-space: nowrap;
-            line-height: 1.5;
-            color: #9ca3af;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: 400;
-            padding: 11px 12px;
-            margin-bottom: 6px;
-            transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-        } 
-
-        
-        .sidebar .nav-link:hover {
-            color: #1a1a1a;
-            background-color:var(--theme-pink-light);
-        }
-
-        .sidebar .nav-link.active {
-            color: #fffeff;
-            font-weight: 600;
-            background-color: #5e1049;
-            box-shadow: inset 0 0 0 1px rgba(192, 36, 159, 0.12);
-        }
-
-        .proprietor-sidebar-footer {
-            border-top: 1px solid #f0f0f0;
-            padding-top: 16px;
-            margin-top: 18px;
-        }
-
-        .proprietor-notification-link {
+        .proprietor-sidebar .nav-link {
             position: relative;
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            width: 38px;
-            height: 38px;
+            gap: .65rem;
+            white-space: nowrap;
+            line-height: 1.35;
             color: #6b7280;
-            border-radius: 50%;
-            text-decoration: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            padding: clamp(.25rem, .95vh, .55rem) .75rem;
+            margin-bottom: .2rem;
+            transition: color .2s ease, background-color .2s ease;
         }
 
-        .proprietor-notification-link:hover {
-            color: var(--theme-plum);
+        .proprietor-sidebar .nav-link > .bi { flex-shrink: 0; font-size: 1.1rem; }
+
+        .proprietor-sidebar .nav-link:hover {
+            color: #1a1a1a;
             background: var(--theme-pink-light);
         }
 
-        .proprietor-notification-link svg {
-            width: 22px;
-            height: 22px;
-            fill: currentColor;
+        .proprietor-sidebar .nav-link.active {
+            color: #fffeff;
+            font-weight: 600;
+            background: var(--theme-plum);
+            box-shadow: inset 0 0 0 1px rgba(192, 36, 159, 0.12);
         }
 
-        #notif-badge {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            background-color: #dc2626;
-            color: #fff;
-            font-size: 0.55rem;
+        .proprietor-sidebar-heading {
+            color: #6b7280;
+            font-size: .75rem;
+            font-weight: 600;
+            margin: .45rem .75rem .25rem;
+        }
+
+        .proprietor-unread-badge {
+            display: grid;
+            place-items: center;
+            margin-left: auto;
+            min-width: 1.45rem;
+            min-height: 1.35rem;
+            padding: 0 .24rem;
+            border-radius: .35rem;
+            background: #eee2f8;
+            color: #3b174c;
+            font-size: .7rem;
             font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 999px;
-            border: 2px solid #fff;
             line-height: 1;
-            min-width: 16px;
-            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .proprietor-sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid #f0f0f0;
+            padding-top: clamp(.35rem, 1vh, .75rem);
         }
 
         .proprietor-logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            width: 100%;
             border: 1px solid var(--theme-plum);
             color: var(--theme-plum);
             border-radius: 999px;
@@ -156,42 +171,15 @@
             color: var(--theme-plum);
             border-radius: 999px;
             font-weight: 700;
-            padding: 6px 14px;
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 auto;
+            padding: .3rem .55rem;
         }
 
         .proprietor-menu-btn:hover {
             background: var(--theme-pink-light);
             color: var(--theme-plum);
-        }
-
-        .proprietor-offcanvas {
-            background: #ffffff;
-            color: var(--theme-text-dark);
-        }
-
-        .proprietor-offcanvas .offcanvas-header {
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .proprietor-offcanvas .offcanvas-title img {
-            height: 42px;
-            width: auto;
-        }
-
-        .proprietor-offcanvas .nav-link {
-            color: #9ca3af;
-            border-radius: 999px;
-            font-size: 1rem;
-            font-weight: 500;
-            padding: 11px 18px;
-            margin-bottom: 6px;
-        }
-
-        .proprietor-offcanvas .nav-link.active,
-        .proprietor-offcanvas .nav-link:hover {
-            color: var(--theme-plum);
-            background: var(--theme-pink-light);
-            font-weight: 700;
         }
 
         .btn-primary {
@@ -267,34 +255,69 @@
             .card-body { padding: 1rem; }
             .table { min-width: 640px; }
         }
-        @media screen and (min-width: 992px) {
-            .sidebar {
+        @media (min-width: 768px) {
+            :root { --proprietor-sidebar-width: 300px; }
+            :root.proprietor-sidebar-collapsed { --proprietor-sidebar-width: 72px; }
+
+            .proprietor-sidebar {
                 position: fixed;
                 inset: 0 auto 0 0;
                 z-index: 1030;
-                width: 300px;
-                min-width: 300px;
-                max-width: 300px;
-                height: 100vh;
-                overflow-y: auto;
-                overflow-x: hidden;
-                scrollbar-gutter: stable;
-                overscroll-behavior-y: contain;
+                width: var(--proprietor-sidebar-width);
+                transition: width .2s ease, padding .2s ease;
             }
-            .sidebar > * { flex-shrink: 0; }
+
             .proprietor-content {
                 min-width: 0;
-                width: calc(100% - 300px);
-                margin-left: 300px;
+                width: calc(100% - var(--proprietor-sidebar-width));
+                margin-left: var(--proprietor-sidebar-width);
+                transition: width .2s ease, margin-left .2s ease;
+            }
+
+            .proprietor-sidebar-collapsed .proprietor-sidebar { padding-inline: .5rem; }
+            .proprietor-sidebar-collapsed .proprietor-sidebar-header { justify-content: center; }
+            .proprietor-sidebar-collapsed .proprietor-logo-link,
+            .proprietor-sidebar-collapsed .proprietor-sidebar-label { display: none; }
+
+            .proprietor-sidebar-collapsed .proprietor-sidebar .nav-link {
+                justify-content: center;
+                padding-inline: 0;
+            }
+
+            .proprietor-sidebar-collapsed .proprietor-sidebar-heading {
+                margin: .4rem .25rem;
+                border-top: 1px solid #e7dce5;
+                font-size: 0;
+            }
+
+            .proprietor-sidebar-collapsed .proprietor-logout-btn { padding-inline: 0; }
+            .proprietor-sidebar-collapsed .proprietor-unread-badge {
+                position: absolute;
+                inset: 0 .15rem auto auto;
+                min-width: 1rem;
+                min-height: 1rem;
+                font-size: .59rem;
             }
         }
+
+        @media (max-height: 600px) {
+            .proprietor-sidebar .nav-link { font-size: .9rem; padding-block: .22rem; margin-bottom: .1rem; }
+            .proprietor-sidebar-header { margin-bottom: .35rem; }
+            .proprietor-sidebar-heading { margin-block: .2rem; }
+            .proprietor-logout-btn { padding-block: .35rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .proprietor-sidebar, .proprietor-content { transition: none; }
+        }
+
         .proprietor-main { min-width: 0; }
         .table-responsive { -webkit-overflow-scrolling: touch; }
     </style>
 </head>
 <body>
     <div class="d-flex">
-        <x-navbar variant="proprietor-sidebar" />
+        <x-navbar variant="proprietor-sidebar" :unread-complaint-count="$unreadComplaintCount" />
 
         <!-- Main content -->
         <div class="flex-grow-1 proprietor-content">
@@ -310,52 +333,83 @@
     </div>
 
     <script>
-    (() => {
-        const sidebar = document.querySelector('.sidebar');
-        if (!sidebar) return;
-        const key = 'proprietorSidebarScrollTop';
-        try {
-            if (window.matchMedia('(min-width: 992px)').matches) {
-                sidebar.scrollTop = Number(sessionStorage.getItem(key)) || 0;
-            }
-        } catch (_) {}
-        sidebar.addEventListener('scroll', () => {
-            if (!window.matchMedia('(min-width: 992px)').matches) return;
-            try { sessionStorage.setItem(key, String(sidebar.scrollTop)); } catch (_) {}
-        }, { passive: true });
-    })();
-    function clearNotificationBadge() {
-        const badge = document.getElementById('notif-badge');
-        if (badge) {
-            badge.style.display = 'none';
-            badge.textContent = '0';
-        }
-    }
+        (() => {
+            const complaintsLink = document.getElementById('proprietorComplaintsLink');
 
-    async function pollNotifications() {
-        try {
-            const res = await fetch("{{ route('notifications.unread-count') }}");
-            const data = await res.json();
-            const badge = document.getElementById('notif-badge');
-            if (data.count > 0 && !window.location.pathname.includes('/notifications')) {
-                badge.textContent = data.count;
-                badge.style.display = 'inline-block';
-            } else {
-                badge.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        }
-    }
+            document.addEventListener('complaint:read', () => {
+                const count = Math.max(0, Number(complaintsLink.dataset.unreadCount) - 1);
+                const badge = complaintsLink.querySelector('.proprietor-unread-badge');
+                complaintsLink.dataset.unreadCount = count;
+                complaintsLink.setAttribute('aria-label', count ? 'Complaints, ' + count + ' unread' : 'Complaints');
 
-    document.addEventListener('DOMContentLoaded', function() {
-        if (window.location.pathname.includes('/notifications')) {
-            clearNotificationBadge();
-        }
-    });
+                if (count === 0) {
+                    badge?.remove();
+                } else if (badge) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                }
+            });
 
-    pollNotifications();
-    setInterval(pollNotifications, 15000);
+            document.addEventListener('DOMContentLoaded', () => {
+                const root = document.documentElement;
+                const sidebar = document.getElementById('proprietorSidebar');
+                const sidebarToggle = document.getElementById('proprietorSidebarToggle');
+                const toggleIcon = document.getElementById('proprietorSidebarToggleIcon');
+                const mobileToggle = document.getElementById('proprietorMobileToggle');
+                const desktop = window.matchMedia('(min-width: 768px)');
+                const collapsedClass = 'proprietor-sidebar-collapsed';
+                const drawer = window.bootstrap?.Offcanvas;
+                const tooltip = window.bootstrap?.Tooltip;
+                const tooltipTargets = sidebar.querySelectorAll('[data-bs-title]');
+
+                function syncSidebar() {
+                    const collapsed = root.classList.contains(collapsedClass);
+                    const expanded = desktop.matches ? !collapsed : sidebar.classList.contains('show');
+                    sidebarToggle.setAttribute('aria-expanded', String(expanded));
+                    sidebarToggle.setAttribute('aria-label', desktop.matches
+                        ? (collapsed ? 'Expand sidebar' : 'Collapse sidebar')
+                        : 'Close navigation');
+                    toggleIcon.className = 'bi ' + (desktop.matches
+                        ? (collapsed ? 'bi-chevron-bar-right' : 'bi-chevron-bar-left')
+                        : 'bi-x-lg');
+
+                    tooltipTargets.forEach(target => {
+                        if (desktop.matches && collapsed) {
+                            tooltip?.getOrCreateInstance(target, { placement: 'right', container: 'body' });
+                        } else {
+                            tooltip?.getInstance(target)?.dispose();
+                        }
+                    });
+                }
+
+                function toggleSidebar() {
+                    if (desktop.matches) {
+                        const collapsed = root.classList.toggle(collapsedClass);
+                        try { localStorage.setItem(collapsedClass, String(collapsed)); } catch (error) {}
+                        syncSidebar();
+                    } else {
+                        drawer?.getOrCreateInstance(sidebar).toggle(mobileToggle);
+                    }
+                }
+
+                sidebarToggle.addEventListener('click', toggleSidebar);
+                mobileToggle.addEventListener('click', toggleSidebar);
+                sidebar.addEventListener('shown.bs.offcanvas', () => {
+                    mobileToggle.setAttribute('aria-expanded', 'true');
+                    sidebarToggle.setAttribute('aria-expanded', 'true');
+                });
+                sidebar.addEventListener('hidden.bs.offcanvas', () => {
+                    mobileToggle.setAttribute('aria-expanded', 'false');
+                    syncSidebar();
+                    if (!desktop.matches) { mobileToggle.focus(); }
+                });
+                desktop.addEventListener('change', () => {
+                    if (desktop.matches) { drawer?.getInstance(sidebar)?.hide(); }
+                    syncSidebar();
+                });
+
+                syncSidebar();
+            });
+        })();
     </script>
     @stack('scripts')
 </body>

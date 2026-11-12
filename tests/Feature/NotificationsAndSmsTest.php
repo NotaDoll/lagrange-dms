@@ -41,6 +41,7 @@ class NotificationsAndSmsTest extends TestCase
         $tenant = Tenant::create([
             'user_id' => $tenantUser->id,
             'status' => 'active',
+            'move_in_date' => '2026-07-01',
         ]);
 
         $this->actingAs($proprietor)

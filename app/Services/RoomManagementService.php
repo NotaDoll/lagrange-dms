@@ -14,7 +14,7 @@ class RoomManagementService
         return DB::transaction(function () use ($validated) {
             $room = Room::create([
                 'room_number' => $validated['room_number'],
-                'floor' => $validated['floor'],
+                'floor' => 'Unspecified',
                 'capacity' => $validated['capacity'],
                 'monthly_rate' => $validated['monthly_rate'],
                 'status' => 'available',
@@ -31,7 +31,6 @@ class RoomManagementService
         return DB::transaction(function () use ($room, $validated) {
             $room->update([
                 'room_number' => $validated['room_number'],
-                'floor' => $validated['floor'],
                 'capacity' => $validated['capacity'],
                 'monthly_rate' => $validated['monthly_rate'],
             ]);
@@ -79,11 +78,14 @@ class RoomManagementService
         $beds = $room->beds()->orderBy('id')->get();
 
         if ($capacity > $beds->count()) {
-            for ($number = $beds->count() + 1; $number <= $capacity; $number++) {
-                $room->beds()->create([
-                    'bed_label' => 'Bed ' . chr(64 + $number),
-                    'status' => 'available',
-                ]);
+            $labels = $beds->map(fn (Bed $bed) => Bed::normalizeLabel($bed->bed_label))->flip();
+            $missing = $capacity - $beds->count();
+            for ($position = 1; $missing > 0; $position++) {
+                $label = Bed::letterLabel($position);
+                if (! $labels->has($label)) {
+                    $room->beds()->create(['bed_label' => $label, 'status' => 'available']);
+                    $missing--;
+                }
             }
 
             return;

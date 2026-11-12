@@ -15,20 +15,35 @@ class TenantBalanceService
     public function billingEntries(Tenant $tenant, string $dateFrom, string $dateTo): Collection
     {
         $tenant->loadMissing(['roomAssignments.bed.room', 'payments']);
-        $entries = collect($tenant->payments->all());
-        $firstMonth = Carbon::parse(self::CLASS_START_DATE)->startOfMonth();
-        if ($tenant->move_in_date && $tenant->move_in_date->gt($firstMonth)) {
-            $firstMonth = $tenant->move_in_date->copy()->startOfMonth();
+        $from = Carbon::parse($dateFrom);
+        $to = Carbon::parse($dateTo);
+        $entries = $tenant->payments->filter(fn ($entry) => $entry->due_date->betweenIncluded($from, $to))->values();
+
+        if (! $tenant->hasMovedIn()) {
+            return $entries;
         }
-        $firstMonth = $firstMonth->max(Carbon::parse($dateFrom)->startOfMonth());
-        $lastDate = Carbon::parse($dateTo)->min(today());
+
+        $moveIn = $tenant->actualMoveInDate();
+        $today = Carbon::parse(Tenant::localDate());
+        $firstMonth = Carbon::parse(self::CLASS_START_DATE)->startOfMonth()
+            ->max($from->copy()->startOfMonth());
+        if ($moveIn) {
+            $firstMonth = $firstMonth->max($moveIn->copy()->startOfMonth());
+        }
+
+        $lastDate = $to->min($today);
         for ($month = $firstMonth->copy(); $month->copy()->endOfMonth()->startOfDay()->lte($lastDate); $month->addMonth()) {
             $dueDate = $month->copy()->endOfMonth()->startOfDay();
+            $periodStart = $moveIn ? $month->copy()->max($moveIn) : $month;
             $assignment = $tenant->roomAssignments
                 ->filter(fn ($item) => $item->start_date->lte($dueDate->copy()->endOfDay())
-                    && (! $item->end_date || $item->end_date->gte($month)))
+                    && (! $item->end_date || ($item->end_date->gte($item->start_date) && $item->end_date->gte($periodStart))))
                 ->sort(fn ($left, $right) => [$right->start_date->getTimestamp(), $right->id] <=> [$left->start_date->getTimestamp(), $left->id])->first();
-            $rate = (float) ($assignment?->bed?->room?->monthly_rate ?? 0);
+            $rate = $assignment?->bed?->room?->monthlyRateFor($month->format('Y-m')) ?? 0;
+            if ($moveIn && $moveIn->isSameMonth($month)) {
+                $daysInMonth = $month->daysInMonth;
+                $rate = round($rate * ($daysInMonth - $moveIn->day + 1) / $daysInMonth, 2);
+            }
             $recorded = (float) $tenant->payments
                 ->filter(fn ($payment) => ! $payment->utility_bill_id && $payment->due_date->format('Y-m') === $month->format('Y-m'))->sum('amount');
             $unrecorded = round(max(0, $rate - $recorded), 2);
@@ -39,14 +54,13 @@ class TenantBalanceService
                     'amount' => $unrecorded,
                     'due_date' => $dueDate->toDateString(),
                     'paid_date' => null,
-                    'status' => $dueDate->lt(today()) ? 'overdue' : 'pending',
-                    'days_overdue' => (int) max(0, $dueDate->diffInDays(today(), false)),
+                    'status' => $dueDate->lt($today) ? 'overdue' : 'pending',
+                    'days_overdue' => (int) max(0, $dueDate->diffInDays($today, false)),
                 ]));
             }
         }
 
-        return $entries->filter(fn ($entry) => $entry->due_date->gte(Carbon::parse($dateFrom))
-            && $entry->due_date->lte(Carbon::parse($dateTo)))->values();
+        return $entries;
     }
 
     /** Reconcile accrued monthly rent with recorded ledger charges without double counting. */
@@ -57,9 +71,10 @@ class TenantBalanceService
         $start = $earliest && $earliest->lt(Carbon::parse(self::CLASS_START_DATE))
             ? $earliest->toDateString() : self::CLASS_START_DATE;
         $latestUtilityDue = $tenant->payments->whereNotNull('utility_bill_id')->max('due_date');
-        $end = $latestUtilityDue && $latestUtilityDue->gt(today()) ? $latestUtilityDue->toDateString() : today()->toDateString();
+        $today = Carbon::parse(Tenant::localDate());
+        $end = $latestUtilityDue && $latestUtilityDue->gt($today) ? $latestUtilityDue->toDateString() : $today->toDateString();
         $unpaid = $this->billingEntries($tenant, $start, $end)
-            ->filter(fn ($payment) => $payment->utility_bill_id || $payment->due_date->lte(today()))
+            ->filter(fn ($payment) => $payment->utility_bill_id || $payment->due_date->lte($today))
             ->whereIn('status', ['pending', 'overdue']);
 
         return [
@@ -71,6 +86,10 @@ class TenantBalanceService
     /** Current room terms are shown separately from debt accrued in earlier months. */
     public function currentRent(Tenant $tenant): ?array
     {
+        if (! $tenant->hasMovedIn()) {
+            return null;
+        }
+
         $assignment = $tenant->currentAssignment()->with('bed.room')
             ->orderByDesc('start_date')->orderByDesc('id')->first();
         $room = $assignment?->bed?->room;
@@ -81,9 +100,10 @@ class TenantBalanceService
         return [
             'room' => $room->room_number,
             'bed' => $assignment->bed->bed_label,
+            'location' => $assignment->bed->locationLabel(),
             'monthly_rate' => (float) $room->monthly_rate,
             'effective_from' => $assignment->start_date,
-            'due_date' => today()->endOfMonth(),
+            'due_date' => Carbon::parse(Tenant::localDate())->endOfMonth(),
         ];
     }
 

@@ -20,7 +20,7 @@ class ProprietorDashboardService
         $tenants = Tenant::with([
             'user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments',
             'riskFlags' => fn ($query) => $query->where('calculated_at', '>=', now()->subMonthsNoOverflow(5)->startOfMonth())->orderBy('calculated_at'),
-            'smsLogs' => fn ($query) => $query->where('status', 'sent')->where('recipient_type', 'tenant')->whereDate('sent_at', today())->where(fn ($query) => $query->where('message', 'like', 'Payment follow-up:%')->orWhere('message', 'like', 'Your dormitory account has been flagged high risk%')),
+            'smsLogs' => fn ($query) => $query->paymentFollowUpToday()->latest('id'),
         ])->get();
         $from = today()->startOfMonth()->toDateString();
         $to = today()->endOfMonth()->toDateString();
@@ -38,9 +38,9 @@ class ProprietorDashboardService
                 $trend->push(['label' => $month->format('M'), 'level' => $flag?->risk_level]);
             }
 
-            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend, 'sms_sent' => $tenant->smsLogs->isNotEmpty()];
+            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend, 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status];
         })->filter(fn ($row) => $row->risk_level !== 'low')
-            ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: strcasecmp($left->tenant->user->name, $right->tenant->user->name))->values();
+            ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
         $totalBeds = Bed::count();
         // These are the exact occupancy/availability predicates used by RoomController.
         $occupiedBeds = RoomAssignment::where('status', 'active')->count();

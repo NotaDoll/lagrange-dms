@@ -1,4 +1,4 @@
-@props(['variant' => 'tenant'])
+@props(['variant' => 'tenant', 'unreadComplaintCount' => 0])
 
 @php
     $user = auth()->user();
@@ -13,12 +13,10 @@
         ['label' => 'Utility Bills', 'route' => 'proprietor.utility-bills.index', 'active' => 'proprietor.utility-bills.*', 'icon' => 'bi-lightning-charge-fill'],
         ['label' => 'Complaints', 'route' => 'proprietor.complaints.index', 'active' => 'proprietor.complaints.*', 'icon' => 'bi-chat-left-text-fill'],
         [
-            'label' => 'Announcements',
+            'label' => 'Announcements / FAQs',
+            'route' => 'proprietor.announcements-faqs.index',
+            'active' => ['proprietor.announcements-faqs.index', 'proprietor.announcements.*', 'proprietor.faqs.*'],
             'icon' => 'bi-megaphone-fill',
-            'children' => [
-                ['label' => 'Announcements', 'route' => 'proprietor.announcements.index', 'active' => 'proprietor.announcements.*'],
-                ['label' => 'FAQs', 'route' => 'proprietor.faqs.index', 'active' => 'proprietor.faqs.*'],
-            ],
         ],
     ];
 
@@ -97,6 +95,12 @@
                             </li>
                             <div class="user-profile-divider"></div>
                             <li>
+                                <a href="{{ route('tenant.profile.show') }}" class="dropdown-item user-profile-action"
+                                    @if (request()->routeIs('tenant.profile.show')) aria-current="page" @endif>
+                                    <i class="bi bi-person-vcard" aria-hidden="true"></i> My Information
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('tenant.password.edit') }}" class="dropdown-item user-profile-action">
                                     <svg viewBox="0 0 24 24" aria-hidden="true">
                                         <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -154,6 +158,8 @@
             <div class="tenant-sidebar-section-label mt-4">ACCOUNT</div>
             <nav class="tenant-sidebar-links" aria-label="Account menu">
                                 <a class="tenant-sidebar-link {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" onclick="clearNotificationBadge()"><i class="bi bi-bell-fill" aria-hidden="true"></i><span>Notifications</span><span class="badge rounded-pill notif-badge">0</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.profile.show') ? 'active' : '' }}" href="{{ route('tenant.profile.show') }}"
+                    @if (request()->routeIs('tenant.profile.show')) aria-current="page" @endif><i class="bi bi-person-vcard" aria-hidden="true"></i><span>My Information</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.password.*') ? 'active' : '' }}" href="{{ route('tenant.password.edit') }}"><i class="bi bi-person-fill" aria-hidden="true"></i><span>Change password</span></a>
             </nav>
 
@@ -167,167 +173,63 @@
         </div>
     </div>
 @elseif ($variant === 'proprietor-sidebar')
-    <!-- Sidebar: visible on lg+ screens -->
-    <nav class="sidebar flex-shrink-0 d-none d-lg-flex flex-column">
-        <a href="{{ route('proprietor.dashboard') }}" class="proprietor-logo-link">
-            <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo" class="proprietor-logo">
-        </a>
-
-        <ul class="nav nav-pills flex-column mb-2">
-            @foreach ($proprietorLinks as $index => $link)
-                @if (!empty($link['children']))
-                    @php
-                        $collapseId = 'nav-collapse-' . $index;
-                        $isParentActive = collect($link['children'])->contains(fn ($child) => request()->routeIs($child['active']));
-                    @endphp
-                    <li class="nav-item">
-                        <a href="#{{ $collapseId }}"
-                           class="nav-link d-flex justify-content-between align-items-center {{ $isParentActive ? 'active' : '' }}"
-                           data-bs-toggle="collapse"
-                           role="button"
-                           aria-expanded="{{ $isParentActive ? 'true' : 'false' }}"
-                           aria-controls="{{ $collapseId }}">
-                            <span><i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}</span>
-                            <i class="bi bi-chevron-down small nav-chevron"></i>
-                        </a>
-                        <div class="collapse {{ $isParentActive ? 'show' : '' }}" id="{{ $collapseId }}">
-                            <ul class="nav nav-pills flex-column">
-                                @foreach ($link['children'] as $child)
-                                    <li class="nav-item">
-                                        <a href="{{ route($child['route']) }}" class="nav-link nav-link-sub {{ request()->routeIs($child['active']) ? 'active' : '' }}">
-                                            {{ $child['label'] }}
-                                        </a>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </li>
-                @else
-                    <li class="nav-item">
-                        <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                            <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
-                        </a>
-                    </li>
-                @endif
-            @endforeach
-        </ul>
-
-        <div class="proprietor-sidebar-heading">Reports</div>
-        <ul class="nav nav-pills flex-column mb-2">
-            @foreach ($reportLinks as $link)
-                <li class="nav-item">
-                    <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                        <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
-                    </a>
-                </li>
-            @endforeach
-        </ul>
-
-        <ul class="nav nav-pills flex-column mb-auto">
-            @foreach ($settingsLinks as $link)
-                <li class="nav-item">
-                    <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                        <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
-                    </a>
-                </li>
-            @endforeach
-        </ul>
-
-        <div class="proprietor-sidebar-footer d-flex align-items-center justify-content-between">
-            <a href="{{ route('notifications.index') }}" class="proprietor-notification-link" id="bellLink" onclick="clearNotificationBadge()">
-                <svg viewBox="0 0 0.72 0.72" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.444 0.595a0.023 0.023 0 0 1 0.022 0.034 0.093 0.093 0 0 1 -0.025 0.029c-0.011 0.008 -0.023 0.014 -0.036 0.019s-0.027 0.006 -0.041 0.006 -0.028 -0.002 -0.041 -0.006 -0.025 -0.01 -0.036 -0.019a0.093 0.093 0 0 1 -0.025 -0.029 0.023 0.023 0 0 1 0.022 -0.034c0.006 0.001 0.051 0.005 0.08 0.005s0.075 -0.004 0.08 -0.005M0.256 0.063a0.259 0.259 0 0 1 0.216 -0.003l0.006 0.003c0.072 0.032 0.118 0.102 0.118 0.178v0.038c0 0.03 0.007 0.061 0.02 0.088l0.008 0.017c0.037 0.076 -0.011 0.164 -0.097 0.18l-0.005 0.001a0.915 0.915 0 0 1 -0.32 0c-0.087 -0.015 -0.132 -0.108 -0.091 -0.182l0.007 -0.012A0.198 0.198 0 0 0 0.146 0.272V0.234C0.146 0.161 0.188 0.095 0.256 0.063" fill-rule="evenodd" clip-rule="evenodd"/></svg>
-                <span class="badge" id="notif-badge" style="display:none">0</span>
+    <aside class="offcanvas-md offcanvas-start proprietor-sidebar" id="proprietorSidebar" tabindex="-1" aria-label="Proprietor navigation">
+        <div class="proprietor-sidebar-header">
+            <a href="{{ route('proprietor.dashboard') }}" class="proprietor-logo-link" aria-label="La Grange dashboard">
+                <img src="{{ asset('images/lg-logo.png') }}" alt="" class="proprietor-logo">
             </a>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="proprietor-logout-btn">Logout</button>
-            </form>
+            <button class="btn proprietor-menu-btn" type="button" id="proprietorSidebarToggle"
+                aria-label="Collapse sidebar" aria-expanded="true" aria-controls="proprietorSidebar">
+                <i class="bi bi-chevron-bar-left" id="proprietorSidebarToggleIcon" aria-hidden="true"></i>
+            </button>
         </div>
-    </nav>
 
-    <!-- Offcanvas sidebar: mobile only -->
-    <div class="offcanvas offcanvas-start proprietor-offcanvas d-lg-none" tabindex="-1" id="sidebarOffcanvas">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title">
-                <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo">
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body d-flex flex-column">
-            <ul class="nav nav-pills flex-column mb-2">
-                @foreach ($proprietorLinks as $index => $link)
-                    @if (!empty($link['children']))
+        <nav aria-label="Main menu">
+            @foreach ([$proprietorLinks, $reportLinks, $settingsLinks] as $group)
+                @if ($loop->index === 1)
+                    <div class="proprietor-sidebar-heading">Reports</div>
+                @endif
+                <ul class="nav flex-column mb-0">
+                    @foreach ($group as $link)
                         @php
-                            $collapseId = 'nav-collapse-offcanvas-' . $index;
-                            $isParentActive = collect($link['children'])->contains(fn ($child) => request()->routeIs($child['active']));
+                            $active = request()->routeIs(...(array) $link['active']);
+                            $isComplaints = $link['route'] === 'proprietor.complaints.index';
+                            $label = $isComplaints && $unreadComplaintCount > 0
+                                ? 'Complaints, ' . $unreadComplaintCount . ' unread'
+                                : $link['label'];
                         @endphp
                         <li class="nav-item">
-                            <a href="#{{ $collapseId }}"
-                               class="nav-link d-flex justify-content-between align-items-center {{ $isParentActive ? 'active' : '' }}"
-                               data-bs-toggle="collapse"
-                               role="button"
-                               aria-expanded="{{ $isParentActive ? 'true' : 'false' }}"
-                               aria-controls="{{ $collapseId }}">
-                                <span><i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}</span>
-                                <i class="bi bi-chevron-down small nav-chevron"></i>
-                            </a>
-                            <div class="collapse {{ $isParentActive ? 'show' : '' }}" id="{{ $collapseId }}">
-                                <ul class="nav nav-pills flex-column">
-                                    @foreach ($link['children'] as $child)
-                                        <li class="nav-item">
-                                            <a href="{{ route($child['route']) }}" class="nav-link nav-link-sub {{ request()->routeIs($child['active']) ? 'active' : '' }}">
-                                                {{ $child['label'] }}
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        </li>
-                    @else
-                        <li class="nav-item">
-                            <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                                <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
+                            <a href="{{ route($link['route']) }}" @class(['nav-link', 'active' => $active])
+                                aria-label="{{ $label }}" data-bs-title="{{ $link['label'] }}"
+                                @if ($active) aria-current="page" @endif
+                                @if ($isComplaints) id="proprietorComplaintsLink" data-unread-count="{{ $unreadComplaintCount }}" @endif>
+                                <i class="bi {{ $link['icon'] }}" aria-hidden="true"></i>
+                                <span class="proprietor-sidebar-label">{{ $link['label'] }}</span>
+                                @if ($isComplaints && $unreadComplaintCount > 0)
+                                    <span class="proprietor-unread-badge" aria-hidden="true">{{ $unreadComplaintCount > 99 ? '99+' : $unreadComplaintCount }}</span>
+                                @endif
                             </a>
                         </li>
-                    @endif
-                @endforeach
-            </ul>
+                    @endforeach
+                </ul>
+            @endforeach
+        </nav>
 
-            <div class="proprietor-sidebar-heading">Reports</div>
-            <ul class="nav nav-pills flex-column mb-2">
-                @foreach ($reportLinks as $link)
-                    <li class="nav-item">
-                        <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                            <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
-
-            <ul class="nav nav-pills flex-column mb-auto">
-                @foreach ($settingsLinks as $link)
-                    <li class="nav-item">
-                        <a href="{{ route($link['route']) }}" class="nav-link {{ request()->routeIs($link['active']) ? 'active' : '' }}">
-                            <i class="bi {{ $link['icon'] }} me-2"></i>{{ $link['label'] }}
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
-
-            <div class="proprietor-sidebar-footer">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="proprietor-logout-btn w-100">Logout</button>
-                </form>
-            </div>
+        <div class="proprietor-sidebar-footer">
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="proprietor-logout-btn" aria-label="Logout" data-bs-title="Logout">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i><span class="proprietor-sidebar-label">Logout</span>
+                </button>
+            </form>
         </div>
-    </div>
+    </aside>
 @elseif ($variant === 'proprietor-mobile-topbar')
-    <!-- Top bar: mobile only, just a menu toggle + brand -->
-    <nav class="navbar proprietor-mobile-navbar d-lg-none">
+    <nav class="navbar proprietor-mobile-navbar d-md-none" aria-label="Mobile navigation">
         <div class="container-fluid">
-            <button class="btn proprietor-menu-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
-                &#9776;
+            <button class="btn proprietor-menu-btn" type="button" id="proprietorMobileToggle"
+                aria-label="Open navigation" aria-expanded="false" aria-controls="proprietorSidebar">
+                <i class="bi bi-list" aria-hidden="true"></i>
             </button>
             <a class="navbar-brand mb-0" href="{{ route('proprietor.dashboard') }}">
                 <img src="{{ asset('images/lg-logo.png') }}" alt="La Grange DMS logo">
@@ -335,9 +237,3 @@
         </div>
     </nav>
 @endif
-
-
-
-
-
-

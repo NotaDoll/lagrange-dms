@@ -43,6 +43,8 @@
         .an-seg button { border: 0; background: transparent; border-radius: 8px; padding: .32rem .75rem; font-size: .8rem; font-weight: 500; color: var(--an-ink-2); }
         .an-seg button[aria-pressed="true"] { background: #fff; color: var(--an-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
         .an-count { font-size: .8rem; color: var(--an-ink-2); }
+        .an-pagination .pagination { margin-bottom: 0; }
+        .an-pagination nav > .d-sm-flex > .small.text-muted { display: none; }
 
         /* Badges */
         .an-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 500; white-space: nowrap; background: #f1f5f9; color: #475569; }
@@ -185,13 +187,10 @@
         </div>
 
         @if ($complaints->isEmpty())
-            <div class="an-count mb-2">Showing 0 of {{ $complaints->total() }}</div>
             <div class="an-panel"><div class="an-empty"><i class="bi bi-inbox" aria-hidden="true"></i>No complaints found.</div></div>
         @else
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <button type="button" class="an-chip" id="anAttention" aria-pressed="false"><i class="bi bi-exclamation-triangle me-1"></i>Needs attention</button>
-                <div class="an-count ms-1" id="anCount" data-total="{{ $complaints->total() }}" aria-live="polite">Showing {{ $complaints->count() }} of {{ $complaints->total() }}</div>
-                <label class="an-selection ms-2">
+                <label class="an-selection">
                     <input type="checkbox" class="form-check-input mt-0 me-1" id="anSelectAll" aria-label="Select all visible complaints">
                     Select all
                 </label>
@@ -199,9 +198,12 @@
                     <span id="anSelectedCount" aria-live="polite"></span>
                     <a class="ms-1" id="anClearSelection" href="#anSelectAll">Clear selection</a>
                 </span>
-                <div class="an-seg ms-auto" role="group" aria-label="Switch view">
-                    <button type="button" data-view="table" aria-pressed="true"><i class="bi bi-table me-1"></i>Table</button>
-                    <button type="button" data-view="cards" aria-pressed="false"><i class="bi bi-grid me-1"></i>Cards</button>
+                <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                    <button type="button" class="an-chip" id="anAttention" aria-pressed="false"><i class="bi bi-exclamation-triangle me-1"></i>Needs attention</button>
+                    <div class="an-seg" role="group" aria-label="Switch view">
+                        <button type="button" data-view="table" aria-pressed="true"><i class="bi bi-table me-1"></i>Table</button>
+                        <button type="button" data-view="cards" aria-pressed="false"><i class="bi bi-grid me-1"></i>Cards</button>
+                    </div>
                 </div>
             </div>
 
@@ -226,14 +228,14 @@
                                 <tr class="complaint-row an-item {{ $m->pKey ? 'is-' . $m->pKey : '' }} {{ $complaint->isUnread() ? 'is-unread' : '' }}"
                                     data-complaint-modal="#complaintModal{{ $complaint->id }}"
                                     data-attention="{{ $m->attention ? 1 : 0 }}"
-                                    tabindex="0" aria-label="View complaint from {{ $complaint->tenant->user->name }}">
+                                    tabindex="0" aria-label="View complaint from {{ $complaint->tenant->name }}">
                                     <td>
                                         <input type="checkbox" class="form-check-input mt-0" data-select-complaint value="{{ $complaint->id }}"
-                                            aria-label="Select complaint from {{ $complaint->tenant->user->name }}">
+                                            aria-label="Select complaint from {{ $complaint->tenant->name }}">
                                     </td>
                                     <td>
-                                        <div class="t-name">{{ $complaint->tenant->user->name }}</div>
-                                        <div class="t-sub">{{ $complaint->tenant->user->email }}</div>
+                                        <div class="t-name">{{ $complaint->tenant->name }}</div>
+                                        <div class="t-sub">{{ $complaint->tenant->email }}</div>
                                     </td>
                                     <td><span class="an-badge"><i class="bi {{ $m->catIcon }}"></i>{{ ucfirst($complaint->category) }}</span></td>
                                     <td><div class="t-desc">{{ Str::limit($complaint->description, 80) }}</div></td>
@@ -272,13 +274,13 @@
                 @foreach ($complaints as $complaint)
                     @php $m = $meta($complaint); @endphp
                     <div class="col an-item" data-attention="{{ $m->attention ? 1 : 0 }}">
-                        <article class="complaint-card {{ $m->pKey ? 'is-' . $m->pKey : '' }} {{ $complaint->isUnread() ? 'is-unread' : '' }}" data-complaint-modal="#complaintModal{{ $complaint->id }}" tabindex="0" aria-label="View complaint from {{ $complaint->tenant->user->name }}">
+                        <article class="complaint-card {{ $m->pKey ? 'is-' . $m->pKey : '' }} {{ $complaint->isUnread() ? 'is-unread' : '' }}" data-complaint-modal="#complaintModal{{ $complaint->id }}" tabindex="0" aria-label="View complaint from {{ $complaint->tenant->name }}">
                             <div class="d-flex justify-content-between align-items-start gap-2">
                                 <div class="d-flex align-items-start gap-2">
                                     <input type="checkbox" class="form-check-input" data-select-complaint value="{{ $complaint->id }}"
-                                        aria-label="Select complaint from {{ $complaint->tenant->user->name }}">
+                                        aria-label="Select complaint from {{ $complaint->tenant->name }}">
                                     <div>
-                                        <div class="t-name" style="font-size:.9rem">{{ $complaint->tenant->user->name }}</div>
+                                        <div class="t-name" style="font-size:.9rem">{{ $complaint->tenant->name }}</div>
                                         <div style="font-size:.72rem">{{ $complaint->created_at->format('M d, Y, g:i A') }}</div>
                                         <div class="text-muted" style="font-size:.72rem">{{ $complaint->created_at->diffForHumans() }}</div>
                                     </div>
@@ -311,8 +313,13 @@
 
         @endif
 
-        <div class="mt-3">
-            {{ $complaints->links() }}
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+            <div class="an-count" id="anCount" data-total="{{ $complaints->total() }}" aria-live="polite">Showing {{ $complaints->count() }} of {{ $complaints->total() }}</div>
+            @if ($complaints->hasPages())
+                <div class="an-pagination ms-auto">
+                    {{ $complaints->links() }}
+                </div>
+            @endif
         </div>
 
         @include('proprietor.complaints.summary-overlay')
@@ -331,8 +338,8 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
                                     <div class="complaint-detail-label">Tenant</div>
-                                    <div class="complaint-detail-value">{{ $complaint->tenant->user->name }}</div>
-                                    <div class="text-muted small">{{ $complaint->tenant->user->email }}</div>
+                                    <div class="complaint-detail-value">{{ $complaint->tenant->name }}</div>
+                                    <div class="text-muted small">{{ $complaint->tenant->email }}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="complaint-detail-label">Status</div>
@@ -473,6 +480,7 @@
                                 headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
                             });
                             if (response.status !== 204) { throw new Error('Read status update failed'); }
+                            document.dispatchEvent(new Event('complaint:read'));
                         } catch (error) {
                             unread.forEach(opener => opener.classList.add('is-unread'));
                             errorMessage.hidden = false;

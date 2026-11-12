@@ -73,7 +73,7 @@
                     <select id="tenant_id" name="tenant_id" class="form-select">
                         <option value="">All tenants</option>
                         @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>{{ $tenant->user?->name ?? 'Unknown tenant' }}</option>
+                            <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>{{ $tenant->name ?? 'Unknown tenant' }}</option>
                         @endforeach
                     </select>
                 </div>

@@ -6,16 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFaqRequest;
 use App\Http\Requests\UpdateFaqRequest;
 use App\Models\Faq;
+use Illuminate\Http\Request;
 
 class FaqController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $faqs = Faq::with('creator')
-            ->latest()
-            ->paginate(10);
-
-        return view('proprietor.faqs.index', compact('faqs'));
+        return redirect()->route('proprietor.announcements-faqs.index', [
+            ...$request->query(),
+            'tab' => 'faqs',
+        ]);
     }
 
     public function create()
@@ -32,7 +32,7 @@ class FaqController extends Controller
         ]);
 
         return redirect()
-            ->route('proprietor.faqs.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'faqs'])
             ->with('success', 'FAQ created successfully.');
     }
 
@@ -46,7 +46,7 @@ class FaqController extends Controller
         $faq->update($request->validated());
 
         return redirect()
-            ->route('proprietor.faqs.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'faqs'])
             ->with('success', 'FAQ updated successfully.');
     }
 
@@ -55,7 +55,7 @@ class FaqController extends Controller
         $faq->delete();
 
         return redirect()
-            ->route('proprietor.faqs.index')
+            ->route('proprietor.announcements-faqs.index', ['tab' => 'faqs'])
             ->with('success', 'FAQ deleted successfully.');
     }
 }

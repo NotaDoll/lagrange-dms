@@ -22,7 +22,7 @@
                         <option value="">All tenants</option>
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>
-                                {{ $tenant->user->name }}
+                                {{ $tenant->name }}
                             </option>
                         @endforeach
                     </select>
@@ -64,8 +64,11 @@
                         @forelse ($payments as $payment)
                             <tr>
                                 <td>
-                                    <div class="fw-semibold">{{ $payment->tenant->user->name }}</div>
-                                    <div class="text-muted small">{{ $payment->tenant->user->email }}</div>
+                                    <div class="fw-semibold">{{ $payment->tenant->name }}</div>
+                                    <div class="text-muted small">{{ $payment->tenant->email }}</div>
+                                    @if ($bed = $payment->tenant->currentAssignment?->bed)
+                                        <div class="text-muted small">{{ $bed->locationLabel() }}</div>
+                                    @endif
                                 </td>
                                 <td>{{ $payment->description }}</td><td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
@@ -81,7 +84,7 @@
                                         <form method="POST" action="{{ route('proprietor.payments.settle', $payment) }}" class="d-flex gap-2 align-items-center">
                                             @csrf
                                             @method('PATCH')
-                                            <label class="visually-hidden" for="paid-date-{{ $payment->id }}">Payment date for {{ $payment->tenant->user->name }}</label>
+                                            <label class="visually-hidden" for="paid-date-{{ $payment->id }}">Payment date for {{ $payment->tenant->name }}</label>
                                             <input type="date" class="form-control form-control-sm" id="paid-date-{{ $payment->id }}" name="paid_date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
                                             <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
                                         </form>

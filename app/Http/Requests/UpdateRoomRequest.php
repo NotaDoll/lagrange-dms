@@ -23,7 +23,6 @@ class UpdateRoomRequest extends FormRequest
                 'max:255',
                 Rule::unique('rooms', 'room_number')->ignore($room?->id),
             ],
-            'floor' => ['required', 'string', 'max:255'],
             'capacity' => ['required', 'integer', 'min:1', 'max:50'],
             'monthly_rate' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ];

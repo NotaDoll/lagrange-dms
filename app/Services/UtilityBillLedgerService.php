@@ -59,7 +59,10 @@ class UtilityBillLedgerService
 
     private function allocate(UtilityBill $bill): void
     {
-        $tenantIds = RoomAssignment::whereHas('bed', fn ($query) => $query->where('room_id', $bill->room_id))
+        $tenantIds = RoomAssignment::billable()
+            ->whereHas('bed', fn ($query) => $query->where('room_id', $bill->room_id))
+            ->whereHas('tenant', fn ($query) => $query
+                ->whereDate('move_in_date', '<=', $bill->billing_period_end))
             ->whereDate('start_date', '<=', $bill->billing_period_end)
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $bill->billing_period_start))
             ->orderBy('tenant_id')->pluck('tenant_id')->unique()->values();

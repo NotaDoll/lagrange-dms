@@ -2,7 +2,7 @@
 @php
     $bill = $utilityBill ?? null;
     $hasCollections = $bill?->payments->contains('status', 'paid') ?? false;
-    $savedPreview = $bill ? $bill->payments->map(fn ($payment) => ['tenant_id' => $payment->tenant_id, 'name' => $payment->tenant->user->name, 'cents' => (int) round((float) $payment->amount * 100)])->values() : [];
+    $savedPreview = $bill ? $bill->payments->map(fn ($payment) => ['tenant_id' => $payment->tenant_id, 'name' => $payment->tenant->name, 'cents' => (int) round((float) $payment->amount * 100)])->values() : [];
     $originalAllocation = $bill ? [
         'room_id' => $bill->room_id, 'bill_type' => $bill->bill_type, 'other_description' => $bill->other_description,
         'billing_period_start' => $bill->billing_period_start->toDateString(), 'billing_period_end' => $bill->billing_period_end->toDateString(),

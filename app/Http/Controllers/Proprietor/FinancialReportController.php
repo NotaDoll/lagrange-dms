@@ -41,15 +41,14 @@ class FinancialReportController extends Controller
         $paidLate = $paid->filter(fn ($payment) => $payment->paid_date && $payment->paid_date->gt($payment->due_date))->count();
         $unknownPaidDate = $paid->whereNull('paid_date')->count();
 
-        $tenants = Tenant::with('user')->join('users', 'users.id', '=', 'tenants.user_id')
-            ->orderBy('users.name')->select('tenants.*')->get();
+        $tenants = Tenant::with('user')->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         $tenantRows = $payments->groupBy('tenant_id')->map(function ($entries, $id) use ($reportTenants) {
             $tenant = $reportTenants->get($id);
             $bed = $tenant?->currentAssignment?->bed;
 
             return (object) [
-                'name' => $tenant?->user?->name ?? 'Unknown tenant',
-                'bed' => $bed ? ($bed->room?->room_number.' / '.$bed->bed_label) : 'Unassigned',
+                'name' => $tenant?->name ?? 'Unknown tenant',
+                'bed' => $bed?->locationLabel() ?? 'Unassigned',
                 'billed' => (float) $entries->sum('amount'),
                 'paid' => (float) $entries->where('status', 'paid')->sum('amount'),
                 'balance' => (float) $entries->whereIn('status', ['pending', 'overdue'])->sum('amount'),
@@ -63,8 +62,8 @@ class FinancialReportController extends Controller
                 $bed = $tenant->currentAssignment?->bed;
 
                 return (object) [
-                    'name' => $tenant->user?->name ?? 'Unknown tenant',
-                    'bed' => $bed ? ($bed->room?->room_number.' / '.$bed->bed_label) : 'Unassigned',
+                    'name' => $tenant->name ?? 'Unknown tenant',
+                    'bed' => $bed?->locationLabel() ?? 'Unassigned',
                     'balance' => $summary['outstanding_balance'],
                     'unpaid_months' => $summary['unpaid_months'],
                 ];
@@ -81,7 +80,7 @@ class FinancialReportController extends Controller
             ]);
         }
         $chartMax = max(1, $months->max('amount'));
-        $selectedTenant = $tenantId ? $tenants->firstWhere('id', $tenantId)?->user?->name : 'All tenants';
+        $selectedTenant = $tenantId ? $tenants->firstWhere('id', $tenantId)?->name : 'All tenants';
         $rangeLabel = Carbon::parse($dateFrom)->format('M j, Y').' – '.Carbon::parse($dateTo)->format('M j, Y');
 
         return view('proprietor.reports.index', compact(

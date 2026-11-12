@@ -48,8 +48,8 @@
                         @forelse ($tenants as $row)
                             <tr>
                                 <td>
-                                    <div class="fw-semibold">{{ $row->tenant->user->name }}</div>
-                                    <div class="text-muted small">{{ $row->tenant->user->email }}</div>
+                                    <div class="fw-semibold">{{ $row->tenant->name }}</div>
+                                    <div class="text-muted small">{{ $row->tenant->email }}</div>
                                 </td>
                                 <td>{{ $row->tenant->currentAssignment?->bed?->room?->room_number ?? '—' }}</td>
                                 <td>PHP {{ number_format((float) $row->total_pending, 2) }}</td>
