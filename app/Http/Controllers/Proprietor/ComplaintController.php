@@ -37,15 +37,18 @@ class ComplaintController extends Controller
         ]);
 
         $complaint->load('tenant.user');
-        $this->notificationService->notify(
-            $complaint->tenant->user,
-            'complaint_status',
-            sprintf(
-                'Your complaint status has been updated from %s to %s.',
-                str_replace('_', ' ', $previousStatus),
-                str_replace('_', ' ', $complaint->status)
-            )
-        );
+
+        if ($complaint->tenant?->user) {
+            $this->notificationService->notify(
+                $complaint->tenant->user,
+                'complaint_status',
+                sprintf(
+                    'Your complaint status has been updated from %s to %s.',
+                    str_replace('_', ' ', $previousStatus),
+                    str_replace('_', ' ', $complaint->status)
+                )
+            );
+        }
 
         return redirect()
             ->route('proprietor.complaints.index', $request->query())

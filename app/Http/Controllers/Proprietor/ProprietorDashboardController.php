@@ -43,18 +43,31 @@ class ProprietorDashboardController extends Controller
 
     public function generateSummary(Request $request, ComplaintSummarizationService $summarizer)
     {
-        $complaints = Complaint::whereIn('status', ['submitted', 'in_progress'])->latest()->get(['category', 'description', 'status', 'created_at']);
+        $complaints = Complaint::open()
+            ->latest()
+            ->get(['category', 'description', 'status', 'created_at']);
+
         if ($complaints->isEmpty()) {
             return response()->json(['message' => 'There are no open complaints to summarize.'], 422);
         }
-        try {
-            $summary = $summarizer->summarize($complaints, ['generated_by' => $request->user()->id, 'structured' => true, 'status' => 'open']);
 
-            return response()->json(['message' => 'Summary generated and saved.', 'id' => $summary->id]);
+        try {
+            $summary = $summarizer->summarize($complaints, [
+                'generated_by' => $request->user()->id,
+            ]);
+
+            return response()->json([
+    'message'         => 'Summary generated and saved.',
+    'id'              => $summary->id,
+    'summary'         => $summary->summary_result,
+    'complaint_count' => $complaints->count(),
+]);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json(['message' => 'Unable to generate a summary. Check the AI provider configuration or connection, then try again. Your previous summary is still available.'], 502);
+            return response()->json([
+                'message' => 'Unable to generate a summary: '.$exception->getMessage(),
+            ], 502);
         }
     }
 }

@@ -87,22 +87,88 @@
                 </table></div>
                 <p class="pd-note mb-0">SMS is sent only to the tenant. Guardian delivery is unavailable because both consent records are not present.</p>
             </div></section></div>
+
             <div class="col-xl-5 d-flex flex-column gap-4">
-                <section class="card" aria-labelledby="pd-summary"><div class="card-body">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><h2 id="pd-summary" class="h6 fw-semibold mb-0">Complaint summary</h2>@if ($latestSummary)<span class="pd-tag pd-ai">AI-generated</span>@endif</div>
-                    @if ($latestSummary)
-                        <p class="pd-note">Saved {{ $latestSummary->created_at->format('M j, Y g:i A') }}@if ($summaryContent['total'] !== null) · {{ $summaryContent['total'] }} open complaints at generation @endif </p>
-                        @if ($summaryContent['themes'])
-                            <ul class="ps-3">@foreach ($summaryContent['themes'] as $theme)<li class="mb-2">{{ $theme['theme'] }} <strong>({{ $theme['count'] }} {{ Str::plural('complaint', $theme['count']) }})</strong></li>@endforeach</ul>
+
+                {{-- REDESIGNED COMPLAINT SUMMARY SECTION --}}
+                <section class="card h-100" aria-labelledby="pd-summary">
+                    <div class="card-body p-4">
+
+                        {{-- Header --}}
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 border-bottom pb-2">
+                            <h2 id="pd-summary" class="h6 fw-bold mb-0">Complaint Summary</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                @if ($latestSummary)
+                                    <span class="badge bg-light text-dark border" style="font-size: 0.65rem;">AI-generated</span>
+                                @endif
+                                {{-- Subtle regenerate icon next to title --}}
+                                <button type="button" class="btn btn-sm btn-light border px-2 py-1" id="pd-generate-summary" data-url="{{ route('proprietor.dashboard.summary') }}" title="Regenerate Summary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if ($latestSummary)
+                            <p class="text-muted mb-3" style="font-size: 0.7rem;">
+                                Generated {{ $latestSummary->created_at->diffForHumans() }}
+                                @if ($summaryContent['total'] !== null) · {{ $summaryContent['total'] }} open complaints at generation @endif
+                            </p>
+
+                            {{-- Dynamic Content Container --}}
+                            <div id="pd-summary-content">
+                                {{-- Left: Priority Action --}}
+                                @if (isset($summaryContent['action']) && $summaryContent['action'])
+                                    <div class="p-3 rounded mb-3" style="background-color: #fff5f5; border: 1px solid #fed7d7;">
+                                        <h3 class="h6 fw-bold text-danger mb-1 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                                            </svg>
+                                            Priority Action
+                                        </h3>
+                                        <p class="mb-0 small text-dark">{{ $summaryContent['action'] }}</p>
+                                    </div>
+                                @endif
+
+                                {{-- Themes / Issues --}}
+                                @if (isset($summaryContent['themes']) && $summaryContent['themes'])
+                                    <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                                        @foreach ($summaryContent['themes'] as $theme)
+                                            <li class="d-flex align-items-start gap-2">
+                                                <div class="mt-1 text-primary" style="font-size: 1.2rem; line-height: 1;">&bull;</div>
+                                                <div>
+                                                    <span class="text-dark fw-medium small">{{ $theme['theme'] }}</span>
+                                                    <span class="badge bg-secondary ms-1 rounded-pill" style="font-size: 0.6rem;">{{ $theme['count'] }}</span>
+                                                </div>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    {{-- Fallback for raw text, which will be formatted by JS on load --}}
+                                    <div class="text-muted small raw-summary-text" data-raw-text="{{ $summaryContent['text'] ?? '' }}" style="white-space: pre-line; max-height: 200px; overflow-y: auto;">
+                                        {{ $summaryContent['text'] ?? '' }}
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="mt-3 pt-2 border-top">
+                                <p class="text-muted mb-0" style="font-size: 0.65rem;">
+                                    <em>AI may contain inaccuracies. Review before taking action.</em>
+                                </p>
+                            </div>
                         @else
-                            <p class="pd-summary-text">{{ $summaryContent['text'] }}</p>
+                            <div class="text-center py-5">
+                                <p class="text-muted small mb-0">No complaint summary generated yet.</p>
+                            </div>
                         @endif
-                        @if ($summaryContent['action'])<h3 class="h6">Recommended action</h3><p>{{ $summaryContent['action'] }}</p>@endif
-                    @endif
-                    @if ($latestSummary)<p class="pd-note">May contain inaccuracies. Review before taking action.</p>@endif
-                    <div id="pd-summary-message" class="d-none alert" role="status" aria-live="polite"></div>
-                    <button type="button" class="btn btn-primary" id="pd-generate-summary" data-url="{{ route('proprietor.dashboard.summary') }}">Generate new summary</button>
-                </div></section>
+
+                        <div id="pd-summary-message" class="d-none alert mt-3 mb-0" role="status" aria-live="polite"></div>
+                    </div>
+                </section>
+                {{-- END OF REDESIGNED COMPLAINT SUMMARY --}}
+
                 <section class="card" aria-labelledby="pd-floor"><div class="card-body">
                     <h2 id="pd-floor" class="h6 fw-semibold mb-3">Occupancy by floor</h2>
                     @forelse ($floors as $floor)
@@ -116,4 +182,86 @@
         </div>
     </div>
     @include('proprietor.dashboard-script')
+
+    {{-- ADDED JAVASCRIPT FOR IMMEDIATE FORMATTING ON LOAD --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to parse raw text into clean UI
+            window.formatRawSummary = function(container) {
+                const rawTextEl = container.querySelector('.raw-summary-text');
+                if (!rawTextEl) return;
+
+                const rawText = rawTextEl.getAttribute('data-raw-text');
+                if (!rawText) return;
+
+                const lines = rawText.split('\n');
+                let issues = [];
+                let criticalAction = '';
+                let footerStats = '';
+
+                lines.forEach(line => {
+                    let cleanLine = line.trim();
+                    if (!cleanLine) return;
+
+                    if (cleanLine.toLowerCase().startsWith('most urgent issue:')) {
+                        criticalAction = cleanLine.replace(/most urgent issue:/i, '').trim();
+                    }
+                    else if (cleanLine.toLowerCase().startsWith('based on') || cleanLine.toLowerCase().startsWith('ai-generated')) {
+                        footerStats += cleanLine + ' ';
+                    }
+                    else if (cleanLine.startsWith('-') || cleanLine.startsWith('•')) {
+                        cleanLine = cleanLine.replace(/^[-•]\s*/, '');
+                        let countMatch = cleanLine.match(/–\s*(\d+)\s*report/i);
+                        let count = countMatch ? countMatch[1] : null;
+                        let mainText = cleanLine.replace(/\(complaints?[^)]+\)/ig, '').replace(/–\s*\d+\s*report/i, '').trim();
+
+                        issues.push({ text: mainText, count: count });
+                    }
+                });
+
+                let html = '';
+
+                if (criticalAction) {
+                    html += `
+                    <div class="p-3 rounded mb-3" style="background-color: #fff5f5; border: 1px solid #fed7d7;">
+                        <h3 class="h6 fw-bold text-danger mb-1 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                            </svg>
+                            Priority Action
+                        </h3>
+                        <p class="mb-0 small text-dark">${criticalAction}</p>
+                    </div>`;
+                }
+
+                if (issues.length > 0) {
+                    html += `<ul class="list-unstyled mb-0 d-flex flex-column gap-2">`;
+                    issues.forEach(issue => {
+                        let badge = issue.count ? `<span class="badge bg-secondary ms-1 rounded-pill" style="font-size: 0.6rem;">${issue.count}</span>` : '';
+                        html += `
+                            <li class="d-flex align-items-start gap-2">
+                                <div class="mt-1 text-primary" style="font-size: 1.2rem; line-height: 1;">&bull;</div>
+                                <div>
+                                    <span class="text-dark fw-medium small">${issue.text}</span>
+                                    ${badge}
+                                </div>
+                            </li>`;
+                    });
+                    html += `</ul>`;
+                }
+
+                rawTextEl.outerHTML = html;
+
+                if (footerStats) {
+                    container.insertAdjacentHTML('beforeend', `<p class="text-muted mt-3 mb-0" style="font-size: 0.65rem;"><em>${footerStats}</em></p>`);
+                }
+            };
+
+            // 1. Run formatting on initial page load
+            const summaryContainer = document.getElementById('pd-summary-content');
+            if (summaryContainer) {
+                formatRawSummary(summaryContainer);
+            }
+        });
+    </script>
 @endsection

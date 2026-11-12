@@ -31,6 +31,12 @@ return [
         'key' => env('SEMAPHORE_API_KEY'),
     ],
 
+    'groq' => [
+    'key'   => env('GROQ_API_KEY'),
+    'model' => env('GROQ_MODEL', 'openai/gpt-oss-120b'),
+],
+
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -45,3 +51,5 @@ return [
     ],
 
 ];
+
+

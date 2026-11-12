@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Proprietor;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiSummary;
 use App\Models\Complaint;
 use App\Services\ComplaintSummarizationService;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class AiSummaryController extends Controller
 
     public function index()
     {
-        $recentSummaries = \App\Models\AiSummary::with('generatedBy')
+        $recentSummaries = AiSummary::with('generatedBy')
             ->latest()
             ->take(10)
             ->get();
@@ -27,23 +28,44 @@ class AiSummaryController extends Controller
     public function store(Request $request)
     {
         $filters = $request->validate([
-            'category' => ['nullable', Rule::in(['maintenance', 'noise', 'billing', 'other'])],
+            'category'  => ['nullable', Rule::in(['maintenance', 'noise', 'billing', 'other'])],
             'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'date_to'   => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
 
         $complaints = Complaint::query()
-            ->when($filters['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
-            ->when($filters['date_from'] ?? null, fn ($query, $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))
-            ->when($filters['date_to'] ?? null, fn ($query, $dateTo) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($filters['category'] ?? null, fn ($q, $category) => $q->where('category', $category))
+            ->when($filters['date_from'] ?? null, fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($filters['date_to'] ?? null, fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->latest()
             ->get(['category', 'description', 'status', 'created_at']);
 
-        $summary = $this->complaintSummarizationService->summarize($complaints, [
-            ...$filters,
-            'generated_by' => $request->user()->id,
-        ]);
+        if ($complaints->isEmpty()) {
+            // Return a clean message instead of a 422 error
+            return response()->json([
+                'summary' => "No complaints were found matching your selected filters. Try expanding your date range or choosing a different category.",
+                'message' => 'No complaints match those filters.'
+            ]);
+        }
 
-        return response()->json($summary);
+        try {
+            $summary = $this->complaintSummarizationService->summarize($complaints, [
+                ...$filters,
+                'generated_by' => $request->user()->id,
+            ]);
+
+            return response()->json(array_merge($summary->toArray(), [
+                'message'         => 'Summary generated and saved.',
+                'summary'         => $summary->summary_result,
+                'complaint_count' => $complaints->count(),
+                'created_at'      => $summary->created_at->diffForHumans(),
+            ]));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Unable to generate a summary: '.$e->getMessage(),
+            ], 502);
+        }
     }
 }
