@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Room;
 use App\Models\Tenant;
 use App\Rules\PhilippineMobile;
 use App\Services\RoomAvailability;
@@ -45,7 +46,7 @@ class StoreTenantRequest extends FormRequest
             $statuses = array_diff($statuses, [Tenant::STATUS_RESERVED]);
         }
 
-        $roomTypes = array_keys(config('dorm.room_types'));
+        $roomTypes = Room::availableTypes();
         if ($tenant?->currentAssignment?->bed?->room && $tenant->currentAssignment->bed->room->catalogType() === null) {
             $roomTypes[] = RoomAvailability::LEGACY_TYPE;
         }
@@ -64,6 +65,7 @@ class StoreTenantRequest extends FormRequest
             'status' => ['required', Rule::in($statuses)],
             'security_deposit' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'advance_payment' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'opening_balance' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'emergency_contact_name' => [$requiredOnCreate, 'string', 'max:255'],
             'emergency_contact_number' => [$requiredOnCreate, 'string', 'max:50', new PhilippineMobile($tenant?->emergency_contact_number)],
             'emergency_contact_relationship' => [$requiredOnCreate, Rule::in(array_keys(Tenant::EMERGENCY_RELATIONSHIPS))],

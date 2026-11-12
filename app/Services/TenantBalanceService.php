@@ -4,86 +4,147 @@ namespace App\Services;
 
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantMonthMode;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class TenantBalanceService
 {
-    private const CLASS_START_DATE = '2026-08-01';
+    public function __construct(private readonly BillingPolicy $policy) {}
 
-    /** Read actual ledger entries plus the unrecorded portion of accrued rent. */
-    public function billingEntries(Tenant $tenant, string $dateFrom, string $dateTo): Collection
+    /** Read actual ledger entries plus the unrecorded portion of accrued monthly charges. */
+    public function billingEntries(Tenant $tenant, string $dateFrom, string $dateTo, bool $specialOnly = false): Collection
     {
-        $tenant->loadMissing(['roomAssignments.bed.room', 'payments']);
+        $tenant->loadMissing(['roomAssignments.bed.room', 'payments', 'monthModes']);
         $from = Carbon::parse($dateFrom);
         $to = Carbon::parse($dateTo);
-        $entries = $tenant->payments->filter(fn ($entry) => $entry->due_date->betweenIncluded($from, $to))->values();
+        $today = Carbon::parse(Tenant::localDate());
+        $entries = $specialOnly ? collect() : $tenant->payments
+            ->filter(fn ($entry) => $entry->due_date->betweenIncluded($from, $to))->values();
+        $start = $this->policy->tenantStart($tenant);
 
-        if (! $tenant->hasMovedIn()) {
+        if ($start === null) {
             return $entries;
         }
 
-        $moveIn = $tenant->actualMoveInDate();
-        $today = Carbon::parse(Tenant::localDate());
-        $firstMonth = Carbon::parse(self::CLASS_START_DATE)->startOfMonth()
-            ->max($from->copy()->startOfMonth());
-        if ($moveIn) {
-            $firstMonth = $firstMonth->max($moveIn->copy()->startOfMonth());
+        $openingDate = $this->policy->startDate();
+        $openingRecorded = $tenant->payments->where('charge_type', Payment::OPENING_BALANCE);
+        $opening = (float) $tenant->opening_balance;
+        if ($opening > 0 && $openingRecorded->isEmpty() && $openingDate->betweenIncluded($from, $to) && $openingDate->lte($today)) {
+            $entries->push($this->computedEntry($tenant, $opening, $openingDate, Payment::OPENING_BALANCE));
         }
 
-        $lastDate = $to->min($today);
-        for ($month = $firstMonth->copy(); $month->copy()->endOfMonth()->startOfDay()->lte($lastDate); $month->addMonth()) {
-            $dueDate = $month->copy()->endOfMonth()->startOfDay();
-            $periodStart = $moveIn ? $month->copy()->max($moveIn) : $month;
-            $assignment = $tenant->roomAssignments
-                ->filter(fn ($item) => $item->start_date->lte($dueDate->copy()->endOfDay())
-                    && (! $item->end_date || ($item->end_date->gte($item->start_date) && $item->end_date->gte($periodStart))))
-                ->sort(fn ($left, $right) => [$right->start_date->getTimestamp(), $right->id] <=> [$left->start_date->getTimestamp(), $left->id])->first();
-            $rate = $assignment?->bed?->room?->monthlyRateFor($month->format('Y-m')) ?? 0;
-            if ($moveIn && $moveIn->isSameMonth($month)) {
-                $daysInMonth = $month->daysInMonth;
-                $rate = round($rate * ($daysInMonth - $moveIn->day + 1) / $daysInMonth, 2);
+        $firstMonth = $start->copy()->startOfMonth()->max($from->copy()->startOfMonth());
+        $lastDate = $to->copy()->min($today);
+        $monthModes = $tenant->monthModes->keyBy(fn ($mode) => $mode->month->format('Y-m'));
+        $recordedMonths = $tenant->payments->whereNull('utility_bill_id')
+            ->where('charge_type', '!=', Payment::OPENING_BALANCE)
+            ->groupBy(fn ($entry) => $entry->due_date->format('Y-m'));
+
+        for ($month = $firstMonth->copy(); $month->lte($lastDate); $month->addMonth()) {
+            $due = $month->copy()->endOfMonth()->startOfDay();
+            if ($due->lt($from) || $due->gt($lastDate)) {
+                continue;
             }
-            $recorded = (float) $tenant->payments
-                ->filter(fn ($payment) => ! $payment->utility_bill_id && $payment->due_date->format('Y-m') === $month->format('Y-m'))->sum('amount');
-            $unrecorded = round(max(0, $rate - $recorded), 2);
+
+            $key = $month->format('Y-m');
+            $recorded = $recordedMonths->get($key, collect());
+            $mode = $monthModes->get($key);
+            $storage = $mode?->mode === TenantMonthMode::STORAGE;
+            if ($specialOnly && ! $storage) {
+                continue;
+            }
+
+            $charge = $this->monthlyCharge($tenant, $month, $mode);
+            if ($charge === null) {
+                continue;
+            }
+
+            if ($recorded->contains(fn ($entry) => $entry->hasRecordedPayment() && ($entry->category === Payment::STORAGE || $entry->category !== $charge->category))) {
+                continue;
+            }
+            $unrecorded = round($charge->amount - (float) $recorded->sum('amount'), 2);
             if ($unrecorded > 0) {
-                // A computed report entry, never inserted into the payment ledger.
-                $entries->push(new Payment([
-                    'tenant_id' => $tenant->id,
-                    'amount' => $unrecorded,
-                    'due_date' => $dueDate->toDateString(),
-                    'paid_date' => null,
-                    'status' => $dueDate->lt($today) ? 'overdue' : 'pending',
-                    'days_overdue' => (int) max(0, $dueDate->diffInDays($today, false)),
-                ]));
+                $charge->amount = $unrecorded;
+                $entries->push($charge);
             }
         }
 
         return $entries;
     }
 
-    /** Reconcile accrued monthly rent with recorded ledger charges without double counting. */
+    public function monthlyCharge(Tenant $tenant, Carbon $month, ?TenantMonthMode $mode): ?Payment
+    {
+        $start = $this->policy->tenantStart($tenant);
+        $due = $month->copy()->endOfMonth()->startOfDay();
+        if ($start === null || $start->gt($due)) {
+            return null;
+        }
+
+        $periodStart = $month->copy()->max($start);
+        $tenant->loadMissing('roomAssignments.bed.room');
+        $assignment = $tenant->roomAssignments
+            ->filter(fn ($item) => $item->start_date->lte($due)
+                && (! $item->end_date || ($item->end_date->gte($item->start_date) && $item->end_date->gte($periodStart))))
+            ->sort(fn ($left, $right) => [$right->start_date->getTimestamp(), $right->id] <=> [$left->start_date->getTimestamp(), $left->id])->first();
+        if (! $assignment) {
+            return null;
+        }
+
+        if ($mode?->mode === TenantMonthMode::STORAGE) {
+            return $this->computedEntry($tenant, $mode->storageFee(), $due, Payment::STORAGE);
+        }
+
+        $rate = $assignment->bed?->room?->monthlyRateFor($month->format('Y-m')) ?? 0;
+        $moveIn = $tenant->actualMoveInDate();
+        if ($moveIn->equalTo($start) && $moveIn->isSameMonth($month) && $moveIn->day > 1) {
+            $rate = round($rate * ($month->daysInMonth - $moveIn->day + 1) / $month->daysInMonth, 2);
+        }
+
+        return $this->computedEntry($tenant, $rate, $due, Payment::RENT);
+    }
+
+    private function computedEntry(Tenant $tenant, float $amount, Carbon $due, string $type): Payment
+    {
+        $today = Carbon::parse(Tenant::localDate());
+        $payment = new Payment([
+            'tenant_id' => $tenant->id,
+            'charge_type' => $type,
+            'amount' => $amount,
+            'due_date' => $due->toDateString(),
+            'status' => $due->lt($today) ? 'overdue' : 'pending',
+            'days_overdue' => (int) max(0, $due->diffInDays($today, false)),
+        ]);
+        $payment->setRelation('tenant', $tenant);
+
+        return $payment;
+    }
+
+    public function ledgerStart(Tenant $tenant): string
+    {
+        $tenant->loadMissing('payments');
+        $start = $this->policy->startDate()->toDateString();
+
+        return min($start, $tenant->payments->min('due_date')?->toDateString() ?? $start);
+    }
+
     public function outstandingSummary(Tenant $tenant): array
     {
         $tenant->loadMissing('payments');
-        $earliest = $tenant->payments->min('due_date');
-        $start = $earliest && $earliest->lt(Carbon::parse(self::CLASS_START_DATE))
-            ? $earliest->toDateString() : self::CLASS_START_DATE;
         $latestUtilityDue = $tenant->payments->whereNotNull('utility_bill_id')->max('due_date');
         $today = Carbon::parse(Tenant::localDate());
         $end = $latestUtilityDue && $latestUtilityDue->gt($today) ? $latestUtilityDue->toDateString() : $today->toDateString();
-        $unpaid = $this->billingEntries($tenant, $start, $end)
+        $unpaid = $this->billingEntries($tenant, $this->ledgerStart($tenant), $end)
             ->filter(fn ($payment) => $payment->utility_bill_id || $payment->due_date->lte($today))
             ->whereIn('status', ['pending', 'overdue']);
 
         return [
             'outstanding_balance' => round((float) $unpaid->sum('amount'), 2),
-            'unpaid_months' => $unpaid->map(fn ($payment) => $payment->due_date->format('Y-m'))->unique()->count(),
+            'unpaid_months' => $unpaid->where('charge_type', '!=', Payment::OPENING_BALANCE)
+                ->map(fn ($payment) => $payment->due_date->format('Y-m'))->unique()->count(),
         ];
     }
 
-    /** Current room terms are shown separately from debt accrued in earlier months. */
     public function currentRent(Tenant $tenant): ?array
     {
         if (! $tenant->hasMovedIn()) {
@@ -97,17 +158,22 @@ class TenantBalanceService
             return null;
         }
 
+        $month = Carbon::parse(Tenant::localDate())->startOfMonth();
+        $tenant->loadMissing('monthModes');
+        $mode = $tenant->monthModes->first(fn ($item) => $item->month->equalTo($month));
+        $storage = $mode?->mode === TenantMonthMode::STORAGE && $this->policy->billableMonth($tenant, $month);
+
         return [
             'room' => $room->room_number,
             'bed' => $assignment->bed->bed_label,
             'location' => $assignment->bed->locationLabel(),
-            'monthly_rate' => (float) $room->monthly_rate,
-            'effective_from' => $assignment->start_date,
-            'due_date' => Carbon::parse(Tenant::localDate())->endOfMonth(),
+            'monthly_rate' => $storage ? $mode->storageFee() : (float) $room->monthly_rate,
+            'label' => $storage ? 'Storage fee' : 'Rent',
+            'effective_from' => $storage ? $month : $assignment->start_date,
+            'due_date' => $month->copy()->endOfMonth(),
         ];
     }
 
-    /** Unified tenant balance: accrued rent plus recorded utility shares. */
     public function summary(Tenant $tenant): array
     {
         $balance = $this->outstandingSummary($tenant);

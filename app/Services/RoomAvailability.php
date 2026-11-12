@@ -30,6 +30,8 @@ class RoomAvailability
                 $types[$type] = ['label' => 'Current room', 'rate' => (float) $room->monthly_rate, 'rooms' => []];
             }
 
+            $types[$type] ??= ['label' => $type, 'rate' => (float) $room->monthly_rate, 'rooms' => []];
+
             $beds = $room->beds->filter(fn (Bed $bed) => $bed->status === 'available' || $bed->id === $currentBedId);
             $types[$type]['rooms'][] = [
                 'id' => $room->id,

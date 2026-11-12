@@ -24,11 +24,11 @@ class TenantsImport
         'first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'home_address',
         'room_type', 'room_number', 'bed', 'status', 'move_in_date', 'security_deposit', 'advance_payment',
         'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship',
-        'guardian_name', 'guardian_number',
+        'guardian_name', 'guardian_number', 'opening_balance',
     ];
 
     private const OPTIONAL_COLUMNS = [
-        'middle_name', 'move_in_date', 'security_deposit', 'advance_payment', 'guardian_name', 'guardian_number',
+        'middle_name', 'move_in_date', 'security_deposit', 'advance_payment', 'guardian_name', 'guardian_number', 'opening_balance',
     ];
 
     private ?array $headers = null;
@@ -285,7 +285,7 @@ class TenantsImport
             $data[$field] = PhilippineMobile::normalize($number, allowMissingZero: true) ?? $number;
         }
 
-        foreach (['security_deposit', 'advance_payment'] as $field) {
+        foreach (['security_deposit', 'advance_payment', 'opening_balance'] as $field) {
             $data[$field] = isset($data[$field]) ? trim(str_replace(['₱', ','], '', $data[$field])) : null;
         }
 

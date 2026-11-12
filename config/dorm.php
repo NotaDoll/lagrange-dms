@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'billing_start_date' => '2026-01-01',
+    'storage_fee' => 200,
+    'storage_skips_utilities' => true,
+
     'room_types' => [
         'CABIN' => ['room_count' => 2, 'beds_per_room' => 15, 'monthly_rate' => 1600, 'floor' => 'Unspecified'],
         'SUITE' => ['room_count' => 2, 'beds_per_room' => 9, 'monthly_rate' => 2000, 'floor' => 'Unspecified'],

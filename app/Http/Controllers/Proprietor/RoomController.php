@@ -21,6 +21,7 @@ class RoomController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
         $availability = $request->query('availability', '');
+        $roomTypes = Room::availableTypes();
         $type = $request->query('type');
         $type = is_string($type) ? Room::normalizeType($type) : null;
 
@@ -35,9 +36,11 @@ class RoomController extends Controller
             });
         }
 
-        if ($type !== null) {
+        if (in_array($type, $roomTypes, true)) {
             $roomIds = Room::all()->filter(fn (Room $room) => $room->catalogType() === $type)->modelKeys();
             $query->whereKey($roomIds);
+        } else {
+            $type = null;
         }
 
         match ($availability) {
@@ -67,19 +70,22 @@ class RoomController extends Controller
             ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('proprietor.rooms.index', compact(
-            'rooms', 'availableTenants', 'search', 'availability', 'type',
+            'rooms', 'availableTenants', 'search', 'availability', 'type', 'roomTypes',
             'totalRooms', 'totalBeds', 'occupiedBeds', 'vacantBeds', 'rate'
         ));
     }
 
     public function create()
     {
-        return view('proprietor.rooms.create');
+        return view('proprietor.rooms.create', [
+            'roomTypes' => Room::availableTypes(),
+            'addType' => StoreRoomRequest::ADD_TYPE,
+        ]);
     }
 
     public function store(StoreRoomRequest $request)
     {
-        $this->roomService->create($request->validated());
+        $this->roomService->create($request->roomAttributes());
 
         return redirect()
             ->route('proprietor.rooms.index')

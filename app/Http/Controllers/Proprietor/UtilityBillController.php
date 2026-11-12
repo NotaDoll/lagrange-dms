@@ -8,13 +8,18 @@ use App\Http\Requests\UpdateUtilityBillRequest;
 use App\Models\Room;
 use App\Models\RoomAssignment;
 use App\Models\UtilityBill;
+use App\Models\TenantMonthMode;
+use App\Services\BillingPolicy;
 use App\Services\UtilityBillLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class UtilityBillController extends Controller
 {
-    public function __construct(private readonly UtilityBillLedgerService $ledger) {}
+    public function __construct(
+        private readonly UtilityBillLedgerService $ledger,
+        private readonly BillingPolicy $policy,
+    ) {}
 
     public function index(Request $request)
     {
@@ -72,14 +77,20 @@ class UtilityBillController extends Controller
     private function formData(): array
     {
         $rooms = Room::orderBy('room_number')->get();
-        $roomAssignments = RoomAssignment::billable()->with(['tenant.user', 'bed'])->get()->map(fn ($assignment) => [
+        $roomAssignments = RoomAssignment::billable()->with(['tenant.user', 'tenant.monthModes', 'bed'])->get()->map(fn ($assignment) => [
             'room_id' => $assignment->bed->room_id,
             'tenant_id' => $assignment->tenant_id,
             'name' => $assignment->tenant->name,
-            'start' => max($assignment->start_date->toDateString(), $assignment->tenant->move_in_date?->toDateString() ?? ''),
+            'start' => $assignment->start_date->copy()->max($this->policy->tenantStart($assignment->tenant))->toDateString(),
+            'storage' => config('dorm.storage_skips_utilities')
+                ? $assignment->tenant->monthModes->where('mode', TenantMonthMode::STORAGE)
+                    ->map(fn ($mode) => $mode->month->format('Y-m'))->values()
+                : [],
             'end' => $assignment->end_date?->toDateString(),
         ]);
 
-        return compact('rooms', 'roomAssignments');
+        $billingStart = $this->policy->startDate()->toDateString();
+
+        return compact('rooms', 'roomAssignments', 'billingStart');
     }
 }

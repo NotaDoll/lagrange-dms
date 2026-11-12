@@ -160,6 +160,16 @@
     </div>
 
     <div class="col-md-4">
+        <label for="opening_balance" class="form-label">Opening balance (optional)</label>
+        <input type="number" min="0" max="99999999.99" step="0.01" id="opening_balance" name="opening_balance"
+               class="form-control @error('opening_balance') is-invalid @enderror"
+               value="{{ old('opening_balance', $tenant->opening_balance ?? '') }}"
+               aria-describedby="opening-balance-help @error('opening_balance') opening-balance-error @enderror">
+        <div class="form-text" id="opening-balance-help">Amount owed in pesos as of the billing start date.</div>
+        @error('opening_balance') <div class="invalid-feedback" id="opening-balance-error">{{ $message }}</div> @enderror
+    </div>
+
+    <div class="col-md-4">
         <label for="emergency_contact_name" class="form-label">Emergency Contact Name</label>
         <input type="text" id="emergency_contact_name" name="emergency_contact_name" class="form-control text-uppercase @error('emergency_contact_name') is-invalid @enderror" maxlength="255" @required(! $editing)
             value="{{ old('emergency_contact_name', ($tenant?->emergency_contact_name ?? '')) }}" @error('emergency_contact_name') aria-invalid="true" aria-describedby="emergency_contact_name-error" @enderror>

@@ -58,7 +58,7 @@ class TenantImportAndProfileTest extends TestCase
         $room = $this->roomWithBeds(['A', 'B', 'C', 'D', 'E']);
         $file = $this->csv([
             array_map('strtoupper', TenantsImport::COLUMNS),
-            $this->row('a', 'ACTIVE', '2026-11-13'),
+            array_merge($this->row('a', 'ACTIVE', '2022-11-13'), ['₱1,250.25']),
             $this->row('B', 'reserved', null),
             $this->row('A', 'reserved', null),
             $this->row('C', 'reserved', '2026-11-13'),
@@ -91,6 +91,9 @@ class TenantImportAndProfileTest extends TestCase
                 && count($result['without_login']) === 1 && count($result['errors']) >= 4)
             ->assertDontSee('DELACRUZ09171234567');
         $this->assertDatabaseCount('tenants', 3);
+        $longStay = Tenant::where('email', 'shared@example.com')->where('status', Tenant::STATUS_ACTIVE)->sole();
+        $this->assertSame('2022-11-13', $longStay->move_in_date->toDateString());
+        $this->assertSame('1250.25', $longStay->opening_balance);
         $this->assertDatabaseCount('users', 2);
         $this->assertDatabaseMissing('users', ['email' => 'late-bed@example.com']);
 

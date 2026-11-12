@@ -54,6 +54,17 @@
                     @enderror
                 </div>
 
+                <div class="mb-3">
+                    <label for="billing_start_date" class="form-label">Billing start date</label>
+                    <input type="date" class="form-control @error('billing_start_date') is-invalid @enderror"
+                           id="billing_start_date" name="billing_start_date" required aria-describedby="billing-start-help"
+                           value="{{ old('billing_start_date', $general['billing_start_date'] ?? config('dorm.billing_start_date')) }}">
+                    <div class="form-text" id="billing-start-help">New accruals start from this date. Recorded charges and payments remain in the ledger.</div>
+                    @error('billing_start_date')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
                 @include('proprietor.settings.risk-thresholds')
 
                 <button type="submit" class="btn btn-primary">Save</button>

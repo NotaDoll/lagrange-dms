@@ -38,7 +38,7 @@ class Tenant extends Model
         'user_id', 'name', 'first_name', 'middle_name', 'last_name', 'email', 'contact_number',
         'emergency_contact_name', 'emergency_contact_number',
         'guardian_name', 'guardian_contact_number', 'move_in_date', 'status',
-        'home_address', 'emergency_contact_relationship', 'security_deposit', 'advance_payment',
+        'home_address', 'emergency_contact_relationship', 'security_deposit', 'advance_payment', 'opening_balance',
         'data_privacy_consent_at', 'consent_recorded_by',
     ];
 
@@ -46,6 +46,7 @@ class Tenant extends Model
         'move_in_date' => 'date',
         'security_deposit' => 'decimal:2',
         'advance_payment' => 'decimal:2',
+        'opening_balance' => 'decimal:2',
         'data_privacy_consent_at' => 'datetime',
         // RA 10173 compliance (Sec. 3.3): guardian numbers encrypted at rest.
         // Uses APP_KEY — back up your .env's APP_KEY, changing it makes this unreadable.
@@ -118,6 +119,11 @@ class Tenant extends Model
     public function currentAssignment()
     {
         return $this->hasOne(RoomAssignment::class)->where('status', 'active');
+    }
+
+    public function monthModes()
+    {
+        return $this->hasMany(TenantMonthMode::class);
     }
 
     public function payments()

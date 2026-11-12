@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Proprietor;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payment;
 use App\Models\Tenant;
 use App\Services\TenantBalanceService;
 use Illuminate\Http\Request;
@@ -26,13 +27,20 @@ class FinancialReportController extends Controller
         ])->validate();
         $tenantId = $filters['tenant_id'] ?? null;
 
-        $reportTenants = Tenant::with(['user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments'])
+        $reportTenants = Tenant::with(['user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments', 'monthModes'])
             ->when($tenantId, fn ($query) => $query->whereKey($tenantId))->get()->keyBy('id');
         $payments = $reportTenants->flatMap(fn ($tenant) => app(TenantBalanceService::class)
             ->billingEntries($tenant, $dateFrom, $dateTo))->values();
         $paid = $payments->where('status', 'paid');
         $outstanding = $payments->whereIn('status', ['pending', 'overdue']);
         $overdue = $outstanding->filter(fn ($payment) => $payment->due_date->lt(today()));
+        $incomeCategories = collect(Payment::CATEGORY_LABELS)->map(function ($label, $category) use ($payments, $paid) {
+            return [
+                'label' => $label,
+                'billed' => (float) $payments->where('category', $category)->sum('amount'),
+                'collected' => (float) $paid->where('category', $category)->sum('amount'),
+            ];
+        });
         $totalBilled = (float) $payments->sum('amount');
         $totalCollected = (float) $paid->sum('amount');
         $totalOutstanding = (float) $outstanding->sum('amount');
@@ -55,7 +63,7 @@ class FinancialReportController extends Controller
             ];
         })->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
-        $balanceRows = Tenant::with(['user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments'])
+        $balanceRows = Tenant::with(['user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments', 'monthModes'])
             ->when($tenantId, fn ($query) => $query->whereKey($tenantId))->get()
             ->map(function ($tenant) {
                 $summary = app(TenantBalanceService::class)->outstandingSummary($tenant);
@@ -87,7 +95,7 @@ class FinancialReportController extends Controller
             'balanceRows', 'currentOutstanding', 'unpaidTenantCount',
             'dateFrom', 'dateTo', 'tenantId', 'tenants', 'selectedTenant', 'rangeLabel',
             'totalBilled', 'totalCollected', 'totalOutstanding', 'totalOverdue',
-            'paid', 'paidOnTime', 'paidLate', 'unknownPaidDate', 'overdue', 'tenantRows', 'months', 'chartMax'
+            'incomeCategories', 'paid', 'paidOnTime', 'paidLate', 'unknownPaidDate', 'overdue', 'tenantRows', 'months', 'chartMax'
         ));
     }
 }

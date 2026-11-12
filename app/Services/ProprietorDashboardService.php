@@ -18,7 +18,7 @@ class ProprietorDashboardService
     public function data(User $user): array
     {
         $tenants = Tenant::with([
-            'user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments',
+            'user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments', 'monthModes',
             'riskFlags' => fn ($query) => $query->where('calculated_at', '>=', now()->subMonthsNoOverflow(5)->startOfMonth())->orderBy('calculated_at'),
             'smsLogs' => fn ($query) => $query->paymentFollowUpToday()->latest('id'),
         ])->get();
@@ -26,7 +26,7 @@ class ProprietorDashboardService
         $to = today()->endOfMonth()->toDateString();
         $period = $tenants->flatMap(fn ($tenant) => $this->balances->billingEntries($tenant, $from, $to));
         $all = $tenants->flatMap(fn ($tenant) => $this->balances->billingEntries($tenant,
-            min('2026-08-01', $tenant->payments->min('due_date')?->toDateString() ?? '2026-08-01'), $to));
+            $this->balances->ledgerStart($tenant), $to));
         $overdue = $all->filter(fn ($entry) => $entry->status !== 'paid' && $entry->due_date->lt(today()));
         $thresholds = $this->risk->thresholds();
         $followUps = $tenants->where('status', 'active')->map(function ($tenant) use ($thresholds) {

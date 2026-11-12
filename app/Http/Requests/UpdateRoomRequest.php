@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Room;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,6 +11,17 @@ class UpdateRoomRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $room = $this->route('room');
+        $number = $this->input('room_number');
+
+        if ($room?->catalogType() && is_string($number) && trim($number) !== '') {
+            $edited = new Room(['type' => $room->catalogType(), 'room_number' => $number]);
+            $this->merge(['room_number' => $edited->displayName()]);
+        }
     }
 
     public function rules(): array

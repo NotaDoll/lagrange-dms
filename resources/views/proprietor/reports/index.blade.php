@@ -176,6 +176,24 @@
                 <p class="fr-muted mt-3 mb-0">Showing {{ $tenantRows->count() }} {{ Str::plural('tenant', $tenantRows->count()) }} with rent charges or payments.</p>
             </section></div>
         </div>
+        <section class="fr-panel mt-3" aria-labelledby="income-categories-title">
+            <h2 id="income-categories-title" class="h5">Income by category</h2>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead><tr><th scope="col">Category</th><th scope="col" class="text-end">Billed</th><th scope="col" class="text-end">Collected</th></tr></thead>
+                    <tbody>
+                        @foreach ($incomeCategories as $category)
+                            <tr>
+                                <th scope="row">{{ $category['label'] }}</th>
+                                <td class="text-end">₱{{ number_format($category['billed'], 2) }}</td>
+                                <td class="text-end">₱{{ number_format($category['collected'], 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <p class="fr-muted mt-3 mb-0">Reports include recorded ledger entries (including utility shares) and accrued rent due within this period. Rent is due at month end; the current unfinished month is excluded unless a charge is recorded. Overdue balances are unpaid charges due before today. Export PDF opens the print dialog; choose Save as PDF.</p>
     </div>
 @endsection

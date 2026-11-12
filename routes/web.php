@@ -29,6 +29,7 @@ use App\Http\Controllers\Proprietor\UtilityBillController;
 use App\Http\Controllers\Proprietor\CollectiblesReportController;
 use App\Http\Controllers\Proprietor\SmsSettingsController;
 use App\Http\Controllers\Proprietor\SettingsController;
+use App\Http\Controllers\Proprietor\SummerStorageController;
 
 require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
 
@@ -63,6 +64,9 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::resource('rooms', RoomController::class)->except(['show']);
         Route::patch('beds/{bed}/status', [RoomController::class, 'updateBedStatus'])->name('beds.status.update');
         Route::resource('payments', ProprietorPaymentController::class)->only(['index', 'create', 'store']);
+        Route::get('summer-storage', [SummerStorageController::class, 'index'])->name('summer-storage.index');
+        Route::post('summer-storage', [SummerStorageController::class, 'store'])->name('summer-storage.store');
+        Route::patch('payments/accrued/{tenant}', [ProprietorPaymentController::class, 'settleAccrued'])->name('payments.accrued.settle');
         Route::patch('payments/{payment}/settle', [ProprietorPaymentController::class, 'settle'])->name('payments.settle');
         Route::get('risk', [RiskDashboardController::class, 'index'])->name('risk.index');
         Route::post('risk/recalculate', [RiskDashboardController::class, 'recalculate'])->name('risk.recalculate');

@@ -115,11 +115,8 @@
                 : ($mnt === $total ? 'maintenance'
                 : ($vac === 0 && $mnt === 0 ? 'full'
                 : ($occ === 0 && $mnt === 0 ? 'vacant' : 'partial')));
-            $names = $beds->map(fn ($b) => $b->currentAssignment?->tenant?->name)->filter()->implode(' ');
             return (object) [
                 'room' => $room, 'total' => $total, 'occ' => $occ, 'vac' => $vac, 'state' => $state,
-                'search' => Str::lower($room->displayName() . ' ' . $room->room_number . ' ' . $names),
-                'type' => $room->gender ?? $room->room_type ?? null,
             ];
         });
 
@@ -175,7 +172,7 @@
         {{-- Filters and view toggle --}}
         <div class="rm-bar mb-3">
             <div class="collapse show" id="rmFilters">
-                <form method="GET" action="{{ route('proprietor.rooms.index') }}" class="row g-3 align-items-end mb-3">
+                <form id="rmFilterForm" method="GET" action="{{ route('proprietor.rooms.index') }}" class="row g-3 align-items-end mb-3">
                     <div class="col-md-6 col-xl-3">
                         <label for="rmSearch">Search</label>
                         <input type="search" id="rmSearch" name="search" value="{{ $search }}" class="form-control" placeholder="Room number or tenant name">
@@ -184,7 +181,7 @@
                         <label for="rmType">Room Type</label>
                         <select id="rmType" name="type" class="form-select">
                             <option value="">All types</option>
-                            @foreach (array_keys(config('dorm.room_types')) as $roomType)
+                            @foreach ($roomTypes as $roomType)
                                 <option value="{{ $roomType }}" @selected($type === $roomType)>{{ $roomType }}</option>
                             @endforeach
                         </select>
@@ -207,7 +204,7 @@
                 </form>
             </div>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div class="rm-count" id="rmCount" aria-live="polite">Showing {{ $rooms->count() }} of {{ $filteredRoomCount }} matching rooms ({{ $totalRooms }} total)</div>
+                <div class="rm-count" aria-live="polite">Showing {{ $rooms->count() }} of {{ $filteredRoomCount }} matching rooms ({{ $totalRooms }} total)</div>
                 <div class="rm-seg" role="group" aria-label="Switch view">
                     <button type="button" data-view="grid" aria-pressed="true"><i class="bi bi-grid me-1"></i>Card grid</button>
                     <button type="button" data-view="table" aria-pressed="false"><i class="bi bi-table me-1"></i>Data table</button>
@@ -228,8 +225,7 @@
             <div id="rmGrid" class="row g-3">
                 @foreach ($vm as $v)
                     @php $room = $v->room; @endphp
-                    <div class="col-md-6 col-xl-4 rm-item" id="room-{{ $room->id }}"
-                         data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
+                    <div class="col-md-6 col-xl-4" id="room-{{ $room->id }}">
                         <article class="rm-card">
                             <div class="rm-card-head d-flex justify-content-between align-items-start gap-2">
                                 <div>
@@ -318,7 +314,7 @@
                         <tbody>
                             @foreach ($vm as $v)
                                 @php $room = $v->room; @endphp
-                                <tr class="rm-item" data-state="{{ $v->state }}" data-type="{{ Str::lower((string) $v->type) }}" data-search="{{ $v->search }}">
+                                <tr>
                                     <td class="fw-semibold">{{ $room->displayName() }}</td>
                                     <td>{{ $room->capacity }}</td>
                                     <td>{{ $v->occ }} / {{ $room->capacity }}</td>
@@ -335,7 +331,6 @@
                 </div>
             </div>
 
-            <div class="rm-empty mt-3" id="rmNoMatch" hidden><i class="bi bi-search" aria-hidden="true"></i>No rooms match these filters. Try clearing one.</div>
         @endif
 
         @if ($rooms->hasPages())
@@ -385,10 +380,13 @@
             var root = document.getElementById('rm');
             if (!root) return;
             var $ = function (id) { return document.getElementById(id); };
-            var grid = $('rmGrid'), table = $('rmTable'), noMatch = $('rmNoMatch');
+            var filterForm = $('rmFilterForm');
+            [$('rmType'), $('rmState')].forEach(function (select) {
+                select.addEventListener('change', function () { filterForm.requestSubmit(); });
+            });
+
+            var grid = $('rmGrid'), table = $('rmTable');
             if (!grid) return;
-            var items = root.querySelectorAll('.rm-item');
-            var rooms = grid.querySelectorAll('.rm-item').length;
 
             function setView(view) {
                 grid.hidden = view !== 'grid';
@@ -405,22 +403,6 @@
             try { saved = localStorage.getItem('rm-view'); } catch (e) {}
             setView(saved === 'table' ? 'table' : 'grid');
 
-            var f = { q: $('rmSearch'), state: $('rmState'), type: $('rmType') };
-            function apply() {
-                var q = f.q.value.trim().toLowerCase(), shown = 0;
-                items.forEach(function (el) {
-                    var ok = (!q || el.dataset.search.indexOf(q) > -1)
-                        && (!f.state.value || el.dataset.state === f.state.value)
-                        && (!f.type || !f.type.value || el.dataset.type === f.type.value);
-                    el.hidden = !ok;
-                    if (ok && el.closest('#rmGrid')) shown++;
-                });
-                $('rmCount').textContent = 'Showing ' + shown + ' of ' + rooms + ' rooms';
-                noMatch.hidden = shown !== 0;
-            }
-            [f.q, f.state, f.type].forEach(function (el) {
-                if (el) { el.addEventListener('input', apply); el.addEventListener('change', apply); }
-            });
             // Put the cursor in the tenant list when an assign modal opens
             document.addEventListener('shown.bs.modal', function (e) {
                 var sel = e.target.querySelector('select');

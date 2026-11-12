@@ -24,6 +24,7 @@ class SettingsController extends Controller
     {
         $validated = $request->validate([
             'dormitory_name' => ['required', 'string', 'max:255'],
+            'billing_start_date' => ['sometimes', 'required', 'date_format:Y-m-d'],
             'address' => ['nullable', 'string', 'max:500'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:20'],

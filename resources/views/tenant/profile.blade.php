@@ -67,6 +67,17 @@
                         </dl>
                     </div>
 
+                    @if ($tenant->monthModes->isNotEmpty())
+                        <div class="col-md-6">
+                            <h2 class="h5">Storage months</h2>
+                            <ul class="mb-0">
+                                @foreach ($tenant->monthModes as $mode)
+                                    <li>{{ $mode->month->format('F Y') }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     @if ($tenant->guardian_name || $tenant->guardian_contact_number)
                         <div class="col-md-6">
                             <h2 class="h5">Guardian</h2>

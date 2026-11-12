@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Bed;
 use App\Models\Room;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -12,13 +13,20 @@ class RoomManagementService
     public function create(array $validated): Room
     {
         return DB::transaction(function () use ($validated) {
-            $room = Room::create([
-                'room_number' => $validated['room_number'],
-                'floor' => 'Unspecified',
-                'capacity' => $validated['capacity'],
-                'monthly_rate' => $validated['monthly_rate'],
-                'status' => 'available',
-            ]);
+            try {
+                $room = Room::create([
+                    'room_number' => $validated['room_number'],
+                    'type' => $validated['type'] ?? null,
+                    'floor' => 'Unspecified',
+                    'capacity' => $validated['capacity'],
+                    'monthly_rate' => $validated['monthly_rate'],
+                    'status' => 'available',
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    'room_number' => 'A room with this number already exists for this room type.',
+                ]);
+            }
 
             $this->syncBeds($room, (int) $validated['capacity']);
 

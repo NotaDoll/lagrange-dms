@@ -16,3 +16,28 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const type = document.getElementById('type');
+        const field = document.getElementById('new-type-field');
+        const newType = document.getElementById('new_type');
+
+        function syncNewType() {
+            const addingType = type.value === type.dataset.addType;
+            field.hidden = !addingType;
+            newType.disabled = !addingType;
+            newType.required = addingType;
+        }
+
+        type.addEventListener('change', () => {
+            syncNewType();
+            if (!newType.disabled) {
+                newType.focus();
+            }
+        });
+        syncNewType();
+    })();
+</script>
+@endpush

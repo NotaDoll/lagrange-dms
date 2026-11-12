@@ -36,13 +36,13 @@ class RoomManagementServiceTest extends TestCase
     public function test_room_management_can_create_and_edit_without_a_floor_field(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
-        $attributes = ['room_number' => '101', 'capacity' => 1, 'monthly_rate' => 1500];
+        $attributes = ['type' => 'CABIN', 'room_number' => '101', 'capacity' => 1, 'monthly_rate' => 1500];
 
         $this->get(route('proprietor.rooms.create'))->assertOk()->assertDontSee('name="floor"', false);
         $this->post(route('proprietor.rooms.store'), $attributes)->assertSessionHasNoErrors()
             ->assertRedirect(route('proprietor.rooms.index'));
 
-        $room = Room::where('room_number', '101')->sole();
+        $room = Room::where('room_number', 'CABIN 101')->sole();
         $room->update(['floor' => '3']);
         $this->get(route('proprietor.rooms.edit', $room))->assertOk()->assertDontSee('name="floor"', false);
         $this->put(route('proprietor.rooms.update', $room), $attributes)->assertSessionHasNoErrors()
@@ -50,8 +50,38 @@ class RoomManagementServiceTest extends TestCase
 
         $this->assertSame('3', $room->fresh()->floor);
         $this->get(route('proprietor.rooms.index', ['floor' => '999']))->assertOk()
-            ->assertSee('Room 101')->assertDontSee('All floors')->assertDontSee('Floor 3');
+            ->assertSee('CABIN 101')->assertDontSee('All floors')->assertDontSee('Floor 3');
     }
+
+    public function test_admin_can_add_and_reuse_a_custom_room_type(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'proprietor']));
+        $attributes = ['type' => '__add__', 'room_number' => '1', 'capacity' => 2, 'monthly_rate' => 1800];
+
+        $this->get(route('proprietor.rooms.create'))->assertOk()
+            ->assertSee('CABIN')->assertSee('SUITE')->assertSee('DELUXE')->assertSee('SUPREME')
+            ->assertSee('Add room type');
+        $this->post(route('proprietor.rooms.store'), $attributes)->assertSessionHasErrors('new_type');
+        $this->post(route('proprietor.rooms.store'), $attributes + ['new_type' => ' loft   deluxe '])
+            ->assertSessionHasNoErrors()->assertRedirect(route('proprietor.rooms.index'));
+
+        $room = Room::where('type', 'LOFT DELUXE')->sole();
+        $this->assertSame('LOFT DELUXE 1', $room->displayName());
+        $this->assertSame('1', $room->catalogNumber());
+        $this->assertSame(2, $room->beds()->count());
+
+        $this->get(route('proprietor.rooms.create'))->assertOk()->assertSee('value="LOFT DELUXE"', false);
+        $this->get(route('proprietor.rooms.index', ['type' => 'LOFT DELUXE']))->assertOk()
+            ->assertViewHas('rooms', fn ($rooms) => $rooms->pluck('id')->all() === [$room->id]);
+        $this->get(route('proprietor.tenants.create'))->assertOk()->assertSee('value="LOFT DELUXE"', false);
+
+        $existingType = ['type' => 'LOFT DELUXE'] + $attributes;
+        $this->post(route('proprietor.rooms.store'), $existingType)->assertSessionHasErrors('room_number');
+        $this->post(route('proprietor.rooms.store'), ['room_number' => '2'] + $existingType)
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('rooms', ['type' => 'LOFT DELUXE', 'room_number' => 'LOFT DELUXE 2']);
+    }
+
     public function test_legacy_beds_display_consistently_and_only_the_current_holder_can_select_their_bed(): void
     {
         $room = Room::create(['room_number' => 'SUPEREME 1', 'floor' => '1', 'capacity' => 2, 'monthly_rate' => 1300]);

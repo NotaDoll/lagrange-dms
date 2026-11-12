@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Room extends Model
 {
@@ -13,23 +14,50 @@ class Room extends Model
         'rent_history' => 'array',
     ];
 
+    public static function availableTypes(): array
+    {
+        $customTypes = self::query()->whereNotNull('type')->distinct()->orderBy('type')->pluck('type')
+            ->map(fn (string $type) => self::normalizeType($type))->filter()->all();
+
+        return array_values(array_unique([...array_keys(config('dorm.room_types')), ...$customTypes]));
+    }
+
     public static function normalizeType(?string $type): ?string
     {
-        $type = strtoupper(trim($type ?? ''));
-        $type = $type === 'SUPEREME' ? 'SUPREME' : $type;
+        $type = Str::upper(Str::squish($type ?? ''));
 
-        return array_key_exists($type, config('dorm.room_types')) ? $type : null;
+        return match ($type) {
+            '' => null,
+            'SUPEREME' => 'SUPREME',
+            default => $type,
+        };
     }
 
     public function catalogType(): ?string
     {
-        return self::normalizeType($this->type) ?? self::normalizeType($this->legacyRoomParts()[1] ?? null);
+        $type = self::normalizeType($this->type);
+        if ($type !== null) {
+            return $type;
+        }
+
+        $legacyType = self::normalizeType($this->legacyRoomParts()[1] ?? null);
+
+        return isset(config('dorm.room_types')[$legacyType]) ? $legacyType : null;
     }
 
     public function catalogNumber(): string
     {
+        $number = trim($this->room_number);
+        $type = $this->catalogType();
         $legacy = $this->legacyRoomParts();
-        $number = self::normalizeType($legacy[1] ?? null) ? ($legacy[2] ?? '1') : trim($this->room_number);
+
+        if ($type !== null && self::normalizeType($legacy[1] ?? null) === $type) {
+            return self::normalizeNumber($legacy[2] ?? '1');
+        }
+
+        if ($type !== null && str_starts_with($number, $type.' ')) {
+            $number = substr($number, strlen($type) + 1);
+        }
 
         return self::normalizeNumber($number);
     }

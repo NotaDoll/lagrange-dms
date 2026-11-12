@@ -58,7 +58,7 @@
     <div class="col-12">
         <div class="card bg-light border-0"><div class="card-body">
             <h2 class="h6">Tenant share preview</h2>
-            <p class="small text-muted">Equal shares; any remaining centavos go to tenants in ID order. Tenants with an assignment overlapping this period are included once, even if they have since moved out.</p>
+            <p class="small text-muted">Equal shares; any remaining centavos go to tenants in ID order. Tenants with an overlapping assignment are included, even if they have moved out. If storage applies, a bill spanning multiple months is divided by days before allocating monthly shares.</p>
             <div id="share-preview" class="small" aria-live="polite">Choose a room, billing period and amount to preview shares.</div>
         </div></div>
     </div>
@@ -88,10 +88,65 @@
 <script>
 (() => {
     const assignments = @json($roomAssignments);
+    const billingStart = @json($billingStart);
     const saved = @json($savedPreview);
     const original = @json($originalAllocation);
     const get = id => document.getElementById(id);
     const money = cents => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
+    function overlaps(assignment, start, end) {
+        return assignment.start <= end && (!assignment.end || (assignment.end >= start && assignment.end >= assignment.start));
+    }
+
+    function dayNumber(date) {
+        return Date.parse(date + 'T00:00:00Z') / 86400000;
+    }
+
+    function dayString(day) {
+        return new Date(day * 86400000).toISOString().slice(0, 10);
+    }
+
+    function periods(start, end) {
+        const months = [];
+        let first = dayNumber(start);
+        const last = dayNumber(end);
+        while (first <= last) {
+            const key = dayString(first).slice(0, 7);
+            const nextMonth = new Date(key + '-01T00:00:00Z');
+            nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+            const finalDay = Math.min(last, nextMonth.getTime() / 86400000 - 1);
+            months.push({key, start: dayString(first), end: dayString(finalDay), days: finalDay - first + 1});
+            first = finalDay + 1;
+        }
+        return months;
+    }
+
+    function sharesFor(assigned, start, end, cents) {
+        const shares = new Map();
+        function add(occupants, amount) {
+            const tenants = [...new Map(occupants.map(a => [a.tenant_id, a])).values()].sort((a, b) => a.tenant_id - b.tenant_id);
+            if (amount < tenants.length) return false;
+            tenants.forEach((tenant, index) => {
+                const share = Math.floor(amount / tenants.length) + (index < amount % tenants.length ? 1 : 0);
+                shares.set(tenant.tenant_id, {...tenant, cents: (shares.get(tenant.tenant_id)?.cents ?? 0) + share});
+            });
+            return true;
+        }
+
+        const months = periods(start, end);
+        const mixed = months.some(month => assigned.some(a => a.storage.includes(month.key) && overlaps(a, month.start, month.end)));
+        if (!mixed) return add(assigned, cents) ? [...shares.values()] : null;
+
+        const totalDays = dayNumber(end) - dayNumber(start) + 1;
+        let elapsed = 0;
+        for (const month of months) {
+            const amount = Math.floor(cents * (elapsed + month.days) / totalDays) - Math.floor(cents * elapsed / totalDays);
+            elapsed += month.days;
+            const regular = assigned.filter(a => !a.storage.includes(month.key) && overlaps(a, month.start, month.end));
+            if (!add(regular, amount)) return null;
+        }
+        return [...shares.values()].sort((a, b) => a.tenant_id - b.tenant_id);
+    }
+
     function preview() {
         const room = get('room_id').value;
         const start = get('billing_period_start').value;
@@ -106,22 +161,27 @@
         const unchanged = original && saved.length && Object.entries(original).every(([key, value]) => key === 'amount'
             ? Math.round(Number(get(key).value) * 100) === Math.round(Number(value) * 100)
             : get(key).value === String(value ?? ''));
-        const tenants = unchanged ? saved : [...new Map(assignments.filter(a => String(a.room_id) === room && a.start <= end && (!a.end || a.end >= start)).map(a => [a.tenant_id, a])).values()].sort((a, b) => a.tenant_id - b.tenant_id);
+        const eligibleStart = start < billingStart ? billingStart : start;
+        const overlapping = eligibleStart <= end
+            ? assignments.filter(a => String(a.room_id) === room && overlaps(a, eligibleStart, end)) : [];
+        const tenants = unchanged ? saved : sharesFor(overlapping, eligibleStart, end, cents);
+        if (!tenants) {
+            target.textContent = 'Enter an amount that provides at least ₱0.01 for each assigned tenant.';
+            return;
+        }
         if (!tenants.length) {
-            target.textContent = 'No tenants assigned during this period. This bill cannot be saved until a room with eligible tenants is selected.';
+            target.textContent = end < billingStart ? 'This period ends before the billing start date.'
+                : overlapping.length ? 'The provider bill can be saved. No tenant shares will be generated for this storage period.'
+                : 'No tenants were assigned to this room during the billable period.';
             return;
         }
-        if (cents < tenants.length) {
-            target.textContent = 'Enter an amount that provides at least ₱0.01 per tenant.';
-            return;
-        }
-        for (const [index, tenant] of tenants.entries()) {
+        for (const tenant of tenants) {
             const row = document.createElement('div');
             row.className = 'd-flex justify-content-between border-bottom py-2';
             const name = document.createElement('span');
             name.textContent = tenant.name;
             const share = document.createElement('strong');
-            share.textContent = money(unchanged ? tenant.cents : Math.floor(cents / tenants.length) + (index < cents % tenants.length ? 1 : 0));
+            share.textContent = money(tenant.cents);
             row.append(name, share);
             target.append(row);
         }

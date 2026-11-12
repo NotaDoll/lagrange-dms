@@ -16,7 +16,7 @@
     <div class="card mb-3">
         <div class="card-body">
             <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">
-                <div class="col-md-5">
+                <div class="col-md-3">
                     <label for="tenant_id" class="form-label">Tenant</label>
                     <select class="form-select" id="tenant_id" name="tenant_id">
                         <option value="">All tenants</option>
@@ -28,7 +28,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="status" class="form-label">Status</label>
                     <select class="form-select" id="status" name="status">
                         <option value="">All statuses</option>
@@ -38,6 +38,15 @@
                     </select>
                 </div>
 
+                <div class="col-md-3">
+                    <label for="category" class="form-label">Category</label>
+                    <select class="form-select" id="category" name="category">
+                        <option value="">All categories</option>
+                        @foreach ($categories as $value => $label)
+                            <option value="{{ $value }}" @selected($category === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Filter</button>
                     <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Reset</a>
@@ -45,6 +54,42 @@
             </form>
         </div>
     </div>
+
+    @if ($accruedPayments->total())
+        <section class="card mb-3" aria-labelledby="accrued-title">
+            <div class="card-body">
+                <h2 class="h5" id="accrued-title">Accrued storage fees and balances forward</h2>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th scope="col">Tenant</th><th scope="col">Description</th><th scope="col">Amount</th><th scope="col">Due date</th><th scope="col">Action</th></tr></thead>
+                        <tbody>
+                            @foreach ($accruedPayments as $charge)
+                                @php($fieldId = 'accrued-'.$charge->tenant_id.'-'.$charge->charge_type.'-'.$charge->due_date->toDateString())
+                                <tr>
+                                    <th scope="row">{{ $charge->tenant->name }}</th>
+                                    <td>{{ $charge->description }}</td>
+                                    <td class="text-nowrap">PHP {{ number_format((float) $charge->amount, 2) }}</td>
+                                    <td>{{ $charge->due_date->format('M d, Y') }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ route('proprietor.payments.accrued.settle', $charge->tenant) }}" class="d-flex gap-2 align-items-center">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="charge_type" value="{{ $charge->charge_type }}">
+                                            <input type="hidden" name="due_date" value="{{ $charge->due_date->toDateString() }}">
+                                            <label class="visually-hidden" for="{{ $fieldId }}">Payment date for {{ $charge->tenant->name }}, {{ $charge->description }}</label>
+                                            <input type="date" class="form-control form-control-sm" id="{{ $fieldId }}" name="paid_date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
+                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                {{ $accruedPayments->links() }}
+            </div>
+        </section>
+    @endif
 
     <div class="card">
         <div class="card-body">
@@ -70,7 +115,7 @@
                                         <div class="text-muted small">{{ $bed->locationLabel() }}</div>
                                     @endif
                                 </td>
-                                <td>{{ $payment->description }}</td><td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
+                                <td>{{ $payment->description }}<div class="small text-muted">{{ $categories[$payment->category] }}</div></td><td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
                                 <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
                                 <td>{{ $payment->days_overdue }}</td>

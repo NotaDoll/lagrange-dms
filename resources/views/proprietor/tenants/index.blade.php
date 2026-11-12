@@ -8,6 +8,7 @@
         <div class="d-flex flex-wrap gap-2">
             <a href="{{ route('proprietor.tenants.create') }}" class="btn btn-primary">Add Tenant</a>
             <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-primary">Bulk Import</a>
+            <a href="{{ route('proprietor.summer-storage.index') }}" class="btn btn-outline-primary">Summer / Storage</a>
         </div>
     </div>
 
