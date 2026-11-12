@@ -55,7 +55,7 @@ class ProprietorDashboardTest extends TestCase
         RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-08-01', 'status' => 'active']);
         $this->late($tenant, 12);
         Payment::create(['tenant_id' => $tenant->id, 'amount' => 300, 'due_date' => '2026-10-01', 'paid_date' => '2026-10-01', 'status' => 'paid']);
-        $complaint = Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'Water supply interrupted', 'status' => 'submitted']);
+        $complaint = Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'Water supply interrupted', 'status' => Complaint::STATUS_IN_PROGRESS]);
         $complaint->forceFill(['created_at' => now()->subDays(8)])->save();
         Complaint::create(['tenant_id' => $tenant->id, 'category' => 'noise', 'description' => 'Late night noise', 'status' => 'in_progress']);
         Complaint::create(['tenant_id' => $tenant->id, 'category' => 'other', 'description' => 'Resolved', 'status' => 'resolved']);
@@ -120,7 +120,7 @@ class ProprietorDashboardTest extends TestCase
     {
         $admin = $this->admin();
         $tenant = $this->tenant();
-        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'No water supply', 'status' => 'submitted']);
+        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'No water supply', 'status' => Complaint::STATUS_IN_PROGRESS]);
         Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => json_encode(['themes' => [['theme' => 'Water supply interruptions', 'count' => 1]], 'recommended_action' => 'Inspect the water supply.'])]]]], 200)]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Generate new summary')
             ->assertDontSee('No saved complaint summary')->assertDontSee('No complaint summary has been saved')
@@ -140,7 +140,7 @@ class ProprietorDashboardTest extends TestCase
         $admin = $this->admin();
         $tenant = $this->tenant();
         AiSummary::create(['generated_by' => $admin->id, 'filter_params' => [], 'prompt_used' => 'Legacy prompt', 'summary_result' => 'Existing saved summary', 'response_time_seconds' => 1]);
-        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'other', 'description' => 'One complaint', 'status' => 'submitted']);
+        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'other', 'description' => 'One complaint', 'status' => Complaint::STATUS_IN_PROGRESS]);
         Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => '{"themes":[{"theme":"Invented","count":99}],"recommended_action":"Inspect"}']]]], 200)]);
         $this->postJson(route('proprietor.dashboard.summary'))->assertStatus(502);
         $this->assertDatabaseCount('ai_summaries', 1);

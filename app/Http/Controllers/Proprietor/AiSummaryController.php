@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Proprietor;
 
 use App\Http\Controllers\Controller;
-use App\Models\AiSummary;
 use App\Models\Complaint;
 use App\Services\ComplaintSummarizationService;
 use Illuminate\Http\Request;
@@ -13,16 +12,6 @@ class AiSummaryController extends Controller
 {
     public function __construct(private readonly ComplaintSummarizationService $complaintSummarizationService)
     {
-    }
-
-    public function index()
-    {
-        $recentSummaries = AiSummary::with('generatedBy')
-            ->latest()
-            ->take(10)
-            ->get();
-
-        return view('proprietor.complaints.summarize', compact('recentSummaries'));
     }
 
     public function store(Request $request)

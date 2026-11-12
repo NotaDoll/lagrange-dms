@@ -28,9 +28,15 @@
         /* Filter + toolbar */
         .an-panel { background: #fff; border: 1px solid var(--an-line); border-radius: var(--an-radius); box-shadow: var(--an-shadow); }
         .an .form-label { font-size: .75rem; color: var(--an-ink-2); margin-bottom: .2rem; }
-        .an-searchbox { position: relative; min-width: 15rem; }
-        .an-searchbox .bi { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--an-ink-2); pointer-events: none; }
-        .an-searchbox input { padding-left: 2.1rem; }
+        .an-filter { flex: 1 1 9rem; min-width: 0; }
+        .an-filter-search { flex: 2 1 14rem; }
+        .an-searchbox { position: relative; }
+        .an-searchbox > .bi { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--an-ink-2); pointer-events: none; }
+        .an-searchbox input { padding-inline: 2.1rem; }
+        .an-searchbox input::-webkit-search-cancel-button { display: none; }
+        .an-searchbox .an-clear-search { position: absolute; right: .25rem; top: 50%; transform: translateY(-50%); padding: .15rem .35rem; color: var(--an-ink-2); }
+        .an-selection { font-size: .8rem; }
+        .an .form-check-input:checked, .an .form-check-input:indeterminate { background-color: var(--an-plum); border-color: var(--an-plum); }
         .an-chip { border: 1px solid var(--an-line); background: #fff; border-radius: 999px; padding: .3rem .75rem; font-size: .8rem; font-weight: 500; color: var(--an-ink-2); }
         .an-chip[aria-pressed="true"] { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
         .an-seg { display: inline-flex; padding: 3px; background: #f4eef2; border-radius: 10px; }
@@ -40,7 +46,6 @@
 
         /* Badges */
         .an-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 500; white-space: nowrap; background: #f1f5f9; color: #475569; }
-        .an-badge.s-submitted { background: #e0e7ff; color: #4338ca; }
         .an-badge.s-in_progress { background: #fef3c7; color: #b45309; }
         .an-badge.s-resolved { background: #dcfce7; color: #15803d; }
         .an-badge.p-urgent { background: #fee2e2; color: #b91c1c; }
@@ -52,7 +57,11 @@
         .an-table { margin: 0; font-size: .8125rem; }
         .an-table thead th { background: var(--an-tint); color: var(--an-ink-2); font-size: .72rem; font-weight: 600; text-transform: none; border-bottom: 1px solid var(--an-line); padding: .55rem .75rem; white-space: nowrap; }
         .an-table td { padding: .45rem .75rem; border-color: var(--an-line); vertical-align: middle; }
-        .an-table .t-name { font-weight: 600; line-height: 1.25; }
+        .an-table .t-name { line-height: 1.25; }
+        .an .is-unread .t-name { font-weight: 700; }
+        .an .complaint-row.is-unread > td,
+        .an .complaint-card.is-unread { background: #f3f4f6; }
+        .an .complaint-row.is-unread:hover > td { --bs-table-bg-state: #f3f4f6; }
         .an-table .t-sub { color: var(--an-ink-2); font-size: .72rem; line-height: 1.25; }
         .an-table .t-desc { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; }
         .an .complaint-row { cursor: pointer; }
@@ -88,7 +97,9 @@
 
     @php
         $catIcons = ['maintenance' => 'bi-tools', 'noise' => 'bi-volume-up', 'billing' => 'bi-receipt', 'other' => 'bi-chat-dots'];
-        $statusLabels = ['submitted' => 'Submitted', 'in_progress' => 'In Progress', 'resolved' => 'Resolved'];
+        $statusLabels = \App\Models\Complaint::STATUS_LABELS;
+        $filterQuery = request()->only(['search', 'category', 'date_from', 'date_to', 'status', 'page']);
+        $displayStatus = fn ($complaint) => isset($statusLabels[$complaint->status]) ? $complaint->status : \App\Models\Complaint::STATUS_IN_PROGRESS;
 
         // Priority is derived from what the complaint already has:
         // an urgency/priority column (if you have one), then how long it has waited unresolved.
@@ -96,7 +107,7 @@
             $attrs = $c->getAttributes();
             $flag = Str::lower((string) ($attrs['priority'] ?? $attrs['urgency'] ?? ''));
             $days = (int) $c->created_at->diffInDays(now());
-            $open = $c->status !== 'resolved';
+            $open = $c->status !== \App\Models\Complaint::STATUS_RESOLVED;
 
             if ($open && in_array($flag, ['urgent', 'high'], true)) { $p = ['urgent', 'Urgent', 'bi-exclamation-triangle-fill']; }
             elseif ($open && $days >= 7) { $p = ['aging', 'Waiting ' . $days . 'd', 'bi-hourglass-split']; }
@@ -107,60 +118,87 @@
                 'pKey' => $p[0], 'pLabel' => $p[1], 'pIcon' => $p[2],
                 'attention' => in_array($p[0], ['urgent', 'aging'], true),
                 'catIcon' => $catIcons[$c->category] ?? 'bi-chat-dots',
-                'search' => Str::lower($c->tenant->user->name . ' ' . $c->tenant->user->email . ' ' . $c->category . ' ' . $c->description),
             ];
         };
     @endphp
 
     <div class="an">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="an-title">Complaints</h1>
-            <a href="{{ route('proprietor.complaints.summarize') }}" class="btn btn-primary"><i class="bi bi-magic me-1"></i>Summarize</a>
-        </div>
+        <h1 class="an-title mb-3">Complaints</h1>
 
-        {{-- Server-side filters (unchanged behavior) --}}
-        <div class="an-panel mb-3">
-            <div class="p-3">
-                <form method="GET" action="{{ route('proprietor.complaints.index') }}" class="row g-3 align-items-end">
-                    <div class="col-md-5">
-                        <label for="category" class="form-label">Category</label>
-                        <select class="form-select" id="category" name="category">
-                            <option value="">All categories</option>
-                            @foreach (['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Other'] as $value => $label)
-                                <option value="{{ $value }}" @selected($category === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
+        <div class="an-panel p-3 mb-3">
+            <form method="GET" action="{{ route('proprietor.complaints.index') }}" id="anFilters" class="d-flex flex-wrap gap-3 align-items-end">
+                <div class="an-filter an-filter-search">
+                    <label for="anSearch" class="form-label">Search</label>
+                    <div class="an-searchbox">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" id="anSearch" name="search" class="form-control" value="{{ $search }}" placeholder="Search tenant, category or text">
+                        <button type="button" class="btn an-clear-search" id="anClearSearch" aria-label="Clear search" @if ($search === '') hidden @endif><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                     </div>
+                </div>
 
-                    <div class="col-md-4">
-                        <label for="status" class="form-label">Status</label>
-                        <select class="form-select" id="status" name="status">
-                            <option value="">All statuses</option>
-                            @foreach ($statusLabels as $value => $label)
-                                <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                <div class="an-filter">
+                    <label for="category" class="form-label">Category</label>
+                    <select class="form-select" id="category" name="category">
+                        <option value="">All categories</option>
+                        @foreach (['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Other'] as $value => $label)
+                            <option value="{{ $value }}" @selected($category === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-                    <div class="col-md-3 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Filter</button>
-                        <a href="{{ route('proprietor.complaints.index') }}" class="btn btn-outline-secondary">Reset</a>
-                    </div>
-                </form>
-            </div>
+                <div class="an-filter">
+                    <label for="date_from" class="form-label">Date From</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ $dateFrom }}" aria-label="Date From"
+                        @if ($dateErrors->has('date_from')) aria-invalid="true" aria-describedby="anDateError" @endif>
+                </div>
+
+                <div class="an-filter">
+                    <label for="date_to" class="form-label">Date To</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ $dateTo }}" aria-label="Date To"
+                        @if ($dateErrors->has('date_to')) aria-invalid="true" aria-describedby="anDateError" @endif>
+                </div>
+
+                <div class="an-filter">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All statuses</option>
+                        @foreach ($statusLabels as $value => $label)
+                            <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 ms-auto">
+                    <span id="anSummaryTrigger" title="Select complaints to summarize">
+                        <button type="button" id="anGenerateSummary" class="btn btn-primary" disabled
+                            data-url="{{ route('proprietor.complaints.summaries.store') }}" title="Select complaints to summarize">
+                            <i class="bi bi-magic me-1" aria-hidden="true"></i><span id="anGenerateLabel">Generate Summary</span>
+                        </button>
+                    </span>
+                    <button type="button" id="anSummaryHistory" class="btn btn-outline-secondary"
+                        data-url="{{ route('proprietor.complaints.summaries.index') }}">History</button>
+                </div>
+            </form>
+            @if ($dateErrors->any())
+                <div class="small text-danger mt-2" id="anDateError" role="alert">{{ $dateErrors->first() }}</div>
+            @endif
         </div>
 
         @if ($complaints->isEmpty())
+            <div class="an-count mb-2">Showing 0 of {{ $complaints->total() }}</div>
             <div class="an-panel"><div class="an-empty"><i class="bi bi-inbox" aria-hidden="true"></i>No complaints found.</div></div>
         @else
-            {{-- Quick search, attention filter and view switch --}}
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <div class="an-searchbox">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    <input type="search" id="anSearch" class="form-control" placeholder="Search tenant, category or text" aria-label="Search complaints on this page">
-                </div>
                 <button type="button" class="an-chip" id="anAttention" aria-pressed="false"><i class="bi bi-exclamation-triangle me-1"></i>Needs attention</button>
-                <div class="an-count ms-1" id="anCount" aria-live="polite">Showing {{ $complaints->count() }} of {{ $complaints->count() }}</div>
+                <div class="an-count ms-1" id="anCount" data-total="{{ $complaints->total() }}" aria-live="polite">Showing {{ $complaints->count() }} of {{ $complaints->total() }}</div>
+                <label class="an-selection ms-2">
+                    <input type="checkbox" class="form-check-input mt-0 me-1" id="anSelectAll" aria-label="Select all visible complaints">
+                    Select all
+                </label>
+                <span class="an-selection" id="anSelection" hidden>
+                    <span id="anSelectedCount" aria-live="polite"></span>
+                    <a class="ms-1" id="anClearSelection" href="#anSelectAll">Clear selection</a>
+                </span>
                 <div class="an-seg ms-auto" role="group" aria-label="Switch view">
                     <button type="button" data-view="table" aria-pressed="true"><i class="bi bi-table me-1"></i>Table</button>
                     <button type="button" data-view="cards" aria-pressed="false"><i class="bi bi-grid me-1"></i>Cards</button>
@@ -173,21 +211,26 @@
                     <table class="table table-hover align-middle an-table">
                         <thead>
                             <tr>
+                                <th scope="col" aria-label="Selection"></th>
                                 <th>Tenant</th>
                                 <th>Category</th>
                                 <th>Description</th>
                                 <th>Priority</th>
                                 <th>Status</th>
-                                <th>Submitted</th>
+                                <th>Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($complaints as $complaint)
                                 @php $m = $meta($complaint); @endphp
-                                <tr class="complaint-row an-item {{ $m->pKey ? 'is-' . $m->pKey : '' }}"
+                                <tr class="complaint-row an-item {{ $m->pKey ? 'is-' . $m->pKey : '' }} {{ $complaint->isUnread() ? 'is-unread' : '' }}"
                                     data-complaint-modal="#complaintModal{{ $complaint->id }}"
-                                    data-search="{{ $m->search }}" data-attention="{{ $m->attention ? 1 : 0 }}"
+                                    data-attention="{{ $m->attention ? 1 : 0 }}"
                                     tabindex="0" aria-label="View complaint from {{ $complaint->tenant->user->name }}">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input mt-0" data-select-complaint value="{{ $complaint->id }}"
+                                            aria-label="Select complaint from {{ $complaint->tenant->user->name }}">
+                                    </td>
                                     <td>
                                         <div class="t-name">{{ $complaint->tenant->user->name }}</div>
                                         <div class="t-sub">{{ $complaint->tenant->user->email }}</div>
@@ -202,19 +245,19 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <form method="POST" action="{{ route('proprietor.complaints.update', array_merge(['complaint' => $complaint], request()->only(['category', 'status']))) }}" class="an-status complaint-status-form">
+                                        <form method="POST" action="{{ route('proprietor.complaints.update', array_merge(['complaint' => $complaint], $filterQuery)) }}" class="an-status complaint-status-form">
                                             @csrf
                                             @method('PATCH')
                                             <select class="form-select form-select-sm" name="status" aria-label="Complaint status">
                                                 @foreach ($statusLabels as $value => $label)
-                                                    <option value="{{ $value }}" @selected($complaint->status === $value)>{{ $label }}</option>
+                                                    <option value="{{ $value }}" @selected($displayStatus($complaint) === $value)>{{ $label }}</option>
                                                 @endforeach
                                             </select>
                                             <button type="submit" class="btn btn-outline-primary btn-sm" title="Update status" aria-label="Update status"><i class="bi bi-check2"></i></button>
                                         </form>
                                     </td>
                                     <td class="text-nowrap">
-                                        {{ $complaint->created_at->format('M d, Y') }}
+                                        {{ $complaint->created_at->format('M d, Y, g:i A') }}
                                         <div class="t-sub">{{ $complaint->created_at->diffForHumans() }}</div>
                                     </td>
                                 </tr>
@@ -228,12 +271,17 @@
             <div id="anCards" class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3" hidden>
                 @foreach ($complaints as $complaint)
                     @php $m = $meta($complaint); @endphp
-                    <div class="col an-item" data-search="{{ $m->search }}" data-attention="{{ $m->attention ? 1 : 0 }}">
-                        <article class="complaint-card {{ $m->pKey ? 'is-' . $m->pKey : '' }}" data-complaint-modal="#complaintModal{{ $complaint->id }}" tabindex="0" aria-label="View complaint from {{ $complaint->tenant->user->name }}">
+                    <div class="col an-item" data-attention="{{ $m->attention ? 1 : 0 }}">
+                        <article class="complaint-card {{ $m->pKey ? 'is-' . $m->pKey : '' }} {{ $complaint->isUnread() ? 'is-unread' : '' }}" data-complaint-modal="#complaintModal{{ $complaint->id }}" tabindex="0" aria-label="View complaint from {{ $complaint->tenant->user->name }}">
                             <div class="d-flex justify-content-between align-items-start gap-2">
-                                <div>
-                                    <div class="fw-semibold" style="font-size:.9rem">{{ $complaint->tenant->user->name }}</div>
-                                    <div class="text-muted" style="font-size:.72rem">{{ $complaint->created_at->format('M d, Y') }} &middot; {{ $complaint->created_at->diffForHumans() }}</div>
+                                <div class="d-flex align-items-start gap-2">
+                                    <input type="checkbox" class="form-check-input" data-select-complaint value="{{ $complaint->id }}"
+                                        aria-label="Select complaint from {{ $complaint->tenant->user->name }}">
+                                    <div>
+                                        <div class="t-name" style="font-size:.9rem">{{ $complaint->tenant->user->name }}</div>
+                                        <div style="font-size:.72rem">{{ $complaint->created_at->format('M d, Y, g:i A') }}</div>
+                                        <div class="text-muted" style="font-size:.72rem">{{ $complaint->created_at->diffForHumans() }}</div>
+                                    </div>
                                 </div>
                                 @if ($m->pKey)
                                     <span class="an-badge p-{{ $m->pKey }}"><i class="bi {{ $m->pIcon }}"></i>{{ $m->pLabel }}</span>
@@ -241,15 +289,15 @@
                             </div>
                             <div class="d-flex gap-1 flex-wrap">
                                 <span class="an-badge"><i class="bi {{ $m->catIcon }}"></i>{{ ucfirst($complaint->category) }}</span>
-                                <span class="an-badge s-{{ $complaint->status }}">{{ $statusLabels[$complaint->status] ?? Str::of($complaint->status)->replace('_', ' ')->title() }}</span>
+                                <span class="an-badge s-{{ $displayStatus($complaint) }}">{{ $statusLabels[$displayStatus($complaint)] }}</span>
                             </div>
                             <p>{{ $complaint->description }}</p>
-                            <form method="POST" action="{{ route('proprietor.complaints.update', array_merge(['complaint' => $complaint], request()->only(['category', 'status']))) }}" class="an-status complaint-status-form mt-auto">
+                            <form method="POST" action="{{ route('proprietor.complaints.update', array_merge(['complaint' => $complaint], $filterQuery)) }}" class="an-status complaint-status-form mt-auto">
                                 @csrf
                                 @method('PATCH')
                                 <select class="form-select form-select-sm" name="status" aria-label="Complaint status">
                                     @foreach ($statusLabels as $value => $label)
-                                        <option value="{{ $value }}" @selected($complaint->status === $value)>{{ $label }}</option>
+                                        <option value="{{ $value }}" @selected($displayStatus($complaint) === $value)>{{ $label }}</option>
                                     @endforeach
                                 </select>
                                 <button type="submit" class="btn btn-outline-primary btn-sm" title="Update status" aria-label="Update status"><i class="bi bi-check2"></i></button>
@@ -259,15 +307,19 @@
                 @endforeach
             </div>
 
-            <div class="an-panel an-empty mt-2" id="anNoMatch" hidden><i class="bi bi-search" aria-hidden="true"></i>No complaints on this page match your search.</div>
+            <div class="an-panel an-empty mt-2" id="anNoMatch" hidden><i class="bi bi-search" aria-hidden="true"></i>No complaints on this page need attention.</div>
 
-            <div class="mt-3">
-                {{ $complaints->links() }}
-            </div>
         @endif
 
+        <div class="mt-3">
+            {{ $complaints->links() }}
+        </div>
+
+        @include('proprietor.complaints.summary-overlay')
+
         @foreach ($complaints as $complaint)
-            <div class="modal fade complaint-detail-modal" id="complaintModal{{ $complaint->id }}" tabindex="-1" aria-labelledby="complaintModalLabel{{ $complaint->id }}" aria-hidden="true">
+            <div class="modal fade complaint-detail-modal" id="complaintModal{{ $complaint->id }}"
+                data-read-url="{{ route('proprietor.complaints.read', $complaint) }}" tabindex="-1" aria-labelledby="complaintModalLabel{{ $complaint->id }}" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -275,6 +327,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="small text-danger mb-3" data-read-error role="alert" hidden>Could not mark this complaint as read. Reopen it to retry.</div>
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
                                     <div class="complaint-detail-label">Tenant</div>
@@ -283,11 +336,11 @@
                                 </div>
                                 <div class="col-md-3">
                                     <div class="complaint-detail-label">Status</div>
-                                    <div class="complaint-detail-value">{{ Str::of($complaint->status)->replace('_', ' ')->title() }}</div>
+                                    <div class="complaint-detail-value">{{ $statusLabels[$displayStatus($complaint)] }}</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="complaint-detail-label">Submitted</div>
-                                    <div class="complaint-detail-value">{{ $complaint->created_at->format('M d, Y') }}</div>
+                                    <div class="complaint-detail-label">Timestamp</div>
+                                    <div class="complaint-detail-value">{{ $complaint->created_at->format('M d, Y, g:i A') }}</div>
                                 </div>
                             </div>
 
@@ -303,73 +356,224 @@
     @push('scripts')
         <script>
             (function () {
-                var openers = document.querySelectorAll('.an [data-complaint-modal]');
+                const filters = document.getElementById('anFilters');
+                const search = document.getElementById('anSearch');
+                const clearSearch = document.getElementById('anClearSearch');
+                const searchFocusKey = 'an-complaints-search-focus';
+                let searchTimer;
+                const selectionKey = 'an-complaints-selection-{{ auth()->id() }}';
+                const filterState = () => JSON.stringify(Array.from(new FormData(filters).values(), value => value.trim()));
+                const initialFilters = filterState();
+                const selected = new Set();
 
-                function openModal(el) {
-                    var modalElement = document.querySelector(el.dataset.complaintModal);
-                    if (modalElement) { bootstrap.Modal.getOrCreateInstance(modalElement).show(); }
+                function restoreSelection() {
+                    try {
+                        const saved = JSON.parse(sessionStorage.getItem(selectionKey));
+                        selected.clear();
+                        if (saved?.filters === initialFilters && Array.isArray(saved.ids)) {
+                            saved.ids.forEach(id => selected.add(id));
+                        }
+                    } catch (error) {
+                        // Selection still works on this page without session storage.
+                    }
+                }
+                restoreSelection();
+
+                try {
+                    const savedSearch = JSON.parse(sessionStorage.getItem(searchFocusKey));
+                    sessionStorage.removeItem(searchFocusKey);
+                    if (savedSearch && savedSearch.value.trim() === search.value.trim()) {
+                        search.value = savedSearch.value;
+                        search.focus({ preventScroll: true });
+                        search.setSelectionRange(savedSearch.start, savedSearch.end, savedSearch.direction);
+                    }
+                } catch (error) {
+                    // The filters still work when session storage is unavailable.
                 }
 
-                openers.forEach(function (el) {
-                    el.addEventListener('click', function (event) {
-                        if (event.target.closest('form, button, select, input, a')) { return; }
-                        openModal(el);
-                    });
-                    el.addEventListener('keydown', function (event) {
-                        if (event.key !== 'Enter' && event.key !== ' ') { return; }
-                        if (event.target !== el) { return; }
+                clearSearch.hidden = search.value === '';
+                filters.addEventListener('submit', function () {
+                    clearTimeout(searchTimer);
+                    if (filterState() !== initialFilters) {
+                        selected.clear();
+                        syncSelection();
+                    }
+                    if (document.activeElement !== search) { return; }
+
+                    try {
+                        sessionStorage.setItem(searchFocusKey, JSON.stringify({
+                            value: search.value,
+                            start: search.selectionStart,
+                            end: search.selectionEnd,
+                            direction: search.selectionDirection,
+                        }));
+                    } catch (error) {
+                        // Submit even if focus cannot be restored.
+                    }
+                });
+                filters.addEventListener('change', function (event) {
+                    if (event.target.matches('select, input[type="date"]')) {
+                        filters.requestSubmit();
+                    }
+                });
+                search.addEventListener('input', function (event) {
+                    clearSearch.hidden = search.value === '';
+                    clearTimeout(searchTimer);
+                    if (!event.isComposing) {
+                        searchTimer = setTimeout(() => filters.requestSubmit(), 300);
+                    }
+                });
+                search.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' && !event.isComposing) {
                         event.preventDefault();
-                        openModal(el);
+                        filters.requestSubmit();
+                    }
+                });
+                clearSearch.addEventListener('click', function () {
+                    search.value = '';
+                    clearSearch.hidden = true;
+                    search.focus();
+                    filters.requestSubmit();
+                });
+
+                const openers = Array.from(document.querySelectorAll('.an [data-complaint-modal]'));
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+                function openModal(opener) {
+                    const modal = document.querySelector(opener.dataset.complaintModal);
+                    bootstrap.Modal.getOrCreateInstance(modal).show();
+                }
+
+                openers.forEach(function (opener) {
+                    opener.addEventListener('click', function (event) {
+                        if (event.target.closest('form, button, select, input, a')) { return; }
+                        openModal(opener);
+                    });
+                    opener.addEventListener('keydown', function (event) {
+                        if (event.target !== opener || !['Enter', ' '].includes(event.key)) { return; }
+                        event.preventDefault();
+                        openModal(opener);
                     });
                 });
 
-                // Search, attention filter and view switch (client-side, current page only)
-                var table = document.getElementById('anTable');
+                document.querySelectorAll('.an [data-read-url]').forEach(function (modal) {
+                    modal.addEventListener('shown.bs.modal', async function () {
+                        const unread = openers.filter(opener =>
+                            opener.dataset.complaintModal === '#' + modal.id && opener.classList.contains('is-unread')
+                        );
+                        if (!unread.length) { return; }
+
+                        const errorMessage = modal.querySelector('[data-read-error]');
+                        errorMessage.hidden = true;
+                        unread.forEach(opener => opener.classList.remove('is-unread'));
+
+                        try {
+                            const response = await fetch(modal.dataset.readUrl, {
+                                method: 'PATCH',
+                                headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                            });
+                            if (response.status !== 204) { throw new Error('Read status update failed'); }
+                        } catch (error) {
+                            unread.forEach(opener => opener.classList.add('is-unread'));
+                            errorMessage.hidden = false;
+                        }
+                    });
+                });
+
+                const summarySelection = setupComplaintSummaries(selected, csrfToken, () => syncSelection());
+                let syncSelection = summarySelection;
+                syncSelection();
+                window.addEventListener('pageshow', function (event) {
+                    if (event.persisted) {
+                        restoreSelection();
+                        syncSelection();
+                    }
+                });
+
+                const table = document.getElementById('anTable');
                 if (!table) { return; }
-                var cards = document.getElementById('anCards');
-                var search = document.getElementById('anSearch');
-                var attn = document.getElementById('anAttention');
-                var noMatch = document.getElementById('anNoMatch');
-                var count = document.getElementById('anCount');
-                var rows = table.querySelectorAll('.an-item');
-                var total = rows.length;
-                var view = 'table';
 
-                function apply() {
-                    var q = search.value.trim().toLowerCase();
-                    var onlyAttn = attn.getAttribute('aria-pressed') === 'true';
-                    var shown = 0;
-                    document.querySelectorAll('.an .an-item').forEach(function (el) {
-                        var ok = (!q || el.dataset.search.indexOf(q) > -1) && (!onlyAttn || el.dataset.attention === '1');
-                        el.hidden = !ok;
-                        if (ok && table.contains(el)) { shown++; }
+                const cards = document.getElementById('anCards');
+                const attention = document.getElementById('anAttention');
+                const count = document.getElementById('anCount');
+                const noMatch = document.getElementById('anNoMatch');
+                const viewButtons = document.querySelectorAll('.an [data-view]');
+                const items = document.querySelectorAll('.an .an-item');
+                const checkboxes = Array.from(document.querySelectorAll('.an [data-select-complaint]'));
+                const selectAll = document.getElementById('anSelectAll');
+                const selection = document.getElementById('anSelection');
+                const selectedCount = document.getElementById('anSelectedCount');
+                const clearSelection = document.getElementById('anClearSelection');
+
+                function visibleCheckboxes() {
+                    const activeView = table.hidden ? cards : table;
+                    return checkboxes.filter(box => activeView.contains(box) && !box.closest('.an-item').hidden);
+                }
+
+                function updateSelection() {
+                    checkboxes.forEach(box => { box.checked = selected.has(box.value); });
+                    const visible = visibleCheckboxes();
+                    const visibleSelected = visible.filter(box => box.checked).length;
+                    selectAll.disabled = visible.length === 0;
+                    selectAll.checked = visible.length > 0 && visibleSelected === visible.length;
+                    selectAll.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+                    selection.hidden = selected.size === 0;
+                    selectedCount.textContent = selected.size + ' selected';
+                    summarySelection();
+                }
+                syncSelection = updateSelection;
+
+                checkboxes.forEach(function (box) {
+                    box.addEventListener('click', event => event.stopPropagation());
+                    box.addEventListener('change', function () {
+                        if (box.checked) { selected.add(box.value); }
+                        else { selected.delete(box.value); }
+                        updateSelection();
                     });
-                    count.textContent = 'Showing ' + shown + ' of ' + total;
+                });
+                selectAll.addEventListener('change', function () {
+                    visibleCheckboxes().forEach(function (box) {
+                        if (selectAll.checked) { selected.add(box.value); }
+                        else { selected.delete(box.value); }
+                    });
+                    updateSelection();
+                });
+                clearSelection.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    selected.clear();
+                    (selectAll.disabled ? attention : selectAll).focus();
+                    updateSelection();
+                });
+
+                attention.addEventListener('click', function () {
+                    const onlyAttention = attention.getAttribute('aria-pressed') !== 'true';
+                    attention.setAttribute('aria-pressed', String(onlyAttention));
+                    items.forEach(item => { item.hidden = onlyAttention && item.dataset.attention !== '1'; });
+                    const shown = visibleCheckboxes().length;
+                    count.textContent = 'Showing ' + shown + ' of ' + count.dataset.total;
                     noMatch.hidden = shown !== 0;
+                    updateSelection();
+                });
+
+                function setView(view) {
+                    table.hidden = view !== 'table';
+                    cards.hidden = view !== 'cards';
+                    viewButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === view)));
+                    updateSelection();
                 }
 
-                function setView(v) {
-                    view = v;
-                    table.hidden = v !== 'table';
-                    cards.hidden = v !== 'cards';
-                    document.querySelectorAll('.an [data-view]').forEach(function (b) {
-                        b.setAttribute('aria-pressed', b.dataset.view === v ? 'true' : 'false');
+                viewButtons.forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        setView(button.dataset.view);
+                        try { localStorage.setItem('an-complaints-view', button.dataset.view); } catch (error) {}
                     });
-                    try { localStorage.setItem('an-complaints-view', v); } catch (e) {}
-                }
-
-                search.addEventListener('input', apply);
-                attn.addEventListener('click', function () {
-                    attn.setAttribute('aria-pressed', attn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-                    apply();
-                });
-                document.querySelectorAll('.an [data-view]').forEach(function (b) {
-                    b.addEventListener('click', function () { setView(b.dataset.view); });
                 });
 
-                var saved = null;
-                try { saved = localStorage.getItem('an-complaints-view'); } catch (e) {}
-                setView(saved === 'cards' ? 'cards' : 'table');
+                let savedView = null;
+                try { savedView = localStorage.getItem('an-complaints-view'); } catch (error) {}
+                setView(savedView === 'cards' ? 'cards' : 'table');
+
+                @include('proprietor.complaints.summary-script')
             })();
         </script>
     @endpush

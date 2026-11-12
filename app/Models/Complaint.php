@@ -6,7 +6,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class Complaint extends Model
 {
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
+    public const STATUS_RESOLVED = 'resolved';
+
+    public const STATUS_LABELS = [
+        self::STATUS_IN_PROGRESS => 'In Progress',
+        self::STATUS_RESOLVED => 'Resolved',
+    ];
+
     protected $fillable = ['tenant_id', 'category', 'description', 'status'];
+
+    protected $casts = ['read_at' => 'datetime'];
+
+    public function isUnread(): bool
+    {
+        return $this->read_at === null;
+    }
 
     public function tenant()
     {

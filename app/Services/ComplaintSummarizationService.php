@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class ComplaintSummarizationService
 {
-    private const MAX_COMPLAINTS_SENT = 50;
+    public const MAX_COMPLAINTS_SENT = 50;
 
     public function summarize(Collection $complaints, array $options = []): AiSummary
     {
@@ -17,18 +17,8 @@ class ComplaintSummarizationService
 
         $facts = $this->computeFacts($complaints);
         $prompt = $this->buildPrompt($complaints, $facts);
-        $narrative = $this->summarizeWithAi($prompt);
-
-        $overview = sprintf(
-            'Based on %d complaint(s) · %d waiting more than 7 days · oldest %d days.',
-            $facts['total'],
-            $facts['overdue'],
-            $facts['oldest_days']
-        );
-
-        $text = $narrative !== null
-            ? $narrative."\n\n".$overview
-            : "AI summary unavailable (check your API key and laravel.log).\n\n".$this->formatFacts($facts);
+        $text = $this->summarizePrompt($prompt, $facts)
+            ?? "AI summary unavailable (check your API key and laravel.log).\n\n".$this->formatFacts($facts);
 
         return AiSummary::create([
             'generated_by'          => $options['generated_by'] ?? null,
@@ -37,6 +27,25 @@ class ComplaintSummarizationService
             'summary_result'        => $text,
             'response_time_seconds' => round(microtime(true) - $startedAt, 2),
         ]);
+    }
+
+    public function generate(Collection $complaints): ?string
+    {
+        $facts = $this->computeFacts($complaints);
+
+        return $this->summarizePrompt($this->buildPrompt($complaints, $facts), $facts);
+    }
+
+    private function summarizePrompt(string $prompt, array $facts): ?string
+    {
+        $narrative = $this->summarizeWithAi($prompt);
+
+        return $narrative === null ? null : $narrative."\n\n".sprintf(
+            'Based on %d complaint(s) · %d waiting more than 7 days · oldest %d days.',
+            $facts['total'],
+            $facts['overdue'],
+            $facts['oldest_days']
+        );
     }
 
     private function age($complaint): int

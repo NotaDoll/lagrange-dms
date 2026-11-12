@@ -22,7 +22,7 @@ class ComplaintController extends Controller
             'tenant_id' => $tenant->id,
             'category' => $request->validated('category'),
             'description' => $request->validated('description'),
-            'status' => 'submitted',
+            'status' => Complaint::STATUS_IN_PROGRESS,
         ]);
 
         return redirect()
