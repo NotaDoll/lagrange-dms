@@ -69,10 +69,33 @@ class ProprietorDashboardTest extends TestCase
             ->assertViewHas('collectedThisMonth', $report->viewData('totalCollected'))
             ->assertViewHas('overdueBalance', $allReport->viewData('totalOverdue'))
             ->assertViewHas('openComplaints', 2)->assertViewHas('oldComplaints', 1)->assertViewHas('newComplaintsToday', 1)
-            ->assertViewHas('followUps', fn ($rows) => $rows->first()->rules_tripped === 2 && $rows->first()->risk_level === 'high');
+            ->assertViewHas('followUps', fn ($rows) => $rows->first()->rules_tripped === 4 && $rows->first()->risk_level === 'high');
         Http::assertNothingSent();
         $this->assertDatabaseCount('risk_flags', 0);
         $this->assertDatabaseCount('sms_logs', 0);
+    }
+
+    public function test_follow_up_uses_accrued_rent_and_ages_pending_charges_without_sending_sms(): void
+    {
+        $this->admin();
+        $tenant = $this->tenant();
+        $room = Room::create(['room_number' => '101', 'floor' => '1', 'capacity' => 1, 'monthly_rate' => 1300]);
+        $bed = $room->beds()->create(['bed_label' => 'A']);
+        $tenant->roomAssignments()->create([
+            'bed_id' => $bed->id, 'start_date' => '2026-08-01', 'status' => 'active',
+        ]);
+        $pending = $this->tenant('Pending charge');
+        $pending->payments()->create(['amount' => 1200, 'due_date' => '2026-10-20', 'status' => 'pending', 'days_overdue' => 0]);
+        $this->tenant('Balance only')->update(['opening_balance' => 1000]);
+
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) =>
+            $rows->count() === 2
+            && $rows->first()->tenant->is($tenant) && $rows->first()->consecutive_late_months === 2
+            && $rows->last()->tenant->is($pending) && $rows->last()->avg_days_overdue === 11.0
+        )->assertViewHas('highRiskCount', 2);
+        $this->assertDatabaseCount('payments', 1);
+        $this->assertDatabaseCount('risk_flags', 0);
+        Http::assertNothingSent();
     }
 
     public function test_settings_threshold_changes_immediately_change_follow_up_membership(): void
@@ -89,7 +112,7 @@ class ProprietorDashboardTest extends TestCase
         $this->get(route('proprietor.settings.edit'))->assertOk()->assertSee('Payment risk thresholds');
     }
 
-    public function test_manual_sms_uses_existing_sender_is_idempotent_and_never_sends_to_guardian(): void
+    public function test_manual_sms_goes_to_guardian_and_resends_are_idempotent(): void
     {
         $this->admin();
         Http::fake(['api.semaphore.co/*' => Http::response(['message_id' => 1], 200)]);
@@ -99,10 +122,35 @@ class ProprietorDashboardTest extends TestCase
         $this->postJson(route('proprietor.dashboard.sms', $tenant))->assertOk();
         Http::assertSentCount(1);
         $this->assertDatabaseCount('sms_logs', 1);
-        $this->assertDatabaseHas('sms_logs', ['tenant_id' => $tenant->id, 'recipient_type' => 'tenant', 'status' => 'sent']);
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('SMS sent');
+        $this->assertDatabaseHas('sms_logs', ['tenant_id' => $tenant->id, 'recipient_type' => 'guardian', 'recipient_number' => '09998887777', 'status' => 'sent']);
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('SMS sent')->assertSee('Send SMS again');
+        $previousId = \App\Models\SmsLog::sole()->id;
+        $this->postJson(route('proprietor.dashboard.sms', $tenant), ['resend_after' => $previousId])
+            ->assertOk()->assertJsonPath('sent', true);
+        $this->postJson(route('proprietor.dashboard.sms', $tenant), ['resend_after' => $previousId])->assertOk();
+        Http::assertSentCount(2);
+        $this->assertDatabaseCount('sms_logs', 2);
+        Http::assertSent(fn ($request) => $request['number'] === '09998887777');
+        Http::assertNotSent(fn ($request) => $request['number'] === '09171234567');
+
+        $tenant->update(['guardian_contact_number' => null]);
+        $this->postJson(route('proprietor.dashboard.sms', $tenant))->assertUnprocessable();
+        $this->get(route('proprietor.dashboard'))->assertSee('Guardian number missing');
+        Http::assertSentCount(2);
         $low = $this->tenant('Low risk');
         $this->postJson(route('proprietor.dashboard.sms', $low))->assertUnprocessable();
+    }
+
+    public function test_tenant_details_link_prefills_the_payment_form(): void
+    {
+        $this->admin();
+        $tenant = $this->tenant();
+        $this->tenant('Other tenant');
+        $url = route('proprietor.payments.create', ['tenant_id' => $tenant->id]);
+
+        $this->get(route('proprietor.tenants.index'))->assertOk()->assertSee($url)->assertSee('Record Payment');
+        $this->get($url)->assertOk()->assertViewHas('selectedTenantId', $tenant->id)
+            ->assertSee('value="'.$tenant->id.'" selected', false);
     }
 
     public function test_failed_sms_is_logged_and_can_be_retried(): void

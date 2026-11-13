@@ -19,7 +19,7 @@ class SmsLog extends Model
 
     public function scopePaymentFollowUpToday(Builder $query): Builder
     {
-        return $query->where('recipient_type', 'tenant')
+        return $query->where('recipient_type', 'guardian')
             ->where(function (Builder $query) {
                 $query->where(fn (Builder $query) => $query
                     ->whereIn('status', ['queued', 'unknown'])

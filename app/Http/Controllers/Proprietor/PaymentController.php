@@ -63,12 +63,14 @@ class PaymentController extends Controller
         return view('proprietor.payments.index', compact('payments', 'accruedPayments', 'tenants', 'tenantId', 'status', 'category', 'categories'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $tenants = Tenant::with('user')
             ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
-        return view('proprietor.payments.create', compact('tenants'));
+        $selectedTenantId = $request->integer('tenant_id');
+
+        return view('proprietor.payments.create', compact('tenants', 'selectedTenantId'));
     }
 
     public function settleAccrued(Request $request, Tenant $tenant)

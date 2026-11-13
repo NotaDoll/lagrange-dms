@@ -178,6 +178,14 @@
                             </dd>
                         </dl>
                     </div>
+                    <div class="modal-footer">
+                        @if ($tenant->hasMovedIn())
+                            <a href="{{ route('proprietor.payments.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary">Record Payment</a>
+                        @else
+                            <span class="small text-muted">Payment recording opens after move-in.</span>
+                            <button type="button" class="btn btn-primary" disabled>Record Payment</button>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>

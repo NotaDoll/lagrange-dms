@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Payment;
 use App\Models\RiskFlag;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Cache;
@@ -16,7 +17,11 @@ class PaymentRiskService
         'recent_default_days' => 30,
     ];
 
-    public function __construct(private readonly SmsService $smsService, private readonly SettingsService $settings) {}
+    public function __construct(
+        private readonly SmsService $smsService,
+        private readonly SettingsService $settings,
+        private readonly TenantBalanceService $balances,
+    ) {}
 
     public function thresholds(): array
     {
@@ -26,10 +31,19 @@ class PaymentRiskService
     /** Evaluate the existing four rules without saving flags or sending SMS. */
     public function evaluate(Tenant $tenant, ?array $thresholds = null): array
     {
-        $tenant->loadMissing('payments');
-        $payments = $tenant->payments;
-        $late = $payments->filter(fn ($payment) => $payment->status === 'overdue' || $payment->days_overdue > 0);
-        $months = $late->map(fn ($payment) => $payment->due_date->format('Y-m'))->unique()->sort()->values();
+        $today = Carbon::parse(Tenant::localDate());
+        $charges = $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString())
+            ->where('category', '!=', Payment::OPENING_BALANCE)
+            ->map(fn (Payment $payment) => [
+                'due_date' => $payment->due_date,
+                'days_overdue' => $payment->hasRecordedPayment()
+                    ? (int) max(0, $payment->paid_date
+                        ? $payment->due_date->diffInDays($payment->paid_date, false)
+                        : $payment->days_overdue)
+                    : (int) max(0, $payment->due_date->diffInDays($today, false)),
+            ]);
+        $late = $charges->where('days_overdue', '>', 0);
+        $months = $late->map(fn ($charge) => $charge['due_date']->format('Y-m'))->unique()->sort()->values();
         $streak = 0;
         $consecutive = 0;
         $previous = null;
@@ -39,12 +53,13 @@ class PaymentRiskService
             $consecutive = max($consecutive, $streak);
             $previous = $current;
         }
-        $last = $late->sortByDesc('due_date')->first()?->due_date;
+        $last = $late->max('due_date');
+        $sixMonthsAgo = $today->copy()->subMonthsNoOverflow(6);
         $metrics = [
-            'late_payments_6mo' => $late->filter(fn ($payment) => $payment->due_date->gte(now()->subMonths(6)->startOfDay()))->count(),
+            'late_payments_6mo' => $late->filter(fn ($charge) => $charge['due_date']->gte($sixMonthsAgo))->count(),
             'consecutive_late_months' => $consecutive,
-            'avg_days_overdue' => round((float) $payments->avg('days_overdue'), 1),
-            'days_since_last_default' => $last ? (int) $last->copy()->startOfDay()->diffInDays(today()) : null,
+            'avg_days_overdue' => round((float) $charges->avg('days_overdue'), 1),
+            'days_since_last_default' => $last ? (int) $last->copy()->startOfDay()->diffInDays($today) : null,
         ];
         $thresholds ??= $this->thresholds();
         $rules = [
@@ -66,21 +81,20 @@ class PaymentRiskService
             ...array_diff_key($evaluation, array_flip(['rules', 'rules_tripped'])),
             'calculated_at' => now(),
         ]);
-        if ($flag->risk_level === 'high' && $tenant->contact_number) {
+        if ($flag->risk_level === 'high' && filled($tenant->guardian_contact_number)) {
             Cache::lock('dashboard.sms.'.$tenant->id, 30)->get(function () use ($tenant) {
                 if (! $tenant->smsLogs()->paymentFollowUpToday()->exists()) {
-                    $this->smsService->send($tenant->contact_number, 'Your dormitory account has been flagged high risk due to repeated late payments. Please settle outstanding balances as soon as possible.', $tenant);
+                    $this->smsService->sendGuardianPaymentFollowUp($tenant);
                 }
             });
         }
 
-        // No guardian delivery: this database has no records of both required consents.
         return $flag;
     }
 
     public function calculateForAllTenants(): int
     {
-        return Tenant::where('status', 'active')->with(['user', 'payments'])->get()
+        return Tenant::where('status', 'active')->with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])->get()
             ->each(fn ($tenant) => $this->calculateForTenant($tenant))->count();
     }
 }

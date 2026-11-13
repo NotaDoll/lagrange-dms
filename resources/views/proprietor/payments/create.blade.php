@@ -19,7 +19,7 @@
                         <select class="form-select @error('tenant_id') is-invalid @enderror" id="tenant_id" name="tenant_id" required>
                             <option value="">Select tenant</option>
                             @foreach ($tenants as $tenant)
-                                <option value="{{ $tenant->id }}" @selected((string) old('tenant_id') === (string) $tenant->id)>
+                                <option value="{{ $tenant->id }}" @selected((string) old('tenant_id', $selectedTenantId) === (string) $tenant->id)>
                                     {{ $tenant->name }} - {{ $tenant->email }}
                                 </option>
                             @endforeach

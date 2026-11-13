@@ -17,7 +17,7 @@ class SmsService
         private readonly TextBeeGateway $textBee,
     ) {}
 
-    public function send(string $number, string $message, ?Tenant $recipientTenant = null): SmsLog
+    public function send(string $number, string $message, ?Tenant $recipientTenant = null, ?string $recipientType = null): SmsLog
     {
         $normalizedNumber = $this->normalizeNumber($number);
         $tenant = $recipientTenant ?? Tenant::with('user')->get()->first(function (Tenant $tenant) use ($normalizedNumber) {
@@ -26,7 +26,7 @@ class SmsService
                 || $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber;
         });
 
-        $recipientType = ! $recipientTenant && $tenant && $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber
+        $recipientType ??= ! $recipientTenant && $tenant && $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber
             ? 'guardian'
             : 'tenant';
 
@@ -70,6 +70,16 @@ class SmsService
         }
 
         return SmsLog::create([...$logData, 'status' => $status, 'sent_at' => now()]);
+    }
+
+    public function sendGuardianPaymentFollowUp(Tenant $tenant): SmsLog
+    {
+        return $this->send(
+            $tenant->guardian_contact_number,
+            'Payment follow-up: La Grange DMS has an outstanding dormitory balance for the tenant in your care. Please contact the proprietor about payment.',
+            $tenant,
+            recipientType: 'guardian',
+        );
     }
 
     public function syncTextBeeStatuses(): int

@@ -74,14 +74,23 @@
                                     </svg><span class="pd-note d-block">{{ $points ? $row->trend->first()['label'].'–'.$row->trend->last()['label'] : 'No saved history' }}</span>
                                 </td>
                                 <td>
-                                    @if ($row->risk_level === 'high')
-                                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms" data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}" @disabled($row->sms_sent)>{{ match ($row->sms_status) {
-                                            'queued' => 'SMS queued',
-                                            'unknown' => 'SMS unconfirmed',
-                                            'delivered' => 'SMS delivered',
-                                            'sent' => 'SMS sent',
-                                            default => 'Send SMS',
-                                        } }}</button>
+                                    @if ($row->risk_level === 'high' && filled($row->tenant->guardian_contact_number))
+                                        <div class="d-inline-flex flex-column align-items-start gap-1">
+                                            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms"
+                                                    data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}"
+                                                    data-log-id="{{ $row->sms_log_id }}">
+                                                {{ $row->sms_sent ? 'Send SMS again' : 'Send SMS' }}
+                                            </button>
+                                            <small class="text-muted pd-sms-status" aria-live="polite">{{ match ($row->sms_status) {
+                                                'queued' => 'SMS queued',
+                                                'unknown' => 'SMS unconfirmed',
+                                                'delivered' => 'SMS delivered',
+                                                'sent' => 'SMS sent',
+                                                default => '',
+                                            } }}</small>
+                                        </div>
+                                    @elseif ($row->risk_level === 'high')
+                                        <span class="small text-muted">Guardian number missing</span>
                                     @endif
                                     <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.index', ['tenant_id' => $row->tenant->id]) }}">View</a>
                                 </td>
@@ -91,7 +100,7 @@
                         @endforelse
                     </tbody>
                 </table></div>
-                <p class="pd-note mb-0">SMS is sent only to the tenant. Guardian delivery is unavailable because both consent records are not present.</p>
+                <p class="pd-note mb-0">Payment reminders go to the mobile number saved for the guardian.</p>
             </div></section></div>
 
             <div class="col-xl-5 d-flex flex-column gap-4">

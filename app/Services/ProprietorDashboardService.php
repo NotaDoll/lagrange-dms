@@ -38,7 +38,7 @@ class ProprietorDashboardService
                 $trend->push(['label' => $month->format('M'), 'level' => $flag?->risk_level]);
             }
 
-            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend, 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status];
+            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend, 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
         })->filter(fn ($row) => $row->risk_level !== 'low')
             ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
         $totalBeds = Bed::count();
