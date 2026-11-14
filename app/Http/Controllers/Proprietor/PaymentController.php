@@ -13,6 +13,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 
+// --- NEW IMPORTS ADDED HERE ---
+use App\Imports\PaymentsImport;
+use Maatwebsite\Excel\Facades\Excel;
+// ------------------------------
+
 class PaymentController extends Controller
 {
     public function __construct(
@@ -130,5 +135,36 @@ class PaymentController extends Controller
         return redirect()
             ->route('proprietor.payments.index')
             ->with('success', 'Payment recorded successfully.');
+    }
+
+    /**
+     * NEW METHOD: Handle the Excel import for the Payment Ledger.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|mimes:xlsx,xls,csv|max:5120'
+        ]);
+
+        // We use the already injected $this->paymentLedgerService
+        $import = new PaymentsImport($this->paymentLedgerService);
+
+        try {
+            Excel::import($import, $request->file('excel_file'));
+
+            $successCount = $import->getSuccessCount();
+            $errors = $import->getErrors();
+
+            if (count($errors) > 0) {
+                return redirect()->back()
+                    ->with('warning', "Successfully imported {$successCount} payments, but some rows failed.")
+                    ->with('import_errors', $errors);
+            }
+
+            return redirect()->back()->with('success', "Successfully imported {$successCount} payments!");
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error importing file: ' . $e->getMessage());
+        }
     }
 }

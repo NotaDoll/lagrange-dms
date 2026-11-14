@@ -16,12 +16,21 @@ class RiskDashboardController extends Controller
     {
         $riskOrder = ['high' => 0, 'medium' => 1, 'low' => 2];
 
-        $tenants = Tenant::with(['user', 'latestRiskFlag'])
+        // Only active tenants are billed, so only they are risk-rated.
+        $tenants = Tenant::where('status', Tenant::STATUS_ACTIVE)
+            ->with(['user', 'latestRiskFlag', 'currentAssignment.bed.room'])
             ->get()
             ->sortBy(fn (Tenant $tenant) => $riskOrder[$tenant->latestRiskFlag?->risk_level] ?? 3)
             ->values();
 
-        return view('proprietor.risk.index', compact('tenants'));
+        $summary = [
+            'high'   => $tenants->filter(fn ($t) => $t->latestRiskFlag?->risk_level === 'high')->count(),
+            'medium' => $tenants->filter(fn ($t) => $t->latestRiskFlag?->risk_level === 'medium')->count(),
+            'low'    => $tenants->filter(fn ($t) => $t->latestRiskFlag?->risk_level === 'low')->count(),
+            'unrated' => $tenants->filter(fn ($t) => $t->latestRiskFlag === null)->count(),
+        ];
+
+        return view('proprietor.risk.index', compact('tenants', 'summary'));
     }
 
     public function recalculate()

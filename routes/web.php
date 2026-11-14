@@ -63,11 +63,16 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::resource('tenants', TenantController::class)->except(['show']);
         Route::resource('rooms', RoomController::class)->except(['show']);
         Route::patch('beds/{bed}/status', [RoomController::class, 'updateBedStatus'])->name('beds.status.update');
+
+        // --- Payment Routes ---
         Route::resource('payments', ProprietorPaymentController::class)->only(['index', 'create', 'store']);
-        Route::get('summer-storage', [SummerStorageController::class, 'index'])->name('summer-storage.index');
-        Route::post('summer-storage', [SummerStorageController::class, 'store'])->name('summer-storage.store');
+        Route::post('payments/import', [ProprietorPaymentController::class, 'import'])->name('payments.import'); // <-- NEW ROUTE ADDED HERE
         Route::patch('payments/accrued/{tenant}', [ProprietorPaymentController::class, 'settleAccrued'])->name('payments.accrued.settle');
         Route::patch('payments/{payment}/settle', [ProprietorPaymentController::class, 'settle'])->name('payments.settle');
+        // ----------------------
+
+        Route::get('summer-storage', [SummerStorageController::class, 'index'])->name('summer-storage.index');
+        Route::post('summer-storage', [SummerStorageController::class, 'store'])->name('summer-storage.store');
         Route::get('risk', [RiskDashboardController::class, 'index'])->name('risk.index');
         Route::post('risk/recalculate', [RiskDashboardController::class, 'recalculate'])->name('risk.recalculate');
         Route::get('announcements-faqs', [ResidentContentController::class, 'index'])->name('announcements-faqs.index');
@@ -93,15 +98,11 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::post('tenants/import/preview/{preview}/confirm', [TenantImportController::class, 'confirm'])->whereUuid('preview')->name('tenants.import.confirm');
         Route::delete('tenants/import/preview/{preview}', [TenantImportController::class, 'cancel'])->whereUuid('preview')->name('tenants.import.cancel');
 
-        // Each module below adds its routes inside this group
         Route::resource('utility-bills', UtilityBillController::class)->except(['show']);
-
         Route::get('reports/collectibles', [CollectiblesReportController::class, 'index'])->name('reports.collectibles');
-
         Route::get('settings/sms', [SmsSettingsController::class, 'edit'])->name('settings.sms.edit');
         Route::put('settings/sms', [SmsSettingsController::class, 'update'])->name('settings.sms.update');
         Route::post('settings/sms/test', [SmsSettingsController::class, 'test'])->middleware('throttle:3,1')->name('settings.sms.test');
-
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     });
@@ -120,7 +121,3 @@ Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])
         Route::get('/faq', [TenantFaqController::class, 'index'])->name('faq.index');
         // Each module below adds its routes inside this group
     });
-
-
-
-

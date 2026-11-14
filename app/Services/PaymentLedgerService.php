@@ -49,7 +49,13 @@ class PaymentLedgerService
             $endDate = $paidDate ? Carbon::parse($paidDate)->startOfDay() : Carbon::today();
             $daysOverdue = (int) max(0, $dueDate->diffInDays($endDate, false));
 
+            $receiptNumber = null;
+            if ($validated['status'] === 'paid') {
+                $receiptNumber = 'RCPT-' . strtoupper(uniqid());
+            }
+
             return $tenant->payments()->create([
+                'receipt_number' => $receiptNumber,
                 'charge_type' => $charge?->charge_type,
                 'amount' => $validated['amount'],
                 'due_date' => $dueDate->toDateString(),
@@ -92,15 +98,19 @@ class PaymentLedgerService
             return $entry;
         }
 
+        $receiptNumber = $entry->receipt_number ?? 'RCPT-' . strtoupper(uniqid());
+
         $entry->update([
             'status' => 'paid',
             'paid_date' => $paidDate,
+            'receipt_number' => $receiptNumber,
             'days_overdue' => (int) max(0, $entry->due_date->diffInDays(Carbon::parse($paidDate)->startOfDay(), false)),
         ]);
+
         app(NotificationService::class)->notify(
             $entry->tenant->user,
             'payment_confirmation',
-            sprintf('Your payment of PHP %s due on %s has been recorded as paid.', number_format((float) $entry->amount, 2), $entry->due_date->format('M d, Y'))
+            sprintf('Your payment of PHP %s due on %s has been recorded as paid. Receipt No: %s', number_format((float) $entry->amount, 2), $entry->due_date->format('M d, Y'), $receiptNumber)
         );
 
         return $entry;

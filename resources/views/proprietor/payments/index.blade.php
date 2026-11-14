@@ -5,14 +5,56 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Payment Ledger</h1>
-        <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary">Record Payment</a>
+
+        <!-- Header Action Buttons -->
+        <div class="d-flex gap-2">
+            <!-- Import Excel Button & Hidden Form -->
+            <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
+                Import Excel
+            </button>
+            <form action="{{ route('proprietor.payments.import') }}" method="POST" enctype="multipart/form-data" id="import-form" class="d-none">
+                @csrf
+                <input type="file" name="excel_file" id="excel-import-input" accept=".xlsx, .xls, .csv" onchange="document.getElementById('import-form').submit();">
+            </form>
+
+            <!-- Record Payment Button -->
+            <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary">Record Payment</a>
+        </div>
     </div>
+
+    <!-- FLASH MESSAGES FOR IMPORT -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <strong>{{ session('warning') }}</strong>
+            <ul class="mb-0 mt-2">
+                @foreach(session('import_errors', []) as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
     @endif
     <p class="text-muted small">Recorded charges and payments feed Financial Report automatically. Mark an existing charge paid when collected.</p>
     <a href="{{ route('proprietor.reports.index') }}" class="btn btn-outline-primary mb-3">Financial Report</a>
+
     <div class="card mb-3">
         <div class="card-body">
             <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">
@@ -98,11 +140,14 @@
                     <thead>
                         <tr>
                             <th>Tenant</th>
-                            <th>Description</th><th>Amount</th>
+                            <th>Description</th>
+                            <th>Amount</th>
                             <th>Due Date</th>
                             <th>Paid Date</th>
                             <th>Days Overdue</th>
-                            <th>Status</th><th>Action</th>
+                            <th>Status</th>
+                            <!-- REPLACED ACTION WITH RECEIPT NO. -->
+                            <th>Receipt No.</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -115,7 +160,8 @@
                                         <div class="text-muted small">{{ $bed->locationLabel() }}</div>
                                     @endif
                                 </td>
-                                <td>{{ $payment->description }}<div class="small text-muted">{{ $categories[$payment->category] }}</div></td><td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
+                                <td>{{ $payment->description }}<div class="small text-muted">{{ $categories[$payment->category] }}</div></td>
+                                <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
                                 <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
                                 <td>{{ $payment->days_overdue }}</td>
@@ -125,20 +171,18 @@
                                     </span>
                                 </td>
                                 <td>
-                                    @if ($payment->status !== 'paid')
-                                        <form method="POST" action="{{ route('proprietor.payments.settle', $payment) }}" class="d-flex gap-2 align-items-center">
-                                            @csrf
-                                            @method('PATCH')
-                                            <label class="visually-hidden" for="paid-date-{{ $payment->id }}">Payment date for {{ $payment->tenant->name }}</label>
-                                            <input type="date" class="form-control form-control-sm" id="paid-date-{{ $payment->id }}" name="paid_date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
-                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
-                                        </form>
+                                    <!-- RECEIPT NUMBER DISPLAY -->
+                                    @if($payment->receipt_number)
+                                        <span class="badge bg-light text-dark border font-monospace">
+                                            {{ $payment->receipt_number }}
+                                        </span>
                                     @else
-                                        <span class="text-muted small">Paid</span>
+                                        <span class="text-muted small fst-italic">Not paid</span>
                                     @endif
                                 </td>
                             </tr>
                         @empty
+                            <!-- UPDATED COLSPAN TO 8 -->
                             <tr><td colspan="8" class="text-center text-muted py-4">No payments found.</td></tr>
                         @endforelse
                     </tbody>
