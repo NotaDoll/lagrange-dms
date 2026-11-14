@@ -343,7 +343,7 @@
                     <div class="alert alert-success" style="margin-bottom: 15px; font-size: 0.9rem;">{{ $value }}</div>
                 @endsession
 
-                <form method="POST" action="{{ route('login') }}">
+                <form method="POST" action="{{ route('login', absolute: false) }}">
                     @csrf
 
                     <div class="mb-3" style="margin-bottom: 15px;">
