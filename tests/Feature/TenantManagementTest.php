@@ -163,12 +163,55 @@ class TenantManagementTest extends TestCase
             'current_password' => 'TEMP09171234567', 'password' => 'TEMP09171234567', 'password_confirmation' => 'TEMP09171234567',
         ])->assertSessionHasErrorsIn('updatePassword', 'password');
         $this->assertTrue($tenant->fresh()->must_change_password);
+        $this->withCookie(config('session.cookie'), session()->getId())
+            ->get(route('tenant.password.edit'))
+            ->assertSee('Choose a new password that differs from your initial password.');
 
         $this->put(route('password.update'), [
-            'current_password' => 'TEMP09171234567', 'password' => 'Different-long-password', 'password_confirmation' => 'Different-long-password',
+            'current_password' => 'TEMP09171234567', 'password' => 'Different-long-password-1!', 'password_confirmation' => 'Different-long-password-1!',
         ])->assertRedirect(route('tenant.dashboard'));
         $this->assertFalse($tenant->fresh()->must_change_password);
         $this->get(route('tenant.complaints.create'))->assertOk();
+    }
+
+    public function test_tenant_password_errors_are_shown_beside_the_fields_to_correct(): void
+    {
+        $tenant = User::factory()->create(['role' => 'tenant']);
+        Tenant::create(['user_id' => $tenant->id]);
+        $page = route('tenant.password.edit');
+        $originalPassword = $tenant->password;
+
+        $this->actingAs($tenant)->get(route('notifications.unread-count'))
+            ->assertOk()
+            ->assertSessionHas('_previous.url', route('notifications.unread-count'));
+
+        $response = $this->put(route('password.update'), [
+            'current_password' => 'incorrect-password',
+            'password' => 'short',
+            'password_confirmation' => 'different-password',
+        ])->assertRedirect();
+
+        $this->assertSame($page, $response->headers->get('Location'));
+        $response->assertSessionHasErrorsIn('updatePassword', ['current_password', 'password', 'password_confirmation'])
+            ->assertSessionMissing('_old_input.current_password')
+            ->assertSessionMissing('_old_input.password')
+            ->assertSessionMissing('_old_input.password_confirmation');
+
+        $this->withCookie(config('session.cookie'), session()->getId())
+            ->get($page)
+            ->assertOk()
+            ->assertSee('aria-describedby="update_password_current_password_error"', false)
+            ->assertSee('aria-describedby="update_password_password_error tenant-password-requirements"', false)
+            ->assertSee('aria-describedby="update_password_password_confirmation_error"', false)
+            ->assertSee('Password wasn’t changed.')
+            ->assertSee('Your current password is incorrect.')
+            ->assertSee('Use at least 8 characters.')
+            ->assertSee('Include an uppercase letter (A–Z) and a lowercase letter (a–z).')
+            ->assertSee('Include a number (0–9).')
+            ->assertSee('Include a special character such as !, @, #, $, or %.')
+            ->assertSee('The passwords do not match.');
+
+        $this->assertSame($originalPassword, $tenant->fresh()->password);
     }
 
     public function test_reused_email_saves_a_tenant_without_touching_the_existing_login(): void

@@ -1,32 +1,49 @@
-<form method="POST" action="{{ route('password.update') }}">
+<form id="update-password-form" method="POST" action="{{ route('password.update') }}">
     @csrf
     @method('put')
 
     <div class="mb-3">
-        <label for="update_password_current_password" class="form-label">Current Password</label>
-        <input id="update_password_current_password" name="current_password" type="password"
-               class="form-control @error('current_password', 'updatePassword') is-invalid @enderror" autocomplete="current-password">
-        @error('current_password', 'updatePassword')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
+        <x-password-input
+            id="update_password_current_password"
+            name="current_password"
+            label="Current Password"
+            autocomplete="current-password"
+            error-bag="updatePassword"
+            :toggle="$showPasswordToggle ?? false"
+        />
     </div>
 
     <div class="mb-3">
-        <label for="update_password_password" class="form-label">New Password</label>
-        <input id="update_password_password" name="password" type="password"
-               class="form-control @error('password', 'updatePassword') is-invalid @enderror" autocomplete="new-password">
-        @error('password', 'updatePassword')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
+        <x-password-input
+            id="update_password_password"
+            name="password"
+            label="New Password"
+            autocomplete="new-password"
+            error-bag="updatePassword"
+            :description="isset($passwordRequirements) ? 'tenant-password-requirements' : null"
+            :toggle="$showPasswordToggle ?? false"
+        />
+        @isset($passwordRequirements)
+            <ul id="tenant-password-requirements" class="list-unstyled small text-body-secondary mt-2 mb-0" aria-label="New password requirements">
+                @foreach ($passwordRequirements as $requirement)
+                    <li data-pattern="{{ $requirement['pattern'] }}">
+                        <i class="bi bi-circle me-1" aria-hidden="true"></i>
+                        <span class="visually-hidden" data-requirement-status></span>{{ $requirement['label'] }}
+                    </li>
+                @endforeach
+            </ul>
+        @endisset
     </div>
 
     <div class="mb-3">
-        <label for="update_password_password_confirmation" class="form-label">Confirm Password</label>
-        <input id="update_password_password_confirmation" name="password_confirmation" type="password"
-               class="form-control @error('password_confirmation', 'updatePassword') is-invalid @enderror" autocomplete="new-password">
-        @error('password_confirmation', 'updatePassword')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
+        <x-password-input
+            id="update_password_password_confirmation"
+            name="password_confirmation"
+            label="Confirm Password"
+            autocomplete="new-password"
+            error-bag="updatePassword"
+            :toggle="$showPasswordToggle ?? false"
+        />
     </div>
 
     <div class="d-flex align-items-center gap-3">
