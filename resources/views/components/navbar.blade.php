@@ -26,7 +26,6 @@
     ];
 
     $settingsLinks = [
-        ['label' => 'SMS Configuration', 'route' => 'proprietor.settings.sms.edit', 'active' => 'proprietor.settings.sms.*', 'icon' => 'bi-envelope-fill'],
         ['label' => 'Settings', 'route' => 'proprietor.settings.edit', 'active' => 'proprietor.settings.edit', 'icon' => 'bi-gear-fill'],
     ];
 @endphp

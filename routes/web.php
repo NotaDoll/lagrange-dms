@@ -27,7 +27,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Proprietor\TenantImportController;
 use App\Http\Controllers\Proprietor\UtilityBillController;
 use App\Http\Controllers\Proprietor\CollectiblesReportController;
-use App\Http\Controllers\Proprietor\SmsSettingsController;
 use App\Http\Controllers\Proprietor\SettingsController;
 use App\Http\Controllers\Proprietor\SummerStorageController;
 
@@ -101,9 +100,6 @@ Route::middleware(['auth', 'role:proprietor'])
 
         Route::resource('utility-bills', UtilityBillController::class)->except(['show']);
         Route::get('reports/collectibles', [CollectiblesReportController::class, 'index'])->name('reports.collectibles');
-        Route::get('settings/sms', [SmsSettingsController::class, 'edit'])->name('settings.sms.edit');
-        Route::put('settings/sms', [SmsSettingsController::class, 'update'])->name('settings.sms.update');
-        Route::post('settings/sms/test', [SmsSettingsController::class, 'test'])->middleware('throttle:3,1')->name('settings.sms.test');
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     });

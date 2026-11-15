@@ -42,7 +42,7 @@ class ProprietorDashboardController extends Controller
                 'unknown' => 'SMS status is unconfirmed. Check TextBee history before sending again.',
                 'delivered' => 'SMS already delivered today.',
                 'sent' => $reuse ? 'SMS already sent today.' : 'SMS sent to the guardian.',
-                default => 'SMS could not be sent. Check your SMS configuration and try again.',
+                default => 'SMS could not be sent. Check the SMS gateway settings and try again.',
             };
 
             return response()->json([
