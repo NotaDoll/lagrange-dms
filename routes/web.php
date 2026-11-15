@@ -66,7 +66,8 @@ Route::middleware(['auth', 'role:proprietor'])
 
         // --- Payment Routes ---
         Route::resource('payments', ProprietorPaymentController::class)->only(['index', 'create', 'store']);
-        Route::post('payments/import', [ProprietorPaymentController::class, 'import'])->name('payments.import'); // <-- NEW ROUTE ADDED HERE
+        Route::post('payments/import', [ProprietorPaymentController::class, 'import'])->name('payments.import');
+        Route::get('payments/history/{tenant}', [ProprietorPaymentController::class, 'history'])->name('payments.history'); // <-- NEW HISTORY ROUTE
         Route::patch('payments/accrued/{tenant}', [ProprietorPaymentController::class, 'settleAccrued'])->name('payments.accrued.settle');
         Route::patch('payments/{payment}/settle', [ProprietorPaymentController::class, 'settle'])->name('payments.settle');
         // ----------------------

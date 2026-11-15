@@ -12,11 +12,8 @@ use App\Services\TenantBalanceService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
-
-// --- NEW IMPORTS ADDED HERE ---
 use App\Imports\PaymentsImport;
 use Maatwebsite\Excel\Facades\Excel;
-// ------------------------------
 
 class PaymentController extends Controller
 {
@@ -30,6 +27,7 @@ class PaymentController extends Controller
         $tenantId = $request->query('tenant_id');
         $status = $request->query('status');
         $category = $request->validate(['category' => ['nullable', Rule::in(array_keys(Payment::CATEGORY_LABELS))]])['category'] ?? null;
+
         $payments = Payment::with(['tenant.user', 'tenant.currentAssignment.bed.room', 'utilityBill.room'])
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
             ->when($status, fn ($query) => $query->where('status', $status))
@@ -137,16 +135,12 @@ class PaymentController extends Controller
             ->with('success', 'Payment recorded successfully.');
     }
 
-    /**
-     * NEW METHOD: Handle the Excel import for the Payment Ledger.
-     */
     public function import(Request $request)
     {
         $request->validate([
             'excel_file' => 'required|mimes:xlsx,xls,csv|max:5120'
         ]);
 
-        // We use the already injected $this->paymentLedgerService
         $import = new PaymentsImport($this->paymentLedgerService);
 
         try {
@@ -166,5 +160,19 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error importing file: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Display the payment history for a specific tenant.
+     */
+    public function history(Tenant $tenant)
+    {
+        $payments = $tenant->payments()
+            ->latest('due_date')
+            ->paginate(15);
+
+        $tenant->load('user', 'currentAssignment.bed.room');
+
+        return view('proprietor.payments.history', compact('tenant', 'payments'));
     }
 }

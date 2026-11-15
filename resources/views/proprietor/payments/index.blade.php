@@ -6,9 +6,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Payment Ledger</h1>
 
-        <!-- Header Action Buttons -->
         <div class="d-flex gap-2">
-            <!-- Import Excel Button & Hidden Form -->
             <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
                 Import Excel
             </button>
@@ -16,13 +14,10 @@
                 @csrf
                 <input type="file" name="excel_file" id="excel-import-input" accept=".xlsx, .xls, .csv" onchange="document.getElementById('import-form').submit();">
             </form>
-
-            <!-- Record Payment Button -->
             <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary">Record Payment</a>
         </div>
     </div>
 
-    <!-- FLASH MESSAGES FOR IMPORT -->
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
@@ -64,7 +59,7 @@
                         <option value="">All tenants</option>
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>
-                                {{ $tenant->name }}
+                                {{ ucwords(strtolower($tenant->name)) }}
                             </option>
                         @endforeach
                     </select>
@@ -108,7 +103,7 @@
                             @foreach ($accruedPayments as $charge)
                                 @php($fieldId = 'accrued-'.$charge->tenant_id.'-'.$charge->charge_type.'-'.$charge->due_date->toDateString())
                                 <tr>
-                                    <th scope="row">{{ $charge->tenant->name }}</th>
+                                    <th scope="row">{{ ucwords(strtolower($charge->tenant->name)) }}</th>
                                     <td>{{ $charge->description }}</td>
                                     <td class="text-nowrap">PHP {{ number_format((float) $charge->amount, 2) }}</td>
                                     <td>{{ $charge->due_date->format('M d, Y') }}</td>
@@ -136,7 +131,7 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table align-middle table-hover">
                     <thead>
                         <tr>
                             <th>Tenant</th>
@@ -146,15 +141,16 @@
                             <th>Paid Date</th>
                             <th>Days Overdue</th>
                             <th>Status</th>
-                            <!-- REPLACED ACTION WITH RECEIPT NO. -->
                             <th>Receipt No.</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($payments as $payment)
-                            <tr>
+                            <!-- FIXED: Swapped to double quotes for HTML attribute to prevent JS syntax error -->
+                            <tr onclick="window.location='{{ route('proprietor.payments.history', $payment->tenant->id) }}'" style="cursor: pointer;">
                                 <td>
-                                    <div class="fw-semibold">{{ $payment->tenant->name }}</div>
+                                    <!-- FIXED: Added ucwords to format the name properly -->
+                                    <div class="fw-semibold">{{ ucwords(strtolower($payment->tenant->name)) }}</div>
                                     <div class="text-muted small">{{ $payment->tenant->email }}</div>
                                     @if ($bed = $payment->tenant->currentAssignment?->bed)
                                         <div class="text-muted small">{{ $bed->locationLabel() }}</div>
@@ -171,7 +167,6 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <!-- RECEIPT NUMBER DISPLAY -->
                                     @if($payment->receipt_number)
                                         <span class="badge bg-light text-dark border font-monospace">
                                             {{ $payment->receipt_number }}
@@ -182,7 +177,6 @@
                                 </td>
                             </tr>
                         @empty
-                            <!-- UPDATED COLSPAN TO 8 -->
                             <tr><td colspan="8" class="text-center text-muted py-4">No payments found.</td></tr>
                         @endforelse
                     </tbody>

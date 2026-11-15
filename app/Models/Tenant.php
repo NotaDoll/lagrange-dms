@@ -150,4 +150,40 @@ class Tenant extends Model
     {
         return $this->hasMany(SmsLog::class);
     }
+
+    // ==========================================
+    // NEW: MUTATORS FOR PROPER NAME FORMATTING
+    // ==========================================
+
+    /**
+     * Automatically format the first name to Title Case.
+     */
+    public function setFirstNameAttribute(?string $value): void
+    {
+        $this->attributes['first_name'] = $value === null ? null : $this->formatName($value);
+    }
+
+    /**
+     * Automatically format the middle name to Title Case.
+     */
+    public function setMiddleNameAttribute(?string $value): void
+    {
+        $this->attributes['middle_name'] = $value === null ? null : $this->formatName($value);
+    }
+
+    /**
+     * Automatically format the last name to Title Case.
+     */
+    public function setLastNameAttribute(?string $value): void
+    {
+        $this->attributes['last_name'] = $value === null ? null : $this->formatName($value);
+    }
+
+    /**
+     * Helper to format names consistently.
+     */
+    private function formatName(string $value): string
+    {
+        return ucwords(strtolower(trim($value)));
+    }
 }

@@ -56,4 +56,8 @@ class User extends Authenticatable
     {
         return $this->role === 'tenant';
     }
+        public function setNameAttribute(?string $value): void
+    {
+        $this->attributes['name'] = $value === null ? null : ucwords(strtolower(trim($value)));
+    }
 }
