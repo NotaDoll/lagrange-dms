@@ -35,7 +35,7 @@ class UtilityBillController extends Controller
             ->when($roomId, fn ($query) => $query->where('room_id', $roomId))
             ->when($status, fn ($query) => $query->where('status', $status))
             ->when($billType, fn ($query) => $query->where('bill_type', $billType))
-            ->latest('due_date')->paginate(15)->withQueryString();
+            ->latest('due_date')->paginate(10)->withQueryString();
         $rooms = Room::orderBy('room_number')->get();
 
         return view('proprietor.utility-bills.index', compact('bills', 'rooms', 'roomId', 'status', 'billType'));

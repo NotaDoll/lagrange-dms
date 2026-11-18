@@ -61,6 +61,6 @@
         </div>
     @endif
 
-    <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-primary">Back to Tenants</a>
-    <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-secondary">Import another file</a>
+    <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-primary"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Tenants</a>
+    <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-secondary"><i class="bi bi-upload" aria-hidden="true"></i> Import another file</a>
 @endsection

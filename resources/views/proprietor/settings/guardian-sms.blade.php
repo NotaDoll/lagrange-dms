@@ -17,7 +17,7 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary sms-insert" data-insert="{{ $placeholder }}" title="{{ $meaning }}">{{ $placeholder }}</button>
             @endforeach
         </div>
-        <button type="button" class="btn btn-sm btn-link" id="sms-template-reset">Reset to default</button>
+        <button type="button" class="btn btn-sm btn-link" id="sms-template-reset"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset to default</button>
     </div>
     <div id="sms-template-help" class="form-text">Click a placeholder to insert it where your cursor is. Press Enter for a new line.</div>
 

@@ -5,10 +5,18 @@
 @section('content')
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h3 mb-0">Tenants</h1>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('proprietor.tenants.create') }}" class="btn btn-primary">Add Tenant</a>
-            <a href="{{ route('proprietor.tenants.import.create') }}" class="btn btn-outline-primary">Bulk Import</a>
-            <a href="{{ route('proprietor.summer-storage.index') }}" class="btn btn-outline-primary">Summer / Storage</a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('proprietor.tenants.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add Tenant</a>
+            {{-- Less frequent actions live in the ⋮ menu, like on each tenant's page. --}}
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary px-3" type="button" id="tenant-list-actions" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More tenant actions">
+                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="tenant-list-actions">
+                    <li><a class="dropdown-item" href="{{ route('proprietor.tenants.import.create') }}"><i class="bi bi-upload me-2" aria-hidden="true"></i>Bulk import</a></li>
+                    <li><a class="dropdown-item" href="{{ route('proprietor.summer-storage.index') }}"><i class="bi bi-box-seam me-2" aria-hidden="true"></i>Summer / storage</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 

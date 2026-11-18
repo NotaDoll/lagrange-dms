@@ -25,7 +25,7 @@ class PaymentController extends Controller
 
         $rows = $balanceService->ledger($tenant);
         $page = LengthAwarePaginator::resolveCurrentPage();
-        $payments = new LengthAwarePaginator($rows->forPage($page, 15), $rows->count(), 15, $page, ['path' => $request->url()]);
+        $payments = new LengthAwarePaginator($rows->forPage($page, 10), $rows->count(), 10, $page, ['path' => $request->url()]);
 
         return view('tenant.payments.index', compact(
             'payments',

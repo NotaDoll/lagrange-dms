@@ -132,7 +132,7 @@
             width: 100%;
             border: 1px solid var(--theme-plum);
             color: var(--theme-plum);
-            border-radius: 999px;
+            border-radius: var(--theme-btn-radius);
             padding: 8px 18px;
             font-size: 0.85rem;
             font-weight: 600;
@@ -141,9 +141,9 @@
         }
 
         .proprietor-logout-btn:hover {
-            background: var(--theme-plum);
+            background: var(--theme-pink-light);
             border-color: var(--theme-plum);
-            color: #fff;
+            color: var(--theme-plum);
         }
 
         .proprietor-content {
@@ -169,7 +169,7 @@
         .proprietor-menu-btn {
             border: 1px solid var(--theme-plum);
             color: var(--theme-plum);
-            border-radius: 999px;
+            border-radius: var(--theme-btn-radius);
             font-weight: 700;
             display: inline-grid;
             place-items: center;
@@ -182,44 +182,7 @@
             color: var(--theme-plum);
         }
 
-        .btn-primary {
-            background: var(--theme-plum);
-            border-color: var(--theme-plum);
-            border-radius: 999px;
-            font-weight: 600;
-        }
-
-        .btn-primary:hover,
-        .btn-primary:focus {
-            background: var(--theme-plum-hover);
-            border-color: var(--theme-plum-hover);
-        }
-
-        .btn-outline-primary {
-            color: var(--theme-plum);
-            border-color: var(--theme-plum);
-            border-radius: 999px;
-            font-weight: 600;
-        }
-
-        .btn-outline-primary:hover,
-        .btn-outline-primary:focus {
-            color: #fff;
-            background: var(--theme-plum);
-            border-color: var(--theme-plum);
-        }
-
-        .card {
-            border-color: var(--theme-border);
-            border-radius: 16px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02) !important;
-        }
-
-        .table thead th {
-            background-color: var(--theme-pink-light);
-            color: var(--theme-plum);
-            border: none;
-        }
+        /* Buttons, cards and tables are styled once in partials/theme.blade.php. */
 
         @media (max-width: 991px) {
             .proprietor-main {
@@ -411,6 +374,7 @@
             });
         })();
     </script>
+    @include('partials.table-pagination')
     @stack('scripts')
 </body>
 </html>

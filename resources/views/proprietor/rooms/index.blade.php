@@ -9,13 +9,14 @@
 
     <style>
         .rm {
-            --rm-ink: #0f172a;   --rm-ink-2: #475569;   --rm-line: #e2e8f0;
-            --rm-canvas: #f8fafc; --rm-surface: #fff;   --rm-accent: #4338ca;
-            --rm-radius: 12px;
-            --rm-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 12px -6px rgba(15, 23, 42, .08);
+            /* Page colors follow the shared theme (partials/theme.blade.php). */
+            --rm-ink: var(--theme-text-dark);   --rm-ink-2: var(--theme-text-muted);   --rm-line: var(--theme-border);
+            --rm-canvas: #fcf8fb; --rm-surface: #fff;   --rm-accent: var(--theme-plum);
+            --rm-radius: var(--theme-radius);
+            --rm-shadow: var(--theme-shadow);
 
             --rm-vacant: #15803d;  --rm-vacant-bg: #dcfce7;
-            --rm-occ:    #4338ca;  --rm-occ-bg:    #e0e7ff;
+            --rm-occ:    var(--theme-plum);  --rm-occ-bg:    var(--theme-pink-light);
             --rm-maint:  #b45309;  --rm-maint-bg:  #fef3c7;
             --rm-part:   #0369a1;  --rm-part-bg:   #e0f2fe;
             --rm-none:   #475569;  --rm-none-bg:   #f1f5f9;
@@ -24,16 +25,7 @@
             color: var(--rm-ink);
         }
         .rm button, .rm input, .rm select, .rm .btn, .rm .form-control, .rm .form-select, .rm .modal { font-family: inherit; }
-        .rm .btn-primary {
-            --bs-btn-bg: var(--rm-accent); --bs-btn-border-color: var(--rm-accent);
-            --bs-btn-hover-bg: #3730a3; --bs-btn-hover-border-color: #3730a3;
-            --bs-btn-active-bg: #312e81; --bs-btn-active-border-color: #312e81;
-            --bs-btn-focus-shadow-rgb: 67, 56, 202;
-        }
-        .rm .btn { border-radius: 8px; font-weight: 500; font-size: .875rem; }
-        .rm .btn-sm { font-size: .8rem; }
-        .rm .form-control, .rm .form-select { border-color: var(--rm-line); border-radius: 8px; font-size: .875rem; }
-        .rm .form-control:focus, .rm .form-select:focus { border-color: #a5b4fc; box-shadow: 0 0 0 .2rem rgba(67, 56, 202, .15); }
+        .rm .form-control, .rm .form-select { font-size: .875rem; }
         .rm .modal-content { border: 1px solid var(--rm-line); border-radius: var(--rm-radius); }
 
         .rm-title { font-size: 1.6rem; font-weight: 600; margin: 0 0 .15rem; }
@@ -60,8 +52,8 @@
         .rm-bar { background: var(--rm-surface); border: 1px solid var(--rm-line); border-radius: var(--rm-radius); padding: 1rem 1.1rem; }
         .rm-bar label { font-size: .75rem; color: var(--rm-ink-2); margin-bottom: .2rem; }
         .rm-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .75rem; align-items: end; }
-        .rm-seg { display: inline-flex; padding: 3px; background: var(--rm-none-bg); border-radius: 10px; }
-        .rm-seg button { border: 0; background: transparent; border-radius: 8px; padding: .35rem .8rem; font-size: .82rem; font-weight: 500; color: var(--rm-ink-2); }
+        .rm-seg { display: inline-flex; padding: 3px; background: var(--theme-pink-light); border-radius: var(--theme-btn-radius); }
+        .rm-seg button { border: 0; background: transparent; border-radius: calc(var(--theme-btn-radius) - 3px); padding: .35rem .8rem; font-size: .82rem; font-weight: 500; color: var(--rm-ink-2); }
         .rm-seg button[aria-pressed="true"] { background: var(--rm-surface); color: var(--rm-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
         .rm-count { font-size: .82rem; color: var(--rm-ink-2); }
 
@@ -214,8 +206,8 @@
                         </select>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-outline-primary">Apply filters</button>
-                        <a href="{{ route('proprietor.rooms.index') }}" class="btn btn-outline-secondary">Clear</a>
+                        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Apply filters</button>
+                        <a href="{{ route('proprietor.rooms.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
                     </div>
                 </form>
             </div>
@@ -263,7 +255,7 @@
                         </div>
                         <div class="rm-card-foot">
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#roomBeds{{ $room->id }}" aria-label="Manage beds for {{ $room->displayName() }}">Manage beds</button>
-                            <a href="{{ route('proprietor.rooms.edit', $room) }}" class="btn btn-outline-primary">Edit room</a>
+                            <a href="{{ route('proprietor.rooms.edit', $room) }}" class="btn btn-outline-primary"><i class="bi bi-pencil" aria-hidden="true"></i> Edit room</a>
                         </div>
                     </article>
                 @endforeach
@@ -295,7 +287,7 @@
                                     <td>
                                         <div class="d-flex flex-wrap justify-content-end gap-2">
                                             <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#roomBeds{{ $room->id }}" aria-label="Manage beds for {{ $room->displayName() }}">Manage beds</button>
-                                            <a href="{{ route('proprietor.rooms.edit', $room) }}" class="btn btn-outline-secondary btn-sm">Edit room</a>
+                                            <a href="{{ route('proprietor.rooms.edit', $room) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil" aria-hidden="true"></i> Edit room</a>
                                         </div>
                                     </td>
                                 </tr>

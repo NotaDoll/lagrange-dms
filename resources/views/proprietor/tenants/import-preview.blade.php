@@ -26,7 +26,7 @@
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <h2 class="h5 mb-0">Row errors</h2>
-                    <a href="{{ route('proprietor.tenants.import.errors', $token) }}" class="btn btn-outline-secondary btn-sm">Download error report</a>
+                    <a href="{{ route('proprietor.tenants.import.errors', $token) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download" aria-hidden="true"></i> Download error report</a>
                 </div>
                 @include('proprietor.tenants._import-errors', ['errors' => $errorsByRow->flatten(1)])
             </div>
@@ -36,12 +36,12 @@
     <div class="d-flex flex-wrap gap-2">
         <form method="POST" action="{{ route('proprietor.tenants.import.confirm', $token) }}">
             @csrf
-            <button type="submit" class="btn btn-primary" @disabled($valid === 0)>Confirm import ({{ $valid }})</button>
+            <button type="submit" class="btn btn-primary" @disabled($valid === 0)><i class="bi bi-check2-circle" aria-hidden="true"></i> Confirm import ({{ $valid }})</button>
         </form>
         <form method="POST" action="{{ route('proprietor.tenants.import.cancel', $token) }}">
             @csrf
             @method('DELETE')
-            <button type="submit" class="btn btn-outline-secondary">Cancel</button>
+            <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</button>
         </form>
     </div>
 @endsection

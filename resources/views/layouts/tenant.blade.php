@@ -437,6 +437,7 @@
         pollNotifications();
         setInterval(pollNotifications, 15000);
     </script>
+    @include('partials.table-pagination')
     @stack('scripts')
 </body>
 </html>

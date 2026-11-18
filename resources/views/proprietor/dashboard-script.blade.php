@@ -205,6 +205,7 @@
                 shown += visible ? 1 : 0;
             });
             none.classList.toggle('d-none', shown > 0);
+            window.paginateTable?.(document.querySelector('.pd-follow-table'), 1); // back to page 1 of the filtered list
         };
         filters.querySelectorAll('button[data-level]').forEach((button) => button.addEventListener('click', () => {
             level = button.dataset.level;

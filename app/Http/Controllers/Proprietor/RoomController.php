@@ -56,7 +56,7 @@ class RoomController extends Controller
             default => $availability = '',
         };
 
-        $rooms = $query->orderBy('room_number')->paginate(12)->appends($request->only(['search', 'type', 'availability']));
+        $rooms = $query->orderBy('room_number')->paginate(10)->appends($request->only(['search', 'type', 'availability']));
 
         $totalRooms = Room::count();
         $totalBeds = \App\Models\Bed::count();

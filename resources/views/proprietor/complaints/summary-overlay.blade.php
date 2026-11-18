@@ -32,16 +32,16 @@
                     <p class="text-muted mb-0" id="anSummaryEmpty" hidden>No summaries yet.</p>
                     <ul class="list-group list-group-flush" id="anHistoryItems" aria-label="Saved complaint summaries"></ul>
                     <nav class="d-flex flex-wrap align-items-center gap-2 mt-3" id="anHistoryPages" aria-label="Summary history pages">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="anHistoryPrevious">Previous</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="anHistoryPrevious"><i class="bi bi-chevron-left" aria-hidden="true"></i> Previous</button>
                         <span class="small text-muted" id="anHistoryPage" aria-live="polite"></span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="anHistoryNext">Next</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="anHistoryNext">Next <i class="bi bi-chevron-right" aria-hidden="true"></i></button>
                     </nav>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" id="anSummaryBack" hidden>Back</button>
-                <button type="button" class="btn btn-outline-primary" id="anSummaryRetry" hidden>Try again</button>
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                <button type="button" class="btn btn-outline-secondary" id="anSummaryBack" hidden><i class="bi bi-arrow-left" aria-hidden="true"></i> Back</button>
+                <button type="button" class="btn btn-outline-primary" id="anSummaryRetry" hidden><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Try again</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-check-lg" aria-hidden="true"></i> OK</button>
             </div>
         </div>
     </div>

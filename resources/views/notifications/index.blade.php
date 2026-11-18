@@ -7,7 +7,7 @@
         <h1 class="h3 mb-0">Notifications</h1>
         <form method="POST" action="{{ route('notifications.mark-all-read') }}">
             @csrf
-            <button type="submit" class="btn btn-outline-primary">Mark All Read</button>
+            <button type="submit" class="btn btn-outline-primary"><i class="bi bi-check2-all" aria-hidden="true"></i> Mark All Read</button>
         </form>
     </div>
 

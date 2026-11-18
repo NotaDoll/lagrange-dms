@@ -9,7 +9,7 @@
     <div class="card mb-4">
         <div class="card-body">
             <a href="{{ route('proprietor.tenants.import.template') }}" class="btn btn-outline-secondary btn-sm mb-3">
-                Download CSV Template
+                <i class="bi bi-download" aria-hidden="true"></i> Download CSV Template
             </a>
 
             <ul class="small mb-4">
@@ -36,8 +36,8 @@
                     <label class="form-check-label" for="consent">I confirm the tenants in this file (or their guardians) have given consent to the collection and processing of their personal information (Data Privacy Act).</label>
                     @error('consent') <div class="invalid-feedback" id="consent-error">{{ $message }}</div> @enderror
                 </div>
-                <button type="submit" class="btn btn-primary">Preview import</button>
-                <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-eye" aria-hidden="true"></i> Preview import</button>
+                <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</a>
             </form>
         </div>
     </div>

@@ -6,7 +6,7 @@
     <x-breadcrumbs :items="['Tenants' => route('proprietor.tenants.index'), 'Summer / storage' => null]" />
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h3 mb-0">Summer / Storage</h1>
-        <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary">Back to tenants</a>
+        <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to tenants</a>
     </div>
 
     @if ($errors->any())
@@ -51,7 +51,7 @@
                     @endforeach
                 </div>
             </fieldset>
-            <button type="submit" class="btn btn-outline-primary">Show months</button>
+            <button type="submit" class="btn btn-outline-primary"><i class="bi bi-calendar3" aria-hidden="true"></i> Show months</button>
         </div>
     </form>
 
@@ -67,8 +67,8 @@
                     <label for="storage-select-all" class="form-check-label me-2">
                         <input id="storage-select-all" type="checkbox" class="form-check-input mt-0 me-1"> Select all
                     </label>
-                    <button type="submit" name="action" value="storage" class="btn btn-primary btn-sm">Mark as Storage</button>
-                    <button type="submit" name="action" value="regular" class="btn btn-outline-primary btn-sm">Mark as Regular</button>
+                    <button type="submit" name="action" value="storage" class="btn btn-primary btn-sm"><i class="bi bi-box-seam" aria-hidden="true"></i> Mark as Storage</button>
+                    <button type="submit" name="action" value="regular" class="btn btn-outline-primary btn-sm"><i class="bi bi-house" aria-hidden="true"></i> Mark as Regular</button>
                     <span class="small text-muted" id="storage-selected" aria-live="polite"></span>
                 </div>
             </form>
@@ -115,7 +115,7 @@
                                                                aria-describedby="fee-help-{{ $tenant->id }}-{{ $month->month }}">
                                                         <small id="fee-help-{{ $tenant->id }}-{{ $month->month }}" class="text-muted">Blank uses the default.</small>
                                                     </div>
-                                                    <button type="submit" class="btn btn-outline-primary btn-sm align-self-center">Save</button>
+                                                    <button type="submit" class="btn btn-outline-primary btn-sm align-self-center"><i class="bi bi-check-lg" aria-hidden="true"></i> Save</button>
                                                 </form>
                                             </details>
                                         @else

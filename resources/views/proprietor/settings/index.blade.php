@@ -68,7 +68,7 @@
                 @include('proprietor.settings.risk-thresholds')
                 @include('proprietor.settings.guardian-sms')
 
-                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save</button>
             </form>
         </div>
     </div>

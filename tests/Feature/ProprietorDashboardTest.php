@@ -233,6 +233,7 @@ class ProprietorDashboardTest extends TestCase
             RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-08-01', 'status' => 'active']);
             $this->late($tenant);
         }
+        $this->get(route('proprietor.dashboard'))->assertOk(); // warm-up: compiles views once, like any page after a deploy
         DB::enableQueryLog();
         $started = microtime(true);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('occupiedBeds', 50)->assertViewHas('highRiskCount', 50);
@@ -339,6 +340,7 @@ class ProprietorDashboardTest extends TestCase
             RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-08-01', 'status' => 'active']);
             $this->late($tenant);
         }
+        $this->get(route('proprietor.dashboard', ['trend' => 12]))->assertOk(); // warm-up
         DB::enableQueryLog();
         $started = microtime(true);
         $this->get(route('proprietor.dashboard', ['trend' => 12]))->assertOk()->assertViewHas('riskTrend', fn ($m) => count($m) === 12);

@@ -34,7 +34,7 @@
     </div>
 
     <div class="d-flex align-items-center gap-3">
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save</button>
         @if (session('status') === 'profile-updated')
             <span class="text-success small">Saved.</span>
         @endif

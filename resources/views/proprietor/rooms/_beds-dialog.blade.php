@@ -43,7 +43,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <button type="submit" class="btn btn-primary mt-3">Assign tenant</button>
+                                <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-person-plus" aria-hidden="true"></i> Assign tenant</button>
                             </form>
                         </details>
                     @endif
@@ -79,7 +79,7 @@
                                         <form method="POST" action="{{ route('proprietor.room-assignments.update', $assignment) }}" onsubmit="return confirm('End this tenant assignment?');">
                                             @csrf
                                             @method('PATCH')
-                                            <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="End assignment for {{ $bed->locationLabel() }}">End assignment</button>
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="End assignment for {{ $bed->locationLabel() }}"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> End assignment</button>
                                         </form>
                                     @else
                                         @if ($status === 'available' && $availableTenants->isNotEmpty())
@@ -92,7 +92,7 @@
                                                 <option value="available" @selected($status === 'available')>Available</option>
                                                 <option value="maintenance" @selected($status === 'maintenance')>Maintenance</option>
                                             </select>
-                                            <button type="submit" class="btn btn-outline-secondary btn-sm">Save status</button>
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check-lg" aria-hidden="true"></i> Save status</button>
                                         </form>
                                     @endif
                                 </div>
@@ -106,9 +106,9 @@
                 <form method="POST" action="{{ route('proprietor.rooms.destroy', $room) }}" onsubmit="return confirm('Delete this room and its beds?');">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-outline-danger">Delete room</button>
+                    <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> Delete room</button>
                 </form>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
             </div>
         </div>
     </div>

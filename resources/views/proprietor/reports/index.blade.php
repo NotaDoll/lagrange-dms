@@ -7,7 +7,7 @@
         .financial-report { color: var(--theme-text-dark); }
         .financial-report h1 { font-size: 1.75rem; font-weight: 700; }
         .financial-report .fr-muted { color: var(--theme-text-muted); font-size: .85rem; }
-        .financial-report .fr-panel { border: 1px solid var(--theme-border); border-radius: 16px; background: white; padding: 22px; height: 100%; }
+        .financial-report .fr-panel { border: 1px solid var(--theme-border); border-radius: var(--theme-radius); box-shadow: var(--theme-shadow); background: white; padding: 22px; height: 100%; }
         .financial-report .fr-kpi { font-size: 1.75rem; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
         .financial-report .fr-collected { background: var(--theme-pink-card); }
         .financial-report .fr-accent { color: var(--theme-plum); }
@@ -61,8 +61,8 @@
                     </select>
                 </div>
                 <div class="col-sm-4 col-lg-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary py-2 px-3">Apply</button>
-                    <a href="{{ route('proprietor.reports.index') }}" class="btn btn-outline-primary py-2">Reset</a>
+                    <button type="submit" class="btn btn-primary py-2 px-3"><i class="bi bi-funnel" aria-hidden="true"></i> Apply</button>
+                    <a href="{{ route('proprietor.reports.index') }}" class="btn btn-outline-primary py-2"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset</a>
                 </div>
             </div>
         </form>

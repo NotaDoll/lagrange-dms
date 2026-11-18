@@ -14,15 +14,14 @@
             --an-plum: var(--theme-plum, #5E1049);
             --an-ink: var(--theme-text-dark, #111827);
             --an-ink-2: var(--theme-text-muted, #6b7280);
-            --an-radius: 12px;
-            --an-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 12px -6px rgba(15, 23, 42, .08);
+            --an-radius: var(--theme-radius);
+            --an-shadow: var(--theme-shadow);
 
             font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             color: var(--an-ink);
         }
         .an button, .an input, .an select, .an .btn, .an .form-control, .an .form-select, .an .modal { font-family: inherit; }
-        .an .btn { border-radius: 8px; font-weight: 500; font-size: .85rem; }
-        .an .form-control, .an .form-select { border-color: var(--an-line); border-radius: 8px; font-size: .85rem; }
+        .an .form-control, .an .form-select { font-size: .85rem; }
         .an-title { font-size: 1.6rem; font-weight: 600; margin: 0; }
 
         /* Filter + toolbar */
@@ -38,9 +37,9 @@
         .an-selection { font-size: .8rem; }
         .an .form-check-input:checked, .an .form-check-input:indeterminate { background-color: var(--an-plum); border-color: var(--an-plum); }
         .an-chip { border: 1px solid var(--an-line); background: #fff; border-radius: 999px; padding: .3rem .75rem; font-size: .8rem; font-weight: 500; color: var(--an-ink-2); }
-        .an-chip[aria-pressed="true"] { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
-        .an-seg { display: inline-flex; padding: 3px; background: #f4eef2; border-radius: 10px; }
-        .an-seg button { border: 0; background: transparent; border-radius: 8px; padding: .32rem .75rem; font-size: .8rem; font-weight: 500; color: var(--an-ink-2); }
+        .an-chip[aria-pressed="true"] { background: var(--theme-danger-bg); border-color: #fecaca; color: var(--theme-danger); }
+        .an-seg { display: inline-flex; padding: 3px; background: var(--theme-pink-light); border-radius: var(--theme-btn-radius); }
+        .an-seg button { border: 0; background: transparent; border-radius: calc(var(--theme-btn-radius) - 3px); padding: .32rem .75rem; font-size: .8rem; font-weight: 500; color: var(--an-ink-2); }
         .an-seg button[aria-pressed="true"] { background: #fff; color: var(--an-ink); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
         .an-count { font-size: .8rem; color: var(--an-ink-2); }
         .an-pagination .pagination { margin-bottom: 0; }
@@ -52,7 +51,7 @@
         .an-badge.s-resolved { background: #dcfce7; color: #15803d; }
         .an-badge.p-urgent { background: #fee2e2; color: #b91c1c; }
         .an-badge.p-aging { background: #ffedd5; color: #c2410c; }
-        .an-badge.p-new { background: #dbeafe; color: #1d4ed8; }
+        .an-badge.p-new { background: var(--theme-info-bg); color: var(--theme-info); }
 
         /* Compact table */
         .an-tablewrap { overflow: hidden; }
@@ -73,7 +72,7 @@
         .an .complaint-row.is-aging td:first-child { box-shadow: inset 3px 0 0 #ea580c; }
         .an-status { display: flex; gap: .35rem; align-items: center; min-width: 11rem; }
         .an-status .form-select { padding-top: .2rem; padding-bottom: .2rem; font-size: .78rem; }
-        .an-status .btn { padding: .2rem .5rem; font-size: .78rem; line-height: 1.4; }
+        .an-status .btn { --bs-btn-padding-x: .65rem; --bs-btn-padding-y: .15rem; --bs-btn-font-size: .78rem; min-height: 30px; }
 
         /* Card feed */
         .an .complaint-card { background: #fff; border: 1px solid var(--an-line); border-radius: var(--an-radius); box-shadow: var(--an-shadow); padding: .9rem 1rem; height: 100%; cursor: pointer; transition: border-color .15s, box-shadow .15s; display: flex; flex-direction: column; gap: .5rem; }
@@ -178,7 +177,7 @@
                         </button>
                     </span>
                     <button type="button" id="anSummaryHistory" class="btn btn-outline-secondary"
-                        data-url="{{ route('proprietor.complaints.summaries.index') }}">History</button>
+                        data-url="{{ route('proprietor.complaints.summaries.index') }}"><i class="bi bi-clock-history" aria-hidden="true"></i> History</button>
                 </div>
             </form>
             @if ($dateErrors->any())

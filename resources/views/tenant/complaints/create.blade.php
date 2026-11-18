@@ -185,8 +185,8 @@
 
             <div class="cp-action-row">
                 <!-- Cancel button triggers the modal -->
-                <button type="button" class="cp-btn-cancel" data-bs-toggle="modal" data-bs-target="#cancelModal">Cancel</button>
-                <button type="submit" class="cp-btn-submit">Submit Complaint</button>
+                <button type="button" class="cp-btn-cancel" data-bs-toggle="modal" data-bs-target="#cancelModal"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</button>
+                <button type="submit" class="cp-btn-submit"><i class="bi bi-send" aria-hidden="true"></i> Submit Complaint</button>
             </div>
         </form>
     </div>
@@ -208,8 +208,8 @@
                 </p>
 
                 <div class="modal-actions">
-                    <button type="button" class="cp-btn-cancel" data-bs-dismiss="modal">Back</button>
-                    <a href="{{ route('tenant.dashboard') }}" class="cp-btn-submit" style="text-decoration:none; display:inline-block;">Yes</a>
+                    <button type="button" class="cp-btn-cancel" data-bs-dismiss="modal"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back</button>
+                    <a href="{{ route('tenant.dashboard') }}" class="cp-btn-submit" style="text-decoration:none; display:inline-block;"><i class="bi bi-check-lg" aria-hidden="true"></i> Yes</a>
                 </div>
             </div>
         </div>

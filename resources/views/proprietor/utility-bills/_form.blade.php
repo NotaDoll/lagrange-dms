@@ -81,8 +81,8 @@
     </div>
 </div>
 <div class="d-flex justify-content-end gap-2 mt-4">
-    <a href="{{ route('proprietor.utility-bills.index') }}" class="btn btn-outline-primary">Cancel</a>
-    <button class="btn btn-primary" type="submit">{{ $submitLabel }}</button>
+    <a href="{{ route('proprietor.utility-bills.index') }}" class="btn btn-outline-primary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</a>
+    <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg" aria-hidden="true"></i> {{ $submitLabel }}</button>
 </div>
 @push('scripts')
 <script>

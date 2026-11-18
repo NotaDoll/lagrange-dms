@@ -3,9 +3,10 @@
 @section('title', 'Payment Risk Dashboard')
 
 @section('content')
+    <x-breadcrumbs :items="['Dashboard' => route('proprietor.dashboard'), 'Payment risk' => null]" />
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Payment Risk Dashboard</h1>
-        <button type="button" id="recalculate-risk" class="btn btn-primary">Recalculate Risk Flags</button>
+        <button type="button" id="recalculate-risk" class="btn btn-primary"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Recalculate Risk Flags</button>
     </div>
 
     <div class="card">

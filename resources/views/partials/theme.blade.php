@@ -119,7 +119,7 @@
         background: transparent;
         border: 1px solid var(--theme-plum);
         color: var(--theme-plum);
-        border-radius: 999px;
+        border-radius: var(--theme-btn-radius);
         padding: 8px 18px;
         font-size: 0.85rem;
         font-weight: 600;
@@ -148,7 +148,7 @@
         background: var(--theme-plum);
         border: 1px solid var(--theme-plum);
         color: #fff;
-        border-radius: 999px;
+        border-radius: var(--theme-btn-radius);
         padding: 8px 18px;
         font-size: 0.85rem;
         font-weight: 600;
@@ -632,4 +632,152 @@
         .ann-tabs { justify-content: flex-start; }
         .ann-filter-dropdown { min-width: unset; width: 100%; }
     }
+
+    /* =====================================================================
+       Shared UI: one look for buttons, boxes, titles, badges, forms, menus.
+       Pages should use these as-is rather than restyling them.
+       ===================================================================== */
+    :root {
+        --theme-radius: 14px;          /* section boxes, dialogs */
+        --theme-btn-radius: 12px;      /* every button */
+        --theme-radius-sm: 10px;       /* form fields, alerts, menus */
+        --theme-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 12px -6px rgba(17, 24, 39, .08);
+        --theme-plum-tint: #F7E4EF;    /* pressed state of light buttons */
+        --theme-focus: 0 0 0 .2rem rgba(94, 16, 73, .18);
+
+        --theme-success: #15803d;  --theme-success-bg: #dcfce7;
+        --theme-warning: #92400e;  --theme-warning-bg: #fef3c7;
+        --theme-danger:  #b91c1c;  --theme-danger-bg:  #fee2e2;
+        --theme-info:    #0369a1;  --theme-info-bg:    #e0f2fe;
+        --theme-neutral: #475569;  --theme-neutral-bg: #f1f5f9;
+
+        /* Make Bootstrap's own "primary" and links the brand plum everywhere. */
+        --bs-primary: #5E1049;
+        --bs-primary-rgb: 94, 16, 73;
+        --bs-link-color: #5E1049;
+        --bs-link-color-rgb: 94, 16, 73;
+        --bs-link-hover-color: #4A0D39;
+        --bs-link-hover-color-rgb: 74, 13, 57;
+        --bs-border-color: #E8DEE5;
+    }
+
+    /* ---- Buttons: 12px corners, one height, one hover per variant ---- */
+    .btn {
+        --bs-btn-border-radius: var(--theme-btn-radius);
+        --bs-btn-font-weight: 600;
+        --bs-btn-font-size: .875rem;
+        --bs-btn-padding-x: 1.1rem;
+        --bs-btn-padding-y: .45rem;
+        --bs-btn-focus-box-shadow: var(--theme-focus);
+        --bs-btn-disabled-opacity: .55;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .4rem;
+        min-height: 40px;
+        transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+    .btn-sm { --bs-btn-padding-x: .85rem; --bs-btn-padding-y: .25rem; --bs-btn-font-size: .8rem; --bs-btn-border-radius: var(--theme-btn-radius); min-height: 32px; }
+    /* Bootstrap gives grouped small/large buttons smaller corners; keep them the same as other buttons. */
+    .btn-group-sm > .btn, .btn-group-lg > .btn { --bs-btn-border-radius: var(--theme-btn-radius); }
+    .btn-lg { --bs-btn-padding-x: 1.4rem; --bs-btn-padding-y: .6rem; --bs-btn-font-size: 1rem; --bs-btn-border-radius: var(--theme-btn-radius); min-height: 48px; }
+
+    .btn-primary {
+        --bs-btn-color: #fff; --bs-btn-bg: var(--theme-plum); --bs-btn-border-color: var(--theme-plum);
+        --bs-btn-hover-color: #fff; --bs-btn-hover-bg: var(--theme-plum-hover); --bs-btn-hover-border-color: var(--theme-plum-hover);
+        --bs-btn-active-color: #fff; --bs-btn-active-bg: #3a0a2d; --bs-btn-active-border-color: #3a0a2d;
+        --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: var(--theme-plum); --bs-btn-disabled-border-color: var(--theme-plum);
+    }
+    /* All outline buttons: transparent at rest, a light tint of their own color on hover. */
+    .btn-outline-primary {
+        --bs-btn-color: var(--theme-plum); --bs-btn-border-color: var(--theme-plum);
+        --bs-btn-hover-color: var(--theme-plum); --bs-btn-hover-bg: var(--theme-pink-light); --bs-btn-hover-border-color: var(--theme-plum);
+        --bs-btn-active-color: var(--theme-plum); --bs-btn-active-bg: var(--theme-plum-tint); --bs-btn-active-border-color: var(--theme-plum);
+        --bs-btn-disabled-color: var(--theme-plum); --bs-btn-disabled-border-color: var(--theme-plum);
+    }
+    .btn-outline-secondary, .btn-light, .btn-secondary {
+        --bs-btn-color: #374151; --bs-btn-bg: #fff; --bs-btn-border-color: #d1d5db;
+        --bs-btn-hover-color: #111827; --bs-btn-hover-bg: #f9fafb; --bs-btn-hover-border-color: #9ca3af;
+        --bs-btn-active-color: #111827; --bs-btn-active-bg: #f3f4f6; --bs-btn-active-border-color: #9ca3af;
+        --bs-btn-disabled-color: #374151; --bs-btn-disabled-bg: #fff; --bs-btn-disabled-border-color: #d1d5db;
+    }
+    .btn-outline-danger {
+        --bs-btn-color: var(--theme-danger); --bs-btn-border-color: #fca5a5;
+        --bs-btn-hover-color: #991b1b; --bs-btn-hover-bg: var(--theme-danger-bg); --bs-btn-hover-border-color: #f87171;
+        --bs-btn-active-color: #991b1b; --bs-btn-active-bg: #fecaca; --bs-btn-active-border-color: #f87171;
+    }
+    .btn-danger {
+        --bs-btn-color: #fff; --bs-btn-bg: var(--theme-danger); --bs-btn-border-color: var(--theme-danger);
+        --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #991b1b; --bs-btn-hover-border-color: #991b1b;
+        --bs-btn-active-bg: #7f1d1d; --bs-btn-active-border-color: #7f1d1d;
+    }
+    .btn-outline-warning {
+        --bs-btn-color: var(--theme-warning); --bs-btn-border-color: #fcd34d;
+        --bs-btn-hover-color: var(--theme-warning); --bs-btn-hover-bg: var(--theme-warning-bg); --bs-btn-hover-border-color: #f59e0b;
+        --bs-btn-active-color: var(--theme-warning); --bs-btn-active-bg: #fde68a; --bs-btn-active-border-color: #f59e0b;
+    }
+    .btn-outline-success {
+        --bs-btn-color: var(--theme-success); --bs-btn-border-color: #86efac;
+        --bs-btn-hover-color: var(--theme-success); --bs-btn-hover-bg: var(--theme-success-bg); --bs-btn-hover-border-color: #22c55e;
+    }
+    .btn-link {
+        --bs-btn-color: var(--theme-plum); --bs-btn-hover-color: var(--theme-plum-hover); --bs-btn-active-color: var(--theme-plum-hover);
+        --bs-btn-padding-x: .35rem; min-height: auto; text-decoration: none;
+    }
+    .btn-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .btn-check:checked + .btn-outline-primary { color: #fff; background: var(--theme-plum); border-color: var(--theme-plum); }
+
+    /* ---- Section boxes ---- */
+    .card {
+        --bs-card-border-color: var(--theme-border);
+        --bs-card-border-radius: var(--theme-radius);
+        --bs-card-inner-border-radius: calc(var(--theme-radius) - 1px);
+        --bs-card-bg: #fff;
+        box-shadow: var(--theme-shadow);
+    }
+    .modal-content { border: 1px solid var(--theme-border); border-radius: var(--theme-radius); box-shadow: 0 20px 45px -12px rgba(17, 24, 39, .25); }
+    .alert { --bs-alert-border-radius: var(--theme-radius-sm); }
+    .dropdown-menu {
+        --bs-dropdown-border-color: var(--theme-border); --bs-dropdown-border-radius: var(--theme-radius-sm);
+        --bs-dropdown-link-hover-bg: var(--theme-pink-light); --bs-dropdown-link-hover-color: var(--theme-plum);
+        --bs-dropdown-link-active-bg: var(--theme-plum); --bs-dropdown-link-active-color: #fff;
+        box-shadow: 0 10px 25px -8px rgba(17, 24, 39, .18);
+        padding: .35rem;
+    }
+    .dropdown-item { border-radius: 8px; font-size: .875rem; padding: .45rem .75rem; }
+    .dropdown-item.text-danger:hover, .dropdown-item.text-danger:focus { background: var(--theme-danger-bg); color: var(--theme-danger) !important; }
+
+    /* ---- Titles ---- */
+    .proprietor-main h1:not(.modal-title) { font-size: 1.6rem; font-weight: 700; color: var(--theme-text-dark); letter-spacing: -.01em; }
+    .proprietor-main .card :is(h2, .card-title):not(.pd-stat-label):not(.modal-title) { font-size: 1rem; font-weight: 600; color: var(--theme-text-dark); }
+    .modal-title { font-size: 1.1rem; font-weight: 600; color: var(--theme-text-dark); }
+
+    /* ---- Tables ---- */
+    .table thead th { background-color: var(--theme-pink-light); color: var(--theme-plum); font-weight: 600; border-bottom: 0; }
+
+    /* ---- Badges: soft pills in five status colors ---- */
+    .badge { border-radius: 999px; font-weight: 600; padding: .35em .7em; }
+    .badge.text-bg-success { background-color: var(--theme-success-bg) !important; color: var(--theme-success) !important; }
+    .badge.text-bg-danger  { background-color: var(--theme-danger-bg)  !important; color: var(--theme-danger)  !important; }
+    .badge.text-bg-warning { background-color: var(--theme-warning-bg) !important; color: var(--theme-warning) !important; }
+    .badge.text-bg-info    { background-color: var(--theme-info-bg)    !important; color: var(--theme-info)    !important; }
+    .badge.text-bg-secondary, .badge.text-bg-light, .badge.bg-light, .badge.bg-secondary { background-color: var(--theme-neutral-bg) !important; color: var(--theme-neutral) !important; border-color: transparent !important; }
+    .badge.text-bg-dark    { background-color: #e5e7eb !important; color: #1f2937 !important; }
+    .badge.text-bg-primary { background-color: var(--theme-pink-light) !important; color: var(--theme-plum) !important; }
+
+    /* ---- Forms ---- */
+    .form-control, .form-select { border-radius: var(--theme-radius-sm); border-color: #d9ced6; }
+    .form-control:focus, .form-select:focus { border-color: #a35a8e; box-shadow: var(--theme-focus); }
+    .form-check-input:checked { background-color: var(--theme-plum); border-color: var(--theme-plum); }
+    .form-check-input:focus { border-color: #a35a8e; box-shadow: var(--theme-focus); }
+
+    /* ---- Pagination and breadcrumbs ---- */
+    .pagination {
+        --bs-pagination-color: var(--theme-plum); --bs-pagination-hover-color: var(--theme-plum-hover); --bs-pagination-hover-bg: var(--theme-pink-light);
+        --bs-pagination-active-bg: var(--theme-plum); --bs-pagination-active-border-color: var(--theme-plum);
+        --bs-pagination-focus-box-shadow: var(--theme-focus); --bs-pagination-border-color: var(--theme-border);
+    }
+    .breadcrumb { --bs-breadcrumb-divider-color: #b8a9b3; --bs-breadcrumb-item-active-color: var(--theme-text-muted); }
+    .breadcrumb a { color: var(--theme-plum); text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; text-underline-offset: 3px; }
 </style>

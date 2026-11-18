@@ -3,7 +3,7 @@
 @section('content')
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <div><h1 class="h3 mb-1">Utility Bills</h1><p class="text-muted mb-0">Record room bills and track each tenant’s share.</p></div>
-        <a href="{{ route('proprietor.utility-bills.create') }}" class="btn btn-primary">Record Room Bill</a>
+        <a href="{{ route('proprietor.utility-bills.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Record Room Bill</a>
     </div>
     @if ($errors->any())<div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>@endif
     <div class="card mb-4"><div class="card-body">
@@ -11,7 +11,7 @@
             <div class="col-md-3"><label for="room_id" class="form-label">Room</label><select class="form-select" id="room_id" name="room_id"><option value="">All rooms</option>@foreach ($rooms as $room)<option value="{{ $room->id }}" @selected((string) $roomId === (string) $room->id)>{{ $room->room_number }}</option>@endforeach</select></div>
             <div class="col-md-3"><label for="bill_type" class="form-label">Bill type</label><select class="form-select" id="bill_type" name="bill_type"><option value="">All types</option>@foreach (['electricity', 'water', 'internet', 'other'] as $type)<option value="{{ $type }}" @selected($billType === $type)>{{ ucfirst($type) }}</option>@endforeach</select></div>
             <div class="col-md-3"><label for="status" class="form-label">Provider payment</label><select class="form-select" id="status" name="status"><option value="">All statuses</option>@foreach (['pending' => 'Unpaid', 'paid' => 'Paid', 'overdue' => 'Overdue'] as $value => $label)<option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>@endforeach</select></div>
-            <div class="col-md-3 d-flex gap-2"><button class="btn btn-primary">Filter</button><a href="{{ route('proprietor.utility-bills.index') }}" class="btn btn-outline-primary">Reset</a></div>
+            <div class="col-md-3 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button><a href="{{ route('proprietor.utility-bills.index') }}" class="btn btn-outline-primary"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset</a></div>
         </form>
     </div></div>
     <div class="card"><div class="card-body">
@@ -42,7 +42,7 @@
                                 </ul>
                             </details>
                         </td>
-                        <td><a class="btn btn-sm btn-outline-primary" href="{{ route('proprietor.utility-bills.edit', $bill) }}">Edit</a></td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="{{ route('proprietor.utility-bills.edit', $bill) }}"><i class="bi bi-pencil" aria-hidden="true"></i> Edit</a></td>
                     </tr>
                 @empty
                     <tr><td colspan="6" class="text-center text-muted py-5">No utility bills match these filters.</td></tr>

@@ -39,7 +39,7 @@ class PaymentController extends Controller
             ->when($category, fn ($entries) => $entries->where('category', $category))
             ->sortByDesc(fn (Payment $payment) => $payment->due_date->toDateString())->values();
         $page = LengthAwarePaginator::resolveCurrentPage();
-        $payments = (new LengthAwarePaginator($rows->forPage($page, 15), $rows->count(), 15, $page, [
+        $payments = (new LengthAwarePaginator($rows->forPage($page, 10), $rows->count(), 10, $page, [
             'path' => $request->url(),
         ]))->withQueryString();
         $categories = Payment::CATEGORY_LABELS;
@@ -204,7 +204,7 @@ class PaymentController extends Controller
         $tenant->load('payments.utilityBill.room');
         $rows = $balances->ledger($tenant);
         $page = LengthAwarePaginator::resolveCurrentPage();
-        $payments = new LengthAwarePaginator($rows->forPage($page, 15), $rows->count(), 15, $page, ['path' => $request->url()]);
+        $payments = new LengthAwarePaginator($rows->forPage($page, 10), $rows->count(), 10, $page, ['path' => $request->url()]);
 
         $tenant->load('user', 'currentAssignment.bed.room');
 

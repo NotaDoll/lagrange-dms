@@ -61,7 +61,7 @@
                                         </div>
                                     @endif
                                     <p class="pd-note mb-2">{{ $riskCounts['high'] }} high · {{ $riskCounts['medium'] }} medium · {{ $riskCounts['low'] }} low</p>
-                                    <a href="#pd-follow" class="btn btn-sm btn-outline-danger mt-auto align-self-start">Follow up</a>
+                                    <a href="#pd-follow" class="btn btn-sm btn-outline-danger mt-auto align-self-start"><i class="bi bi-people" aria-hidden="true"></i> Follow up</a>
                                 @else
                                     <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> No high-risk tenants</p>
                                     <p class="pd-note mb-0">{{ $riskCounts['medium'] }} medium · {{ $riskCounts['low'] }} low</p>
@@ -72,7 +72,7 @@
                                 @if ($oldComplaints > 0)
                                     <div class="pd-tile-value">{{ $oldComplaints }}</div>
                                     <p class="pd-note mb-2">Open more than 7 days · oldest {{ $oldestOpenComplaintDays }} {{ Str::plural('day', $oldestOpenComplaintDays) }}</p>
-                                    <a href="{{ route('proprietor.complaints.index') }}" class="btn btn-sm btn-outline-warning mt-auto align-self-start">Review</a>
+                                    <a href="{{ route('proprietor.complaints.index') }}" class="btn btn-sm btn-outline-warning mt-auto align-self-start"><i class="bi bi-eye" aria-hidden="true"></i> Review</a>
                                 @else
                                     <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> None waiting over 7 days</p>
                                     <p class="pd-note mb-0">{{ $openComplaints }} open in total</p>
@@ -83,7 +83,7 @@
                                 @if ($dueSoon->isNotEmpty())
                                     <div class="pd-tile-value">{{ $dueSoon->count() }}</div>
                                     <p class="pd-note mb-2">₱{{ number_format($dueSoonTotal, 2) }} · next {{ $dueSoon->first()->tenant->name }}, {{ $dueSoon->first()->due_date->format('M j') }}</p>
-                                    <a href="{{ route('proprietor.payments.create', ['tenant_id' => $dueSoon->first()->tenant->id]) }}" class="btn btn-sm btn-outline-primary mt-auto align-self-start">Record payment</a>
+                                    <a href="{{ route('proprietor.payments.create', ['tenant_id' => $dueSoon->first()->tenant->id]) }}" class="btn btn-sm btn-outline-primary mt-auto align-self-start"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record payment</a>
                                 @else
                                     <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> Nothing due this week</p>
                                 @endif
@@ -93,10 +93,10 @@
                                 @if ($latestSummary)
                                     <div class="pd-tile-topic">{{ $topIssue ? $topIssue['theme'] : Str::limit(ltrim(Str::before(trim($summaryContent['text'] ?? $summaryContent['alert'] ?? ''), "\n"), "-•* \t"), 60) }}</div>
                                     <p class="pd-note mb-2">@if ($topIssue){{ $topIssue['count'] }} {{ Str::plural('report', (int) $topIssue['count']) }} · @endif from the {{ $latestSummary->created_at->diffForHumans() }} summary</p>
-                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start">Read summary</a>
+                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start"><i class="bi bi-file-text" aria-hidden="true"></i> Read summary</a>
                                 @else
                                     <p class="pd-tile-ok mb-0">No summary yet</p>
-                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start">Generate one</a>
+                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start"><i class="bi bi-stars" aria-hidden="true"></i> Generate one</a>
                                 @endif
                                 @break
                         @endswitch
@@ -157,7 +157,7 @@
                         @if ($textable > 0)
                             <button type="button" class="btn btn-primary" id="pd-sms-all" data-preview-url="{{ route('proprietor.dashboard.sms.bulk-preview') }}" data-url="{{ route('proprietor.dashboard.sms.bulk') }}"><i class="bi bi-chat-dots me-1" aria-hidden="true"></i> Text all high-risk guardians ({{ $textable }})</button>
                         @endif
-                        <a class="btn btn-outline-primary" href="{{ route('proprietor.settings.edit') }}#risk-thresholds">Risk thresholds</a>
+                        <a class="btn btn-outline-primary" href="{{ route('proprietor.settings.edit') }}#risk-thresholds"><i class="bi bi-sliders" aria-hidden="true"></i> Risk thresholds</a>
                     </div>
                 </div>
                 <p class="pd-note">High risk: 2 or more warning signs. Medium: 1. Sorted by most warning signs, then by amount owed.</p>
@@ -221,7 +221,7 @@
                                         @elseif ($row->risk_level === 'high')
                                             <span class="small text-muted">Guardian number missing</span>
                                         @endif
-                                        <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.history', $row->tenant) }}">Ledger</a>
+                                        <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.history', $row->tenant) }}"><i class="bi bi-journal-text" aria-hidden="true"></i> Ledger</a>
                                     </div>
                                 </td>
                             </tr>
@@ -256,7 +256,7 @@
                                     <div class="fw-semibold text-truncate">{{ $due->tenant->name }}</div>
                                     <div class="pd-note">{{ $due->due_date->format('D, M j') }} · {{ $daysAway === 0 ? 'today' : ($daysAway === 1 ? 'tomorrow' : 'in '.$daysAway.' days') }} · ₱{{ number_format($due->amount, 2) }}</div>
                                 </div>
-                                <a class="btn btn-sm btn-outline-primary text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $due->tenant->id]) }}">Record</a>
+                                <a class="btn btn-sm btn-outline-primary text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $due->tenant->id]) }}"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record</a>
                             </li>
                         @endforeach
                     </ul>
@@ -296,7 +296,7 @@
 
                         {{-- Header --}}
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 border-bottom pb-2">
-                            <h2 id="pd-summary" class="h6 fw-bold mb-0">Complaint Summary</h2>
+                            <h2 id="pd-summary" class="h6 fw-semibold mb-0">Complaint Summary</h2>
                             <div class="d-flex align-items-center gap-2">
                                 @if ($latestSummary)
                                     <span class="badge bg-light text-dark border" style="font-size: 0.65rem;">AI-generated</span>
@@ -390,7 +390,7 @@
             <div class="modal-footer justify-content-between">
                 <a class="small" href="{{ route('proprietor.settings.edit') }}#guardian-sms">Change the default message</a>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</button>
                     <button type="button" class="btn btn-primary" id="pd-sms-send">Send SMS</button>
                 </div>
             </div>
@@ -412,7 +412,7 @@
             <div class="modal-footer justify-content-between">
                 <a class="small" href="{{ route('proprietor.settings.edit') }}#guardian-sms">Change the default message</a>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
                     <button type="button" class="btn btn-primary" id="pd-sms-all-send" disabled>Send</button>
                 </div>
             </div>

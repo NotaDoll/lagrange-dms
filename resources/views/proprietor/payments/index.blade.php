@@ -8,13 +8,13 @@
 
         <div class="d-flex gap-2">
             <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
-                Import Excel
+                <i class="bi bi-upload" aria-hidden="true"></i> Import Excel
             </button>
             <form action="{{ route('proprietor.payments.import') }}" method="POST" enctype="multipart/form-data" id="import-form" class="d-none">
                 @csrf
                 <input type="file" name="excel_file" id="excel-import-input" accept=".xlsx, .xls, .csv" onchange="document.getElementById('import-form').submit();">
             </form>
-            <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary">Record Payment</a>
+            <a href="{{ route('proprietor.payments.create') }}" class="btn btn-primary"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record Payment</a>
         </div>
     </div>
 
@@ -84,8 +84,8 @@
                     </select>
                 </div>
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Filter</button>
-                    <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Reset</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
+                    <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset</a>
                 </div>
             </form>
         </div>
@@ -149,9 +149,9 @@
                                 </td>
                                 <td onclick="event.stopPropagation()" style="cursor: default;">
                                     @if (! $payment->hasRecordedPayment() && ! $payment->exists && $payment->category === \App\Models\Payment::RENT)
-                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id]) }}">Record payment</a>
+                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id]) }}"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record payment</a>
                                     @elseif (! $payment->hasRecordedPayment() && $payment->category === \App\Models\Payment::UTILITIES)
-                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id, 'utility_payment_id' => $payment->id]) }}">Record payment</a>
+                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id, 'utility_payment_id' => $payment->id]) }}"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record payment</a>
                                     @elseif (! $payment->hasRecordedPayment())
                                         @php($settleId = $payment->exists ? 'settle-'.$payment->id : 'accrued-'.$payment->tenant_id.'-'.$payment->category.'-'.$payment->due_date->toDateString())
                                         <form method="POST" action="{{ $payment->exists ? route('proprietor.payments.settle', $payment) : route('proprietor.payments.accrued.settle', $payment->tenant) }}" class="d-flex gap-2 align-items-center">
@@ -165,7 +165,7 @@
                                             <input type="date" class="form-control form-control-sm" id="{{ $settleId }}" name="paid_date" value="{{ \App\Models\Tenant::localDate() }}" max="{{ \App\Models\Tenant::localDate() }}" required>
                                             <label class="visually-hidden" for="{{ $settleId }}-receipt">Receipt number</label>
                                             <input type="text" class="form-control form-control-sm" id="{{ $settleId }}-receipt" name="receipt_number" placeholder="Receipt no." maxlength="50" style="width: 7.5rem;" autocomplete="off" required>
-                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
+                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap"><i class="bi bi-check2-circle" aria-hidden="true"></i> Mark paid</button>
                                         </form>
                                     @endif
                                 </td>

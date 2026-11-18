@@ -243,8 +243,8 @@
 </div>
 
 <div class="d-flex justify-content-end gap-2 mt-4">
-    <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary">Cancel</a>
-    <button type="submit" class="btn btn-primary" @disabled(! $editing && ! $hasAvailableBeds)>{{ $submitLabel }}</button>
+    <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</a>
+    <button type="submit" class="btn btn-primary" @disabled(! $editing && ! $hasAvailableBeds)><i class="bi bi-check-lg" aria-hidden="true"></i> {{ $submitLabel }}</button>
 </div>
 
 @push('scripts')

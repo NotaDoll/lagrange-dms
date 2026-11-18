@@ -1,25 +1,27 @@
 <style>
     .pd { color: var(--theme-text-dark); }
-    .pd .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .pd a { color: var(--theme-plum); }
-    .pd .btn-primary { color: white; }
-    .pd .card { border-color: var(--theme-border); }
+    /* The general dashboard link color must not override primary button contrast. */
+    .pd a.btn-primary,
+    .pd a.btn-primary:hover,
+    .pd a.btn-primary:focus,
+    .pd a.btn-primary:active { color: var(--bs-btn-color, #fff); }
     .pd .card-body { padding: 1.25rem; }
-    .pd-tag { display: inline-block; border-radius: 6px; padding: .3rem .5rem; font-size: .7rem; font-weight: 700; white-space: nowrap; }
-    .pd-high { background: #fce8e8; color: #a01818; }
-    .pd-medium { background: #fff2d8; color: #805000; }
+    .pd-tag { display: inline-block; border-radius: 999px; padding: .3em .7em; font-size: .7rem; font-weight: 600; white-space: nowrap; }
+    .pd-high { background: var(--theme-danger-bg); color: var(--theme-danger); }
+    .pd-medium { background: var(--theme-warning-bg); color: var(--theme-warning); }
     .pd-ai { background: var(--theme-pink-light); color: var(--theme-plum); }
-    .pd-room { background: #e6f4ed; color: #226045; }
+    .pd-room { background: var(--theme-success-bg); color: var(--theme-success); }
     /* Priority alert tiles: the color says how urgent, the number says how many. */
     .pd-tile-value { font-size: 2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .pd-tile-topic { font-size: 1.05rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
     .pd-tile-ok { font-size: .9rem; color: var(--theme-text-muted); }
-    .pd-tile-danger { border: 2px solid #c62828 !important; }
-    .pd-tile-danger .pd-tile-value, .pd-tile-danger .pd-stat-label i { color: #a01818; }
+    .pd-tile-danger { border: 2px solid var(--theme-danger) !important; }
+    .pd-tile-danger .pd-tile-value, .pd-tile-danger .pd-stat-label i { color: var(--theme-danger); }
     .pd-tile-warning { border-color: #e0a100 !important; }
-    .pd-tile-warning .pd-tile-value, .pd-tile-warning .pd-stat-label i { color: #805000; }
+    .pd-tile-warning .pd-tile-value, .pd-tile-warning .pd-stat-label i { color: var(--theme-warning); }
     .pd-tile-info .pd-stat-label i { color: var(--theme-plum); }
-    .pd-tile-ok .bi { color: #2e7d4f; }
+    .pd-tile-ok .bi { color: var(--theme-success); }
     .pd-tile.pd-tile-clear { background: var(--bs-tertiary-bg, #f8f9fa); }
     .pd-riskbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--theme-border); margin: .35rem 0 .15rem; }
     .pd-risk-high { background: #d32f2f; }
@@ -28,7 +30,7 @@
     .pd-chart { position: relative; height: 240px; }
     .pd-chart-short { height: 190px; }
     /* Follow-up table */
-    .pd-reason { font-size: .72rem; line-height: 1.3; padding: .25rem .5rem; border-radius: 6px; background: #fff4f4; color: #8a1c1c; border: 1px solid #f3d0d0; }
+    .pd-reason { font-size: .72rem; line-height: 1.3; padding: .25rem .6rem; border-radius: 999px; background: var(--theme-danger-bg); color: var(--theme-danger); }
     .pd-follow-search { max-width: 220px; min-height: 36px; }
     .pd-follow-table td:first-child { min-width: 160px; }
     .pd-follow-table td:nth-child(2) { min-width: 210px; }

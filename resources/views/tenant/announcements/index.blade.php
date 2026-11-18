@@ -69,7 +69,7 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="ann-filter-apply-btn">Apply Filter</button>
+                        <button type="submit" class="ann-filter-apply-btn"><i class="bi bi-funnel" aria-hidden="true"></i> Apply Filter</button>
                     </form>
                 </div>
             </div>

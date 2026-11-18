@@ -3,9 +3,10 @@
 @section('title', 'Record Payment')
 
 @section('content')
+    <x-breadcrumbs :items="['Payment Ledger' => route('proprietor.payments.index'), 'Record payment' => null]" />
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Record Payment</h1>
-        <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Back</a>
+        <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back</a>
     </div>
 
     <p class="text-muted small">Record money received from a tenant.</p><div class="card">
@@ -104,8 +105,8 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary">Record Payment</button>
+                    <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record Payment</button>
                 </div>
             </form>
         </div>

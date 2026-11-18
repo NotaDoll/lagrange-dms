@@ -39,7 +39,7 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             @if ($tenant->hasMovedIn())
-                <a href="{{ route('proprietor.payments.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary">Record payment</a>
+                <a href="{{ route('proprietor.payments.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary"><i class="bi bi-cash-coin" aria-hidden="true"></i> Record payment</a>
             @endif
             <div class="dropdown">
                 <button class="btn btn-outline-secondary px-3" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for {{ $tenant->name }}" id="tenant-actions">

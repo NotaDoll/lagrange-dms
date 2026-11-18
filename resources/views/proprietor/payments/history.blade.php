@@ -3,6 +3,7 @@
 @section('title', 'Payment History - ' . $tenant->name)
 
 @section('content')
+    <x-breadcrumbs :items="['Payment Ledger' => route('proprietor.payments.index'), $tenant->name => route('proprietor.tenants.show', $tenant), 'Payment history' => null]" />
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h3 mb-0">Payment History</h1>
@@ -11,7 +12,7 @@
                 <p class="text-muted small">Location: {{ $bed->locationLabel() }}</p>
             @endif
         </div>
-        <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary">Back to Ledger</a>
+        <a href="{{ route('proprietor.payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Ledger</a>
     </div>
 
     <div class="card">

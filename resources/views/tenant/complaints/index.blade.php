@@ -120,7 +120,7 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="cp-filter-apply-btn" onclick="closeFilterPopup()">Apply Filter</button>
+                        <button type="submit" class="cp-filter-apply-btn" onclick="closeFilterPopup()"><i class="bi bi-funnel" aria-hidden="true"></i> Apply Filter</button>
                     </form>
                 </div>
             </div>

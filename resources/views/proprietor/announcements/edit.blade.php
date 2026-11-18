@@ -3,6 +3,7 @@
 @section('title', 'Edit Announcement')
 
 @section('content')
+    <x-breadcrumbs :items="['Announcements & FAQs' => route('proprietor.announcements-faqs.index'), 'Edit announcement' => null]" />
     <h1 class="mb-4">Edit Announcement</h1>
 
     <form action="{{ route('proprietor.announcements.update', $announcement) }}" method="POST">
@@ -19,7 +20,7 @@
             <textarea id="body" name="body" rows="6" class="form-control @error('body') is-invalid @enderror" required>{{ old('body', $announcement->body) }}</textarea>
             @error('body')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{{ route('proprietor.announcements-faqs.index', ['tab' => 'announcements']) }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save Changes</button>
+        <a href="{{ route('proprietor.announcements-faqs.index', ['tab' => 'announcements']) }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancel</a>
     </form>
 @endsection

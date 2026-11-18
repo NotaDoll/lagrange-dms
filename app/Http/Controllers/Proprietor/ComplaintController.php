@@ -54,7 +54,7 @@ class ComplaintController extends Controller
             }))
             ->latest()
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
         return view('proprietor.complaints.index', compact(
