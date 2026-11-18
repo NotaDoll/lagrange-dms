@@ -5,17 +5,13 @@ namespace App\Services;
 use App\Models\SmsLog;
 use App\Models\Tenant;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
 class SmsService
 {
-    public function __construct(
-        private readonly SettingsService $settings,
-        private readonly TextBeeGateway $textBee,
-    ) {}
+    public function __construct(private readonly TextBeeGateway $textBee) {}
 
     public function send(string $number, string $message, ?Tenant $recipientTenant = null, ?string $recipientType = null): SmsLog
     {
@@ -37,46 +33,33 @@ class SmsService
             'message' => $message,
         ];
 
-        if (config('services.sms_provider') === 'textbee') {
-            // Create the local record before sending so a missing migration cannot trigger an untracked SMS.
-            $log = SmsLog::create([...$logData, 'status' => 'failed', 'textbee_batch_id' => null]);
+        // All SMS go through TextBee. Create the local record before sending so a missing migration
+        // cannot trigger an untracked SMS; it stays "failed" unless TextBee accepts the message.
+        $log = SmsLog::create([...$logData, 'status' => 'failed', 'textbee_batch_id' => null]);
 
-            try {
-                $result = $this->textBee->send($number, $message);
-            } catch (InvalidArgumentException | RuntimeException) {
-                return $log;
-            }
-
-            $log->update(['status' => $result['status'], 'textbee_batch_id' => $result['batch_id']]);
+        try {
+            $result = $this->textBee->send($number, $message);
+        } catch (InvalidArgumentException | RuntimeException $exception) {
+            // Keep the reason (bad API key, invalid number, rate limit...) so the proprietor can fix it.
+            $log->update(['error_message' => mb_substr($exception->getMessage(), 0, 255)]);
 
             return $log;
         }
 
-        $status = 'failed';
+        $log->update(['status' => $result['status'], 'textbee_batch_id' => $result['batch_id']]);
 
-        try {
-            $apiKey = $this->settings->get('sms', 'api_key') ?? config('services.semaphore.key');
-
-            $response = Http::asForm()->connectTimeout(5)->timeout(15)->post('https://api.semaphore.co/api/v4/messages', [
-                'apikey' => $apiKey,
-                'number' => $number,
-                'message' => $message,
-                'sendername' => $this->settings->get('sms', 'sender_name'),
-            ]);
-
-            $status = $response->successful() ? 'sent' : 'failed';
-        } catch (\Throwable $e) {
-            $status = 'failed';
-        }
-
-        return SmsLog::create([...$logData, 'status' => $status, 'sent_at' => now()]);
+        return $log;
     }
 
-    public function sendGuardianPaymentFollowUp(Tenant $tenant): SmsLog
+    /**
+     * Payment reminder to the tenant's guardian. Without $message, the proprietor's template from
+     * Settings is filled in for this tenant; with it, the proprietor's edited text is sent as-is.
+     */
+    public function sendGuardianPaymentFollowUp(Tenant $tenant, ?string $message = null): SmsLog
     {
         return $this->send(
             $tenant->guardian_contact_number,
-            'Payment follow-up: La Grange DMS has an outstanding dormitory balance for the tenant in your care. Please contact the proprietor about payment.',
+            filled($message) ? trim($message) : app(GuardianSmsMessage::class)->forTenant($tenant)['message'],
             $tenant,
             recipientType: 'guardian',
         );
@@ -103,7 +86,7 @@ class SmsService
 
             $sentAt = $log->sent_at;
             if (in_array($status, ['sent', 'delivered'], true)) {
-                $sentAt = isset($message['sentAt']) ? Carbon::parse($message['sentAt'])->utc() : now();
+                $sentAt = isset($message['sentAt']) ? Carbon::parse($message['sentAt'])->setTimezone(config('app.timezone')) : now();
             }
 
             $updated += SmsLog::whereKey($log->id)->where('status', $log->status)->update([

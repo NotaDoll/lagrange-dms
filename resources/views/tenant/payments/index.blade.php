@@ -42,6 +42,9 @@
             <div class="theme-stat-value">PHP {{ number_format((float) $totalPaid, 2) }}</div>
             <div class="theme-stat-sub green">
                 {{ $paidCount }} {{ Str::plural('completed payment', $paidCount) }}
+                @if ($advancePayment > 0)
+                    <div>Includes PHP {{ number_format($advancePayment, 2) }} in advance rent</div>
+                @endif
             </div>
         </div>
     </div>
@@ -73,14 +76,16 @@
                 <tbody>
                     @forelse ($payments as $payment)
                         <tr>
-                            <td data-label="Receipt No.">PAY-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</td>
+                            <td data-label="Receipt No.">{{ $payment->display_receipt ?? ($payment->exists ? 'PAY-'.str_pad($payment->id, 6, '0', STR_PAD_LEFT) : '—') }}</td>
                             <td data-label="Description">
                                 {{ $payment->status_label }} · {{ $payment->description }} due {{ $payment->due_date->format('M d, Y') }}
                             </td>
                             <td data-label="Amount">PHP {{ number_format((float) $payment->amount, 2) }}</td>
                             <td data-label="Date">{{ ($payment->paid_date ?? $payment->due_date)->format('M d, Y') }}</td>
                             <td data-label="">
-                                <a href="#" class="theme-link-pill">View</a>
+                                @if ($payment->exists)
+                                    <a href="#" class="theme-link-pill">View</a>
+                                @endif
                             </td>
                         </tr>
                     @empty

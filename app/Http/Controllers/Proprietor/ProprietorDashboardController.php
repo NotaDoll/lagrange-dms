@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Complaint;
 use App\Models\Tenant;
 use App\Services\ComplaintSummarizationService;
+use App\Services\GuardianSmsMessage;
 use App\Services\PaymentRiskService;
 use App\Services\ProprietorDashboardService;
 use App\Services\SmsService;
@@ -16,7 +17,7 @@ class ProprietorDashboardController extends Controller
 {
     public function index(Request $request, ProprietorDashboardService $dashboard)
     {
-        return view('proprietor.dashboard', $dashboard->data($request->user()));
+        return view('proprietor.dashboard', $dashboard->data($request->user(), $request->integer('trend', 6)));
     }
 
     public function sendSms(Request $request, Tenant $tenant, PaymentRiskService $risk, SmsService $sms)
@@ -25,7 +26,11 @@ class ProprietorDashboardController extends Controller
         if (! filled($tenant->guardian_contact_number)) {
             return response()->json(['message' => 'Add a guardian mobile number in the tenant profile before sending a reminder.'], 422);
         }
-        $validated = $request->validate(['resend_after' => ['sometimes', 'required', 'integer', 'min:1']]);
+        $validated = $request->validate([
+            'resend_after' => ['sometimes', 'required', 'integer', 'min:1'],
+            // The proprietor may edit the reminder before sending; blank means use the Settings template.
+            'message' => ['sometimes', 'nullable', 'string', 'max:'.GuardianSmsMessage::MAX_LENGTH],
+        ]);
         $lock = Cache::lock('dashboard.sms.'.$tenant->id, 30);
         if (! $lock->get()) {
             return response()->json(['message' => 'A follow-up is already being sent. Please wait.'], 409);
@@ -34,7 +39,7 @@ class ProprietorDashboardController extends Controller
             $existing = $tenant->smsLogs()->paymentFollowUpToday()->latest('id')->first();
             $resend = $existing && (int) ($validated['resend_after'] ?? 0) === $existing->id;
             $reuse = $existing && ! $resend;
-            $log = $reuse ? $existing : $sms->sendGuardianPaymentFollowUp($tenant);
+            $log = $reuse ? $existing : $sms->sendGuardianPaymentFollowUp($tenant, $validated['message'] ?? null);
             $status = $log->status;
 
             $message = match ($status) {
@@ -42,7 +47,7 @@ class ProprietorDashboardController extends Controller
                 'unknown' => 'SMS status is unconfirmed. Check TextBee history before sending again.',
                 'delivered' => 'SMS already delivered today.',
                 'sent' => $reuse ? 'SMS already sent today.' : 'SMS sent to the guardian.',
-                default => 'SMS could not be sent. Check the SMS gateway settings and try again.',
+                default => 'SMS could not be sent. '.($log->error_message ?: 'Check the TextBee settings and try again.'),
             };
 
             return response()->json([
@@ -54,6 +59,118 @@ class ProprietorDashboardController extends Controller
         } finally {
             $lock->release();
         }
+    }
+
+    /** The reminder for one tenant, filled in from the Settings template, for the proprietor to review or edit. */
+    public function smsPreview(Tenant $tenant, PaymentRiskService $risk, GuardianSmsMessage $messages)
+    {
+        abort_unless($tenant->status === 'active' && $risk->evaluate($tenant)['risk_level'] === 'high', 422, 'SMS follow-up is available only for active high-risk tenants.');
+
+        return response()->json($this->previewRow($tenant, $messages));
+    }
+
+    /** Every high-risk tenant whose guardian can be texted, each with a personalized message. */
+    public function bulkSmsPreview(PaymentRiskService $risk, GuardianSmsMessage $messages)
+    {
+        $rows = $this->bulkCandidates($risk)->map(fn (Tenant $tenant) => $this->previewRow($tenant, $messages))->values();
+
+        return response()->json(['recipients' => $rows]);
+    }
+
+    /**
+     * Send the reviewed messages (one per tenant). Each tenant is re-checked on the server, and a
+     * guardian already texted today is skipped so nobody gets the same reminder twice.
+     */
+    public function bulkSendSms(Request $request, PaymentRiskService $risk, SmsService $sms)
+    {
+        $validated = $request->validate([
+            'recipients' => ['required', 'array', 'min:1', 'max:200'],
+            'recipients.*.tenant_id' => ['required', 'integer', 'distinct'],
+            'recipients.*.message' => ['required', 'string', 'max:'.GuardianSmsMessage::MAX_LENGTH],
+        ], ['recipients.*.message.required' => 'One of the messages is empty. Write a message or untick that guardian.']);
+
+        $eligible = $this->bulkCandidates($risk)->keyBy('id');
+        $results = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'rows' => []];
+
+        foreach ($validated['recipients'] as $item) {
+            $tenant = $eligible->get($item['tenant_id']);
+            $status = 'skipped';
+            $reason = 'No longer high risk or no guardian number.';
+
+            if ($tenant) {
+                $lock = Cache::lock('dashboard.sms.'.$tenant->id, 30);
+                if (! $lock->get()) {
+                    $reason = 'Already being sent.';
+                } else {
+                    try {
+                        if ($tenant->smsLogs()->paymentFollowUpToday()->exists()) {
+                            $reason = 'Already texted today.';
+                        } else {
+                            $log = $sms->sendGuardianPaymentFollowUp($tenant, $item['message']);
+                            $status = $log->status === 'failed' ? 'failed' : 'sent';
+                            $reason = $log->status === 'failed' ? ($log->error_message ?: 'TextBee did not accept it.') : null;
+                        }
+                    } finally {
+                        $lock->release();
+                    }
+                }
+            }
+
+            $results[$status]++;
+            $results['rows'][] = ['tenant_id' => (int) $item['tenant_id'], 'status' => $status, 'reason' => $reason];
+        }
+
+        $results['message'] = sprintf('%d sent, %d skipped, %d failed.', $results['sent'], $results['skipped'], $results['failed']);
+
+        return response()->json($results, $results['sent'] === 0 && $results['failed'] > 0 ? 502 : 200);
+    }
+
+    /**
+     * Ask TextBee what happened to recent reminders (queued → sent/delivered/failed) and return
+     * today's status per tenant. The dashboard calls this after loading, so statuses stay current
+     * even when Laravel's scheduler (which normally runs sms:sync-textbee) isn't running.
+     */
+    public function refreshSmsStatuses(SmsService $sms)
+    {
+        $updated = 0;
+        $error = null;
+        try {
+            $updated = $sms->syncTextBeeStatuses();
+        } catch (\RuntimeException $exception) {
+            $error = $exception->getMessage();
+        }
+
+        $statuses = \App\Models\SmsLog::query()->paymentFollowUpToday()->orderBy('id')->get(['tenant_id', 'status'])
+            ->mapWithKeys(fn ($log) => [$log->tenant_id => $log->status]);
+
+        return response()->json(['updated' => $updated, 'statuses' => $statuses, 'error' => $error]);
+    }
+
+    /** Active high-risk tenants with a guardian number. */
+    private function bulkCandidates(PaymentRiskService $risk)
+    {
+        return Tenant::with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])
+            ->where('status', 'active')->get()
+            ->filter(fn (Tenant $tenant) => filled($tenant->guardian_contact_number) && $risk->evaluate($tenant)['risk_level'] === 'high')
+            ->sortBy(fn (Tenant $tenant) => strtolower((string) $tenant->name))->values();
+    }
+
+    private function previewRow(Tenant $tenant, GuardianSmsMessage $messages): array
+    {
+        $filled = $messages->forTenant($tenant);
+        $number = preg_replace('/\D+/', '', (string) $tenant->guardian_contact_number);
+
+        return [
+            'tenant_id' => $tenant->id,
+            'tenant_name' => GuardianSmsMessage::properName((string) $tenant->name),
+            'guardian_name' => $filled['guardian_name'],
+            // Only the last digits are shown, so the full number never leaves the server here.
+            'number_hint' => $number === '' ? null : '•••• '.substr($number, -4),
+            'has_number' => $number !== '',
+            'message' => $filled['message'],
+            'stats' => GuardianSmsMessage::stats($filled['message']),
+            'sent_today' => $tenant->smsLogs()->paymentFollowUpToday()->exists(),
+        ];
     }
 
     public function generateSummary(Request $request, ComplaintSummarizationService $summarizer)

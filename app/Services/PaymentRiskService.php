@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Payment;
 use App\Models\RiskFlag;
 use App\Models\Tenant;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Carbon;
 
 class PaymentRiskService
@@ -18,7 +17,6 @@ class PaymentRiskService
     ];
 
     public function __construct(
-        private readonly SmsService $smsService,
         private readonly SettingsService $settings,
         private readonly TenantBalanceService $balances,
     ) {}
@@ -28,15 +26,21 @@ class PaymentRiskService
         return array_replace(self::DEFAULT_THRESHOLDS, array_intersect_key($this->settings->getGroup('risk'), self::DEFAULT_THRESHOLDS));
     }
 
-    /** Evaluate the existing four rules without saving flags or sending SMS. */
-    public function evaluate(Tenant $tenant, ?array $thresholds = null): array
+    /**
+     * Evaluate the existing four rules without saving flags or sending SMS.
+     * With $asOf, evaluate as the proprietor would have seen it on that day: only charges due by then,
+     * and a payment made after that day still counts as unpaid. Used for the dashboard's risk trend.
+     */
+    public function evaluate(Tenant $tenant, ?array $thresholds = null, ?Carbon $asOf = null): array
     {
-        $today = Carbon::parse(Tenant::localDate());
+        $today = $asOf ? $asOf->copy()->startOfDay() : Carbon::parse(Tenant::localDate());
         $charges = $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString())
             ->where('category', '!=', Payment::OPENING_BALANCE)
+            ->reject(fn (Payment $payment) => $payment->is_advance_credit)
+            ->filter(fn (Payment $payment) => $payment->due_date->lte($today))
             ->map(fn (Payment $payment) => [
                 'due_date' => $payment->due_date,
-                'days_overdue' => $payment->hasRecordedPayment()
+                'days_overdue' => $payment->hasRecordedPayment() && (! $payment->paid_date || $payment->paid_date->lte($today))
                     ? (int) max(0, $payment->paid_date
                         ? $payment->due_date->diffInDays($payment->paid_date, false)
                         : $payment->days_overdue)
@@ -81,13 +85,7 @@ class PaymentRiskService
             ...array_diff_key($evaluation, array_flip(['rules', 'rules_tripped'])),
             'calculated_at' => now(),
         ]);
-        if ($flag->risk_level === 'high' && filled($tenant->guardian_contact_number)) {
-            Cache::lock('dashboard.sms.'.$tenant->id, 30)->get(function () use ($tenant) {
-                if (! $tenant->smsLogs()->paymentFollowUpToday()->exists()) {
-                    $this->smsService->sendGuardianPaymentFollowUp($tenant);
-                }
-            });
-        }
+        // No SMS here: the proprietor reviews and sends guardian reminders from the Dashboard.
 
         return $flag;
     }

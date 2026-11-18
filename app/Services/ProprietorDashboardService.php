@@ -9,17 +9,26 @@ use App\Models\Room;
 use App\Models\RoomAssignment;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ProprietorDashboardService
 {
-    public function __construct(private readonly PaymentRiskService $risk, private readonly TenantBalanceService $balances) {}
+    /** Trend chart lengths the dashboard offers, in months. */
+    public const TREND_MONTHS = [6, 12];
 
-    public function data(User $user): array
+    public function __construct(
+        private readonly PaymentRiskService $risk,
+        private readonly TenantBalanceService $balances,
+        private readonly BillingPolicy $policy,
+    ) {}
+
+    public function data(User $user, int $trendMonths = 6): array
     {
+        $trendMonths = in_array($trendMonths, self::TREND_MONTHS, true) ? $trendMonths : self::TREND_MONTHS[0];
         $tenants = Tenant::with([
             'user', 'currentAssignment.bed.room', 'roomAssignments.bed.room', 'payments', 'monthModes',
-            'riskFlags' => fn ($query) => $query->where('calculated_at', '>=', now()->subMonthsNoOverflow(5)->startOfMonth())->orderBy('calculated_at'),
             'smsLogs' => fn ($query) => $query->paymentFollowUpToday()->latest('id'),
         ])->get();
         $from = today()->startOfMonth()->toDateString();
@@ -29,26 +38,26 @@ class ProprietorDashboardService
             $this->balances->ledgerStart($tenant), $to));
         $overdue = $all->filter(fn ($entry) => $entry->status !== 'paid' && $entry->due_date->lt(today()));
         $thresholds = $this->risk->thresholds();
-        $followUps = $tenants->where('status', 'active')->map(function ($tenant) use ($thresholds) {
+        $active = $tenants->where('status', 'active');
+        $history = $this->riskHistory($active, $thresholds, max(6, $trendMonths));
+        $evaluated = $active->map(function ($tenant) use ($thresholds, $history) {
             $evaluation = $this->risk->evaluate($tenant, $thresholds);
-            $trend = collect();
-            for ($index = 5; $index >= 0; $index--) {
-                $month = today()->startOfMonth()->subMonths($index);
-                $flag = $tenant->riskFlags->filter(fn ($flag) => $flag->calculated_at?->format('Y-m') === $month->format('Y-m'))->last();
-                $trend->push(['label' => $month->format('M'), 'level' => $flag?->risk_level]);
-            }
+            // Sparkline: the last 6 months of the same history the trend chart uses.
+            $trend = collect($this->trendMonthStarts(6))->map(fn (Carbon $month) => [
+                'label' => $month->format('M'), 'level' => $history[$tenant->id][$month->format('Y-m')] ?? null,
+            ]);
 
-            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend, 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
-        })->filter(fn ($row) => $row->risk_level !== 'low')
-            ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
+            return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend,
+                'reasons' => $this->reasons($evaluation, $thresholds),
+                'owes' => $this->balances->outstandingSummary($tenant)['outstanding_balance'], 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
+        });
+        $riskCounts = array_merge(['high' => 0, 'medium' => 0, 'low' => 0], $evaluated->countBy('risk_level')->all());
+        $followUps = $evaluated->filter(fn ($row) => $row->risk_level !== 'low')
+            ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: $right->owes <=> $left->owes ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
         $totalBeds = Bed::count();
         // These are the exact occupancy/availability predicates used by RoomController.
         $occupiedBeds = RoomAssignment::where('status', 'active')->count();
         $availableBeds = Bed::where('status', 'available')->whereDoesntHave('currentAssignment')->count();
-        $floorBeds = Bed::with('room')->withExists('currentAssignment')->get();
-        $floors = $floorBeds->groupBy(fn ($bed) => $bed->room->floor)->map(fn ($beds, $floor) => (object) [
-            'label' => $floor, 'total' => $beds->count(), 'occupied' => $beds->where('current_assignment_exists', true)->count(),
-        ])->sortKeys(SORT_NATURAL)->values();
         $complaints = Complaint::select('id', 'status', 'category', 'created_at')->get();
         $open = $complaints->whereIn('status', ['submitted', 'in_progress']);
         $latestSummary = AiSummary::latest('id')->first();
@@ -67,11 +76,135 @@ class ProprietorDashboardService
             'upcomingMoveIns' => RoomAssignment::where('status', 'active')->whereDate('start_date', '>', today())->count(),
             'nextMoveIn' => RoomAssignment::where('status', 'active')->whereDate('start_date', '>', today())->min('start_date'),
             'followUps' => $followUps, 'highRiskCount' => $followUps->where('risk_level', 'high')->count(),
-            'floors' => $floors, 'latestSummary' => $latestSummary,
+            'latestSummary' => $latestSummary,
+            'complaintsByCategory' => $this->complaintsByCategory($complaints, $trendMonths),
             'summaryContent' => $this->presentSummary($latestSummary),
+            'riskCounts' => $riskCounts,
+            'oldestOpenComplaintDays' => $open->isEmpty() ? null : (int) $open->min('created_at')->diffInDays(now()),
+            'dueSoon' => $this->dueSoon($tenants->where('status', 'active')),
+            'trendMonths' => $trendMonths,
+            'collectionsTrend' => $this->collectionsTrend($all, $trendMonths),
+            'riskTrend' => $this->riskTrend($history, $trendMonths),
             'unreadCount' => $user->notifications()->where('is_read', false)->count(),
             'periodFrom' => $from, 'periodTo' => $to,
         ];
+    }
+
+    /** @return list<\Illuminate\Support\Carbon> first day of each month, oldest first, ending with this month */
+    private function trendMonthStarts(int $months): array
+    {
+        $current = Carbon::parse(Tenant::localDate())->startOfMonth();
+
+        return collect(range($months - 1, 0))->map(fn ($back) => $current->copy()->subMonthsNoOverflow($back))->all();
+    }
+
+    /**
+     * Per month: everything billed that month (by due date) and how much of it is paid.
+     * Uses the same ledger entries as the stat cards, so the numbers agree with them.
+     */
+    private function collectionsTrend(Collection $entries, int $months): array
+    {
+        $byMonth = $entries->groupBy(fn ($entry) => $entry->due_date->format('Y-m'));
+
+        return collect($this->trendMonthStarts($months))->map(function (Carbon $month) use ($byMonth) {
+            $rows = $byMonth->get($month->format('Y-m'), collect());
+
+            return [
+                'label' => $month->format('M Y'),
+                'expected' => round((float) $rows->sum('amount'), 2),
+                'collected' => round((float) $rows->where('status', 'paid')->sum('amount'), 2),
+            ];
+        })->all();
+    }
+
+    /**
+     * Each tenant's risk level at the end of every month (today for the current month), using the
+     * same four rules as the follow-up list. Worked out from payment history, so it needs no saved
+     * snapshots. Null for a month the tenant wasn't billed yet or had neither a bed nor a charge.
+     *
+     * @return array<int, array<string, ?string>> tenant id => ['Y-m' => 'high'|'medium'|'low'|null]
+     */
+    private function riskHistory(Collection $tenants, array $thresholds, int $months): array
+    {
+        $today = Carbon::parse(Tenant::localDate());
+        $history = [];
+
+        foreach ($this->trendMonthStarts($months) as $month) {
+            $asOf = $month->isSameMonth($today) ? $today->copy() : $month->copy()->endOfMonth()->startOfDay();
+            foreach ($tenants as $tenant) {
+                $start = $this->policy->tenantStart($tenant);
+                $here = $start !== null && $start->lte($asOf) && ($this->policy->assignmentOverlaps($tenant, $month, $asOf)
+                    || $tenant->payments->contains(fn ($payment) => $payment->due_date->lte($asOf)));
+                $history[$tenant->id][$month->format('Y-m')] = $here
+                    ? $this->risk->evaluate($tenant, $thresholds, $asOf)['risk_level']
+                    : null;
+            }
+        }
+
+        return $history;
+    }
+
+    /** Per month: how many tenants were high, medium, and low risk (from riskHistory). */
+    private function riskTrend(array $history, int $months): array
+    {
+        return collect($this->trendMonthStarts($months))->map(function (Carbon $month) use ($history) {
+            $levels = array_filter(array_column($history, $month->format('Y-m')));
+            $counts = array_merge(['high' => 0, 'medium' => 0, 'low' => 0], array_count_values($levels));
+
+            return ['label' => $month->format('M Y'), ...$counts];
+        })->all();
+    }
+
+    /** Complaints filed in the trend period, per category, split into still open and resolved. */
+    private function complaintsByCategory(Collection $complaints, int $months): array
+    {
+        $since = Carbon::parse(Tenant::localDate())->startOfMonth()->subMonthsNoOverflow($months - 1);
+        $recent = $complaints->filter(fn ($complaint) => $complaint->created_at->gte($since));
+        $labels = ['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Other'];
+        foreach ($recent->pluck('category')->unique() as $category) {
+            $labels[$category] ??= Str::headline((string) $category);
+        }
+
+        return collect($labels)->map(function (string $label, string $category) use ($recent) {
+            $rows = $recent->where('category', $category);
+            $resolved = $rows->where('status', Complaint::STATUS_RESOLVED)->count();
+
+            return ['category' => $category, 'label' => $label, 'open' => $rows->count() - $resolved, 'resolved' => $resolved];
+        })->sortByDesc(fn ($row) => $row['open'] + $row['resolved'])->values()->all();
+    }
+
+    /** The follow-up list's "why flagged" reasons in plain words, one per rule that tripped. */
+    private function reasons(array $evaluation, array $thresholds): array
+    {
+        $plural = fn (int $n, string $word) => $n.' '.Str::plural($word, $n);
+        $days = $evaluation['days_since_last_default'];
+
+        return array_values(array_filter([
+            $evaluation['rules']['Repeated late payments'] ? $plural($evaluation['late_payments_6mo'], 'late payment').' in 6 months' : null,
+            $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
+            $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
+            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Late payment due today' : 'Late payment '.$plural($days, 'day').' ago') : null,
+        ]));
+    }
+
+    /** Rent coming due in the next 7 days (from each tenant's move-in day) that isn't paid yet. */
+    private function dueSoon(Collection $tenants): Collection
+    {
+        $today = Carbon::parse(Tenant::localDate());
+        $until = $today->copy()->addDays(7);
+
+        return $tenants->flatMap(function (Tenant $tenant) use ($today, $until) {
+            return collect([$today->copy()->startOfMonth(), $today->copy()->startOfMonth()->addMonthNoOverflow()])
+                ->map(function (Carbon $month) use ($tenant, $today, $until) {
+                    $balance = $this->balances->monthBalance($tenant, $month);
+                    $due = $balance['charge']?->due_date;
+                    if ($due === null || $due->lt($today) || $due->gt($until) || $balance['remaining'] <= 0) {
+                        return null;
+                    }
+
+                    return (object) ['tenant' => $tenant, 'due_date' => $due, 'amount' => $balance['remaining']];
+                })->filter();
+        })->sortBy(fn ($row) => $row->due_date->timestamp)->values();
     }
 
     private function presentSummary(?AiSummary $summary): array

@@ -32,10 +32,15 @@
                     <tbody>
                         @forelse ($payments as $payment)
                             <tr>
-                                <td>{{ $payment->description }}</td>
+                                <td>
+                                    {{ $payment->description }}
+                                    @if (filled($payment->note))
+                                        <div class="small text-break">{{ $payment->note }}</div>
+                                    @endif
+                                </td>
                                 <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
-                                <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
+                                <td>{{ $payment->paid_date?->format('M d, Y') ?? '—' }}</td>
                                 <td>{{ $payment->current_days_overdue }}</td>
                                 <td>
                                     <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->current_status] }}">
@@ -46,9 +51,9 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if($payment->receipt_number)
+                                    @if($payment->display_receipt)
                                         <span class="badge bg-light text-dark border font-monospace">
-                                            {{ $payment->receipt_number }}
+                                            {{ $payment->display_receipt }}
                                         </span>
                                     @else
                                         <span class="text-muted small fst-italic">N/A</span>

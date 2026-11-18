@@ -43,7 +43,6 @@ Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])->
 Route::middleware(['auth', 'role:proprietor'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 Route::middleware('auth')->get('/dashboard', function () {
@@ -58,6 +57,10 @@ Route::middleware(['auth', 'role:proprietor'])
     ->group(function () {
         Route::get('/dashboard', [ProprietorDashboardController::class, 'index'])->name('dashboard');
         Route::post('dashboard/tenants/{tenant}/sms', [ProprietorDashboardController::class, 'sendSms'])->middleware('throttle:10,1')->name('dashboard.sms');
+        Route::get('dashboard/tenants/{tenant}/sms-preview', [ProprietorDashboardController::class, 'smsPreview'])->name('dashboard.sms.preview');
+        Route::get('dashboard/sms/bulk-preview', [ProprietorDashboardController::class, 'bulkSmsPreview'])->name('dashboard.sms.bulk-preview');
+        Route::post('dashboard/sms/bulk', [ProprietorDashboardController::class, 'bulkSendSms'])->middleware('throttle:3,1')->name('dashboard.sms.bulk');
+        Route::post('dashboard/sms/refresh', [ProprietorDashboardController::class, 'refreshSmsStatuses'])->middleware('throttle:12,1')->name('dashboard.sms.refresh');
         Route::post('dashboard/summary', [ProprietorDashboardController::class, 'generateSummary'])->middleware('throttle:3,1')->name('dashboard.summary');
         Route::resource('tenants', TenantController::class)->except(['show']);
         Route::resource('rooms', RoomController::class)->except(['show']);
@@ -67,6 +70,7 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::resource('payments', ProprietorPaymentController::class)->only(['index', 'create', 'store']);
         Route::post('payments/import', [ProprietorPaymentController::class, 'import'])->name('payments.import');
         Route::get('payments/month-balance', [ProprietorPaymentController::class, 'monthBalance'])->name('payments.month-balance');
+        Route::get('payments/preview', [ProprietorPaymentController::class, 'preview'])->name('payments.preview');
         Route::get('payments/history/{tenant}', [ProprietorPaymentController::class, 'history'])->name('payments.history'); // <-- NEW HISTORY ROUTE
         Route::patch('payments/accrued/{tenant}', [ProprietorPaymentController::class, 'settleAccrued'])->name('payments.accrued.settle');
         Route::patch('payments/{payment}/settle', [ProprietorPaymentController::class, 'settle'])->name('payments.settle');
@@ -80,6 +84,8 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::resource('announcements', ProprietorAnnouncementController::class)->except(['show']);
         Route::resource('faqs', ProprietorFaqController::class)->except(['show']);
         Route::get('reports/financial', [FinancialReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/financial/pdf', [FinancialReportController::class, 'export'])->name('reports.export');
+        Route::get('reports/financial/preview', [FinancialReportController::class, 'preview'])->name('reports.preview');
         Route::get('complaints', [ProprietorComplaintController::class, 'index'])->name('complaints.index');
         Route::get('complaints/summaries', [ComplaintSummaryController::class, 'index'])->name('complaints.summaries.index');
         Route::post('complaints/summaries', [ComplaintSummaryController::class, 'store'])->name('complaints.summaries.store');

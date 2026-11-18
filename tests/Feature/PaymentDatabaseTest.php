@@ -50,7 +50,8 @@ class PaymentDatabaseTest extends TestCase
     public function test_empty_ledger_and_record_form_render_with_database_backed_navigation(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
-        $this->get(route('proprietor.payments.index'))->assertOk()->assertSee('No payments found.')->assertSee('Financial Report');
+        $this->get(route('proprietor.payments.index'))->assertOk()->assertSee('No payments found.')
+            ->assertDontSee('class="btn btn-outline-primary mb-3">Financial Report</a>', false);
         $this->get(route('proprietor.payments.create'))->assertOk()->assertSee('Record Payment');
     }
 

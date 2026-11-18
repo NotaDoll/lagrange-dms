@@ -22,8 +22,12 @@ class StorePaymentRequest extends FormRequest
     {
         return [
             'tenant_id' => ['required', 'exists:tenants,id'],
-            'payment_type' => ['required', Rule::in(array_keys(Payment::PAYMENT_TYPE_LABELS))],
-            'amount' => ['required', 'numeric', 'min:0.01', 'max:99999999.99'],
+            'payment_type' => ['required_without:applies_to', Rule::in(array_keys(Payment::PAYMENT_TYPE_LABELS))],
+            'applies_to' => ['required_without:payment_type', Rule::in([Payment::RENT, Payment::UTILITIES])],
+            'utility_payment_id' => ['required_if:applies_to,utilities', 'nullable', 'integer'],
+            'apply_excess' => ['sometimes', 'boolean'],
+            'note' => ['nullable', 'string', 'max:1000'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
             // Due date is not entered: it follows the tenant's move-in day (see PaymentLedgerService::targetMonth).
             'receipt_number' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9#\/\-. ]+$/', Rule::unique('payments', 'receipt_number')],
             'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Tenant::localDate()],

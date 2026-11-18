@@ -27,14 +27,8 @@ return [
         'model' => env('GROQ_MODEL'),
     ],
 
-    'sms_provider' => env('SMS_PROVIDER', 'semaphore'),
-
     'textbee' => [
         'key' => env('TEXTBEE_API_KEY'),
-    ],
-
-    'semaphore' => [
-        'key' => env('SEMAPHORE_API_KEY'),
     ],
 
     'groq' => [

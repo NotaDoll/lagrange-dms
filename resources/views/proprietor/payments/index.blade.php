@@ -48,7 +48,6 @@
         <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
     @endif
     <p class="text-muted small">Recorded charges and payments feed Financial Report automatically. Mark an existing charge paid when collected.</p>
-    <a href="{{ route('proprietor.reports.index') }}" class="btn btn-outline-primary mb-3">Financial Report</a>
 
     <div class="card mb-3">
         <div class="card-body">
@@ -92,44 +91,6 @@
         </div>
     </div>
 
-    @if ($accruedPayments->total())
-        <section class="card mb-3" aria-labelledby="accrued-title">
-            <div class="card-body">
-                <h2 class="h5" id="accrued-title">Accrued storage fees and balances forward</h2>
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead><tr><th scope="col">Tenant</th><th scope="col">Description</th><th scope="col">Amount</th><th scope="col">Due date</th><th scope="col">Action</th></tr></thead>
-                        <tbody>
-                            @foreach ($accruedPayments as $charge)
-                                @php($fieldId = 'accrued-'.$charge->tenant_id.'-'.$charge->charge_type.'-'.$charge->due_date->toDateString())
-                                <tr>
-                                    <th scope="row">{{ ucwords(strtolower($charge->tenant->name)) }}</th>
-                                    <td>{{ $charge->description }}</td>
-                                    <td class="text-nowrap">PHP {{ number_format((float) $charge->amount, 2) }}</td>
-                                    <td>{{ $charge->due_date->format('M d, Y') }}</td>
-                                    <td>
-                                        <form method="POST" action="{{ route('proprietor.payments.accrued.settle', $charge->tenant) }}" class="d-flex gap-2 align-items-center">
-                                            @csrf
-                                            @method('PATCH')
-                                            <input type="hidden" name="charge_type" value="{{ $charge->charge_type }}">
-                                            <input type="hidden" name="due_date" value="{{ $charge->due_date->toDateString() }}">
-                                            <label class="visually-hidden" for="{{ $fieldId }}">Payment date for {{ $charge->tenant->name }}, {{ $charge->description }}</label>
-                                            <input type="date" class="form-control form-control-sm" id="{{ $fieldId }}" name="paid_date" value="{{ \App\Models\Tenant::localDate() }}" max="{{ \App\Models\Tenant::localDate() }}" required>
-                                            <label class="visually-hidden" for="{{ $fieldId }}-receipt">Receipt number</label>
-                                            <input type="text" class="form-control form-control-sm" id="{{ $fieldId }}-receipt" name="receipt_number" placeholder="Receipt no." maxlength="50" style="width: 7.5rem;" autocomplete="off" required>
-                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-                {{ $accruedPayments->links() }}
-            </div>
-        </section>
-    @endif
-
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -159,10 +120,15 @@
                                         <div class="text-muted small">{{ $bed->locationLabel() }}</div>
                                     @endif
                                 </td>
-                                <td>{{ $payment->description }}<div class="small text-muted">{{ $categories[$payment->category] }}</div></td>
+                                <td>
+                                    {{ $payment->description }}<div class="small text-muted">{{ $categories[$payment->category] }}</div>
+                                    @if (filled($payment->note))
+                                        <div class="small text-break">{{ $payment->note }}</div>
+                                    @endif
+                                </td>
                                 <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
-                                <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
+                                <td>{{ $payment->paid_date?->format('M d, Y') ?? '—' }}</td>
                                 <td>{{ $payment->current_days_overdue }}</td>
                                 <td>
                                     <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->current_status] }}">
@@ -173,27 +139,35 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if($payment->receipt_number)
+                                    @if($payment->display_receipt)
                                         <span class="badge bg-light text-dark border font-monospace">
-                                            {{ $payment->receipt_number }}
+                                            {{ $payment->display_receipt }}
                                         </span>
                                     @else
-                                        <span class="text-muted small fst-italic">Not paid</span>
+                                        <span class="text-muted small">—</span>
                                     @endif
                                 </td>
                                 <td onclick="event.stopPropagation()" style="cursor: default;">
-                                    @unless ($payment->hasRecordedPayment())
-                                        @php($settleId = 'settle-'.$payment->id)
-                                        <form method="POST" action="{{ route('proprietor.payments.settle', $payment) }}" class="d-flex gap-2 align-items-center">
+                                    @if (! $payment->hasRecordedPayment() && ! $payment->exists && $payment->category === \App\Models\Payment::RENT)
+                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id]) }}">Record payment</a>
+                                    @elseif (! $payment->hasRecordedPayment() && $payment->category === \App\Models\Payment::UTILITIES)
+                                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $payment->tenant_id, 'utility_payment_id' => $payment->id]) }}">Record payment</a>
+                                    @elseif (! $payment->hasRecordedPayment())
+                                        @php($settleId = $payment->exists ? 'settle-'.$payment->id : 'accrued-'.$payment->tenant_id.'-'.$payment->category.'-'.$payment->due_date->toDateString())
+                                        <form method="POST" action="{{ $payment->exists ? route('proprietor.payments.settle', $payment) : route('proprietor.payments.accrued.settle', $payment->tenant) }}" class="d-flex gap-2 align-items-center">
                                             @csrf
                                             @method('PATCH')
+                                            @unless ($payment->exists)
+                                                <input type="hidden" name="charge_type" value="{{ $payment->charge_type }}">
+                                                <input type="hidden" name="due_date" value="{{ $payment->due_date->toDateString() }}">
+                                            @endunless
                                             <label class="visually-hidden" for="{{ $settleId }}">Payment date for {{ $payment->tenant->name }}, {{ $payment->description }}</label>
                                             <input type="date" class="form-control form-control-sm" id="{{ $settleId }}" name="paid_date" value="{{ \App\Models\Tenant::localDate() }}" max="{{ \App\Models\Tenant::localDate() }}" required>
                                             <label class="visually-hidden" for="{{ $settleId }}-receipt">Receipt number</label>
                                             <input type="text" class="form-control form-control-sm" id="{{ $settleId }}-receipt" name="receipt_number" placeholder="Receipt no." maxlength="50" style="width: 7.5rem;" autocomplete="off" required>
                                             <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
                                         </form>
-                                    @endunless
+                                    @endif
                                 </td>
                             </tr>
                         @empty

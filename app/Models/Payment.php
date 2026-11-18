@@ -34,6 +34,8 @@ class Payment extends Model
     protected $fillable = [
         'tenant_id',
         'receipt_number',
+        'receipt_reference',
+        'note',
         'charge_type',
         'amount',
         'due_date',
@@ -60,6 +62,11 @@ class Payment extends Model
         return $this->belongsTo(UtilityBill::class);
     }
 
+    public function getDisplayReceiptAttribute(): ?string
+    {
+        return $this->receipt_reference ?? $this->receipt_number;
+    }
+
     /**
      * Imported/regular rent rows have charge_type = null, so treat null as rent
      * and utility bills (utility_bill_id set) as utilities.
@@ -81,6 +88,10 @@ class Payment extends Model
 
     public function getDescriptionAttribute(): string
     {
+        if ($this->is_advance_credit) {
+            return 'Advance applied to rent - '.$this->due_date->format('F Y');
+        }
+
         if ($this->category === self::UTILITIES && $this->utilityBill) {
             return $this->utilityBill->label . ' · Room ' . $this->utilityBill->room->room_number;
         }

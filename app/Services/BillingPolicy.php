@@ -21,6 +21,13 @@ class BillingPolicy
             : null;
     }
 
+    public function firstRentDueDate(Tenant $tenant): ?Carbon
+    {
+        $moveIn = $tenant->actualMoveInDate();
+
+        return $moveIn?->copy()->addMonthNoOverflow()->startOfDay();
+    }
+
     /**
      * Rent falls due every month on the tenant's move-in day (moved in on the 10th → due every 10th).
      * In shorter months a 29th–31st move-in day falls on the month's last day.

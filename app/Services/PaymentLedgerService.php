@@ -34,6 +34,12 @@ class PaymentLedgerService
             $month = $dueDate->copy()->startOfMonth();
             $mode = $tenant->monthModes()->whereDate('month', $month)->where('mode', TenantMonthMode::STORAGE)->first();
             $charge = $mode ? $this->balances->monthlyCharge($tenant, $month, $mode) : null;
+            if (! $charge) {
+                $dueDate = $this->policy->dueDate($tenant, $month);
+                if ($dueDate->lt($start) || $dueDate->lt($this->policy->firstRentDueDate($tenant))) {
+                    throw ValidationException::withMessages(['due_date' => 'Rent is first due one month after move-in and follows the move-in day each month.']);
+                }
+            }
             if ($charge) {
                 $existing = $tenant->payments()->whereNull('utility_bill_id')
                     ->where(fn ($query) => $query->whereNull('charge_type')->orWhere('charge_type', '!=', Payment::OPENING_BALANCE))
@@ -67,20 +73,14 @@ class PaymentLedgerService
         }, 3);
     }
 
-    /**
-     * Record money received from a tenant as a Full, Partial, or Advance payment.
-     * The month being paid is picked automatically (see targetMonth()); rent is due on the move-in day.
-     *  - Full:    pays the remaining balance of the oldest unpaid month exactly.
-     *  - Partial: pays less than that balance; the rest stays outstanding for that month.
-     *  - Advance: once nothing is owed up to this month, pays upcoming months in order.
-     *             One ledger row per month, sharing one receipt.
-     *
-     * @return Collection<int, Payment>
-     */
+    /** Collect rent or a selected utility charge. Explicit payment types support the original workflow. */
     public function recordPayment(array $validated): Collection
     {
         return DB::transaction(function () use ($validated) {
             $tenant = Tenant::whereKey($validated['tenant_id'])->lockForUpdate()->firstOrFail();
+            if (isset($validated['applies_to'])) {
+                return $this->recordAllocatedPayment($tenant, $validated);
+            }
             $type = $validated['payment_type'];
             $amount = round((float) $validated['amount'], 2);
             $paidDate = Carbon::parse($validated['paid_date'])->startOfDay();
@@ -114,9 +114,113 @@ class PaymentLedgerService
             if (Payment::whereIn('receipt_number', $used)->whereNotIn('id', $rows->pluck('id'))->exists()) {
                 throw ValidationException::withMessages(['receipt_number' => "Receipt number {$base} is already used on another payment."]);
             }
+            if (isset($validated['note'])) {
+                $rows->each(fn (Payment $row) => $row->update(['note' => $validated['note']]));
+            }
 
             return $rows;
         }, 3);
+    }
+
+    public function previewPayment(Tenant $tenant, float $amount): array
+    {
+        return collect($this->rentAllocations($tenant, $amount))->map(fn (array $allocation) => [
+            'due_date' => $allocation['due']->format('M d, Y'),
+            'amount' => $allocation['amount'],
+            'remaining' => round($allocation['balance']['remaining'] - $allocation['amount'], 2),
+            'upcoming' => $allocation['upcoming'],
+        ])->all();
+    }
+
+    private function recordAllocatedPayment(Tenant $tenant, array $validated): Collection
+    {
+        $amount = round((float) $validated['amount'], 2);
+        $paidDate = Carbon::parse($validated['paid_date'])->startOfDay();
+        $receipt = trim($validated['receipt_number']);
+        if (Payment::where('receipt_number', $receipt)->exists()) {
+            throw ValidationException::withMessages(['receipt_number' => 'This receipt number is already used on another payment.']);
+        }
+        $note = $validated['note'] ?? null;
+
+        if ($validated['applies_to'] === Payment::UTILITIES) {
+            $share = $tenant->payments()->whereNotNull('utility_bill_id')
+                ->whereKey($validated['utility_payment_id'])->lockForUpdate()->first();
+            if (! $share || $share->hasRecordedPayment()) {
+                throw ValidationException::withMessages(['utility_payment_id' => 'Choose an unpaid utility charge for this tenant.']);
+            }
+            if ((float) $share->amount !== $amount) {
+                throw ValidationException::withMessages(['amount' => 'Enter the full balance of the selected utility charge.']);
+            }
+            $share->update([
+                'receipt_number' => $receipt,
+                'note' => $note,
+                'paid_date' => $paidDate,
+                'status' => 'paid',
+                'payment_type' => Payment::TYPE_FULL,
+                'days_overdue' => (int) max(0, $share->due_date->diffInDays($paidDate, false)),
+            ]);
+
+            return collect([$share]);
+        }
+
+        $allocations = $this->rentAllocations($tenant, $amount);
+        if (! ($validated['apply_excess'] ?? false) && collect($allocations)->contains('upcoming', true)) {
+            throw ValidationException::withMessages(['apply_excess' => 'Confirm that the excess should be applied to future rent.']);
+        }
+
+        $first = true;
+        $nextReceipt = function () use ($receipt, &$first) {
+            if (! $first) {
+                return null;
+            }
+            $first = false;
+
+            return $receipt;
+        };
+
+        $rows = collect();
+        foreach ($allocations as $allocation) {
+            $balance = $allocation['balance'];
+            $portion = $allocation['amount'];
+            $type = $allocation['upcoming'] ? Payment::TYPE_ADVANCE
+                : ($portion < $balance['remaining'] ? Payment::TYPE_PARTIAL : Payment::TYPE_FULL);
+            $rows = $rows->merge($this->applyToMonth(
+                $tenant, $balance['charge'], $balance, $portion, $type, $paidDate, $nextReceipt, sharedReceipt: true
+            ));
+        }
+        $rows->each(fn (Payment $row) => $row->update(['receipt_reference' => $receipt, 'note' => $note]));
+
+        return $rows;
+    }
+
+    private function rentAllocations(Tenant $tenant, float $amount): array
+    {
+        $start = $this->policy->tenantStart($tenant);
+        if (! $start) {
+            throw ValidationException::withMessages(['tenant_id' => 'This tenant has not moved in yet, so no rent is due.']);
+        }
+
+        $today = Carbon::parse(Tenant::localDate());
+        $lastMonth = $today->copy()->startOfMonth()->addMonthsNoOverflow(Payment::MAX_ADVANCE_MONTHS);
+        $left = $amount;
+        $allocations = [];
+        for ($month = $start->copy()->startOfMonth(); $left > 0 && $month->lte($lastMonth); $month->addMonth()) {
+            $balance = $this->balances->monthBalance($tenant, $month, rentOnly: true);
+            if ($balance['remaining'] <= 0) {
+                continue;
+            }
+
+            $due = $balance['unpaid_rows']->first()?->due_date ?? $balance['charge']->due_date;
+            $portion = min($left, $balance['remaining']);
+            $allocations[] = ['due' => $due, 'amount' => $portion, 'balance' => $balance, 'upcoming' => $due->gt($today)];
+            $left = round($left - $portion, 2);
+        }
+
+        if ($left > 0) {
+            throw ValidationException::withMessages(['amount' => 'The amount exceeds the rent available to pay. Check the tenant’s room assignment or reduce the payment amount.']);
+        }
+
+        return $allocations;
     }
 
     /**
@@ -168,7 +272,7 @@ class PaymentLedgerService
      *
      * @return Collection<int, Payment> the paid rows created or updated
      */
-    private function applyToMonth(Tenant $tenant, ?Payment $charge, array $balance, float $amount, string $type, Carbon $paidDate, callable $nextReceipt): Collection
+    private function applyToMonth(Tenant $tenant, ?Payment $charge, array $balance, float $amount, string $type, Carbon $paidDate, callable $nextReceipt, bool $sharedReceipt = false): Collection
     {
         $rows = collect();
         $left = $amount;
@@ -179,28 +283,28 @@ class PaymentLedgerService
             'payment_type' => $type,
         ];
 
-        foreach ($balance['unpaid_rows'] as $row) {
+        foreach ($balance['unpaid_rows'] as $payable) {
             if ($left <= 0.004) {
                 break;
             }
-            $row = Payment::whereKey($row->id)->lockForUpdate()->firstOrFail();
-            if ($left + 0.004 >= (float) $row->amount) {
-                $row->update([...$paidFields($row->due_date), 'receipt_number' => $row->receipt_number ?? $nextReceipt()]);
-                $left = round($left - (float) $row->amount, 2);
+            $row = Payment::whereKey($payable->id)->lockForUpdate()->firstOrFail();
+            $portion = min($left, (float) $payable->amount);
+            if ($portion + 0.004 >= (float) $row->amount) {
+                $receipt = $sharedReceipt ? $nextReceipt() : ($row->receipt_number ?? $nextReceipt());
+                $row->update([...$paidFields($row->due_date), 'receipt_number' => $receipt]);
+                $rows->push($row->fresh());
             } else {
-                // Split: the unpaid charge shrinks, and the collected portion becomes its own paid row.
-                $row->update(['amount' => round((float) $row->amount - $left, 2)]);
+                // Leave any advance-covered portion on the source row and record only new cash.
+                $row->update(['amount' => round((float) $row->amount - $portion, 2)]);
                 $rows->push($tenant->payments()->create([
                     ...$paidFields($row->due_date),
                     'receipt_number' => $nextReceipt(),
                     'charge_type' => $row->charge_type,
-                    'amount' => $left,
+                    'amount' => $portion,
                     'due_date' => $row->due_date->toDateString(),
                 ]));
-                $left = 0;
-                continue;
             }
-            $rows->push($row->fresh());
+            $left = round($left - $portion, 2);
         }
 
         if ($left > 0.004 && $charge !== null) {
@@ -300,8 +404,25 @@ class PaymentLedgerService
     public function settle(Payment $payment, string $paidDate, ?string $receipt = null): Payment
     {
         return DB::transaction(function () use ($payment, $paidDate, $receipt) {
-            Tenant::whereKey($payment->tenant_id)->lockForUpdate()->firstOrFail();
+            $tenant = Tenant::whereKey($payment->tenant_id)->lockForUpdate()->firstOrFail();
             $entry = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+
+            if (! $entry->hasRecordedPayment() && $entry->category === Payment::RENT && (float) $tenant->advance_payment > 0) {
+                $payable = $this->balances->monthBalance($tenant, $entry->due_date)['unpaid_rows']->firstWhere('id', $entry->id);
+                if ($payable === null) {
+                    throw ValidationException::withMessages(['receipt_number' => 'This charge is already covered by the advance payment.']);
+                }
+                if ((float) $payable->amount < (float) $entry->amount) {
+                    $entry->update(['amount' => round((float) $entry->amount - (float) $payable->amount, 2)]);
+                    $entry = $tenant->payments()->create([
+                        'charge_type' => $entry->charge_type,
+                        'amount' => $payable->amount,
+                        'due_date' => $entry->due_date,
+                        'status' => 'pending',
+                        'days_overdue' => 0,
+                    ]);
+                }
+            }
 
             return $this->markPaid($entry, $paidDate, $receipt);
         }, 3);

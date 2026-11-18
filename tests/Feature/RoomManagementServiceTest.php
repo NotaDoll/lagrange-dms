@@ -115,7 +115,7 @@ class RoomManagementServiceTest extends TestCase
         RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id,
             'start_date' => '2026-09-01', 'status' => 'active']);
 
-        $amounts = app(TenantBalanceService::class)->billingEntries($tenant, '2026-09-01', '2026-10-31')->pluck('amount')->all();
+        $amounts = app(TenantBalanceService::class)->billingEntries($tenant, '2026-10-01', '2026-11-30')->pluck('amount')->all();
         $this->assertEquals([1500, 1600], $amounts);
     }
 }

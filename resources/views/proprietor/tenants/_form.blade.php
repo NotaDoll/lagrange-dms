@@ -155,7 +155,7 @@
         <label for="advance_payment" class="form-label">Advance Payment <span class="text-muted">(Optional)</span></label>
         <input type="number" id="advance_payment" name="advance_payment" class="form-control @error('advance_payment') is-invalid @enderror" min="0" max="99999999.99" step="0.01" inputmode="decimal"
             value="{{ old('advance_payment', $tenant?->advance_payment ?? '0.00') }}" aria-describedby="advance_payment-help @error('advance_payment') advance_payment-error @enderror" @error('advance_payment') aria-invalid="true" @enderror>
-        <div id="advance_payment-help" class="form-text">Amount in Philippine pesos.</div>
+        <div id="advance_payment-help" class="form-text">Automatically applied to rent, starting with the oldest unpaid charge.</div>
         @error('advance_payment') <div class="invalid-feedback" id="advance_payment-error">{{ $message }}</div> @enderror
     </div>
 

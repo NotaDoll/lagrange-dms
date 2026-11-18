@@ -16,8 +16,11 @@ class SettingsController extends Controller
         $general = $this->settings->getGroup('general');
 
         $riskThresholds = app(PaymentRiskService::class)->thresholds();
+        $guardianSms = app(\App\Services\GuardianSmsMessage::class);
+        $guardianTemplate = $guardianSms->template();
+        $guardianSample = $guardianSms->sample();
 
-        return view('proprietor.settings.index', compact('general', 'riskThresholds'));
+        return view('proprietor.settings.index', compact('general', 'riskThresholds', 'guardianTemplate', 'guardianSample'));
     }
 
     public function update(Request $request)
@@ -32,10 +35,15 @@ class SettingsController extends Controller
             'risk_consecutive_months' => ['sometimes', 'required', 'integer', 'min:1', 'max:255'],
             'risk_average_days' => ['sometimes', 'required', 'integer', 'min:0', 'max:3650'],
             'risk_recent_default_days' => ['sometimes', 'required', 'integer', 'min:1', 'max:3650'],
+            'sms_guardian_template' => ['sometimes', 'nullable', 'string', 'max:'.\App\Services\GuardianSmsMessage::MAX_LENGTH],
         ]);
 
         foreach ($validated as $key => $value) {
-            if (str_starts_with($key, 'risk_')) {
+            if ($key === 'sms_guardian_template') {
+                // Blank (or "Reset to default") goes back to the built-in wording.
+                $text = str_replace("\r\n", "\n", trim((string) $value));
+                $this->settings->set('sms', 'guardian_template', $text === '' || $text === \App\Services\GuardianSmsMessage::DEFAULT_TEMPLATE ? null : $text);
+            } elseif (str_starts_with($key, 'risk_')) {
                 $this->settings->set('risk', substr($key, 5), (string) $value);
             } else {
                 $this->settings->set('general', $key, $value);

@@ -30,14 +30,29 @@ class FinancialReportTest extends TestCase
         }
         Payment::create(['tenant_id' => $other->id, 'amount' => 8000, 'due_date' => '2026-10-01', 'status' => 'overdue']);
 
-        $this->actingAs($admin)->get(route('proprietor.reports.index', [
+        $filters = [
             'date_from' => '2026-10-01', 'date_to' => '2026-10-31', 'tenant_id' => $tenant->id,
-        ]))->assertOk()->assertSee('Financial Report')->assertSee('Ana Report')
+        ];
+        $this->actingAs($admin)->get(route('proprietor.reports.index', $filters))
+            ->assertOk()->assertSee('Financial Report')->assertSee('Ana Report')
+            ->assertSee(route('proprietor.reports.preview', $filters))->assertSee('Preview PDF')
             ->assertViewHas('totalBilled', 11000.0)->assertViewHas('totalCollected', 4000.0)
             ->assertViewHas('totalOutstanding', 7000.0)->assertViewHas('totalOverdue', 3000.0)
             ->assertViewHas('paidOnTime', 1)->assertViewHas('paidLate', 1)->assertViewHas('unknownPaidDate', 1)
             ->assertViewHas('tenantRows', fn ($rows) => $rows->count() === 1 && $rows->first()->balance === 7000.0)
             ->assertViewHas('months', fn ($months) => $months->count() === 1 && $months->first()->amount === 4000.0);
+
+        $pdf = $this->get(route('proprietor.reports.export', $filters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertDownload('financial-report-2026-10-01-to-2026-10-31.pdf');
+        $this->assertStringStartsWith('%PDF-', $pdf->getContent());
+
+        $preview = $this->get(route('proprietor.reports.preview', $filters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="financial-report-2026-10-01-to-2026-10-31.pdf"');
+        $this->assertStringStartsWith('%PDF-', $preview->getContent());
     }
 
     public function test_default_report_is_empty_and_uses_last_six_months(): void
@@ -55,6 +70,8 @@ class FinancialReportTest extends TestCase
         $this->get(route('proprietor.reports.index', ['date_from' => 'bad']))->assertSessionHasErrors('date_from');
         $this->get(route('proprietor.reports.index', ['date_from' => '2026-10-31', 'date_to' => '2026-10-01']))->assertSessionHasErrors('date_to');
         $this->get(route('proprietor.reports.index', ['tenant_id' => 9999]))->assertSessionHasErrors('tenant_id');
+        $this->get(route('proprietor.reports.export', ['date_from' => 'bad']))->assertSessionHasErrors('date_from');
+        $this->get(route('proprietor.reports.preview', ['date_from' => 'bad']))->assertSessionHasErrors('date_from');
         $this->get(route('proprietor.reports.collectibles', ['date_from' => '2026-10-01']))
             ->assertRedirect(route('proprietor.reports.index', ['date_from' => '2026-10-01']));
     }
@@ -62,8 +79,12 @@ class FinancialReportTest extends TestCase
     public function test_tenants_and_guests_cannot_access_reports(): void
     {
         $this->get(route('proprietor.reports.index'))->assertRedirect(route('login'));
+        $this->get(route('proprietor.reports.export'))->assertRedirect(route('login'));
+        $this->get(route('proprietor.reports.preview'))->assertRedirect(route('login'));
         $this->actingAs(User::factory()->create(['role' => 'tenant']))
             ->get(route('proprietor.reports.index'))->assertForbidden();
+        $this->get(route('proprietor.reports.export'))->assertForbidden();
+        $this->get(route('proprietor.reports.preview'))->assertForbidden();
     }
 
     public function test_monthly_chart_includes_zero_months_and_year_boundaries(): void

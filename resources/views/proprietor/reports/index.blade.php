@@ -25,23 +25,6 @@
         .financial-report .fr-table { font-size: .84rem; font-variant-numeric: tabular-nums; }
         .financial-report .fr-table th, .financial-report .fr-table td { padding: 13px 10px; vertical-align: middle; }
         .financial-report .fr-table tfoot { border-top: 2px solid var(--theme-plum); font-weight: 700; }
-        .financial-report .fr-print-heading { display: none; }
-        @media print {
-            @page { size: A4 landscape; margin: 12mm; }
-            .sidebar, .proprietor-mobile-navbar, .offcanvas, .fr-no-print { display: none !important; }
-            body, .proprietor-main, .proprietor-content { padding: 0 !important; margin: 0 !important; background: white !important; }
-            .financial-report { width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .financial-report .fr-print-heading { display: block; }
-            .financial-report .fr-summary > div { width: 25%; }
-            .financial-report .fr-details > div { width: 100%; }
-            .financial-report .fr-panel { height: auto; }
-            .financial-report .table-responsive { overflow: visible; }
-            .financial-report .fr-chart-scroll { overflow: visible !important; }
-            .financial-report .fr-chart { width: 100%; gap: 2px; }
-            .financial-report .fr-chart-column { flex: 1; min-width: 0; }
-            .financial-report .fr-table { min-width: 0; }
-            .financial-report tr, .financial-report .fr-summary { break-inside: avoid; }
-        }
     </style>
 
     <div class="financial-report">
@@ -50,15 +33,15 @@
                 <h1 class="mb-1">Financial Report</h1>
                 <p class="fr-muted mb-0">Payment summaries and collectibles by billing period and tenant.</p>
             </div>
-            <button type="button" class="btn btn-primary px-4 py-2 fr-no-print" onclick="window.print()"><i class="bi bi-file-earmark-pdf me-2" aria-hidden="true"></i>Export PDF</button>
+            <a class="btn btn-primary px-4 py-2" href="{{ route('proprietor.reports.preview', ['date_from' => $dateFrom, 'date_to' => $dateTo, 'tenant_id' => $tenantId]) }}" target="_blank" rel="noopener">
+                <i class="bi bi-file-earmark-pdf me-2" aria-hidden="true"></i>Preview PDF <span class="visually-hidden">(opens in a new tab)</span>
+            </a>
         </div>
-        <p class="fr-print-heading">{{ $rangeLabel }} · {{ $selectedTenant }} · Generated {{ now()->format('M j, Y g:i A') }}</p>
-
         @if ($errors->any())
-            <div class="alert alert-danger fr-no-print" role="alert"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+            <div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
         @endif
 
-        <form method="GET" action="{{ route('proprietor.reports.index') }}" class="fr-panel mb-4 fr-no-print">
+        <form method="GET" action="{{ route('proprietor.reports.index') }}" class="fr-panel mb-4">
             <div class="row g-3 align-items-end">
                 <div class="col-sm-6 col-lg-3">
                     <label for="date_from" class="form-label">From</label>
@@ -84,7 +67,7 @@
             </div>
         </form>
 
-        <p class="fr-muted fr-no-print mb-3">{{ $rangeLabel }} · {{ $selectedTenant }}</p>
+        <p class="fr-muted mb-3">{{ $rangeLabel }} · {{ $selectedTenant }}</p>
         <section class="fr-panel mb-4" aria-labelledby="outstanding-title">
             <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
                 <div>
@@ -114,7 +97,7 @@
         </section>
 
 
-        <div class="row g-3 mb-4 fr-summary">
+        <div class="row g-3 mb-4">
             <div class="col-sm-6 col-xl-3"><div class="fr-panel fr-collected">
                 <div class="fr-muted">Collected</div>
                 <div class="fr-kpi fr-accent">₱{{ number_format($totalCollected, 2) }}</div>
@@ -137,12 +120,12 @@
             </div></div>
         </div>
 
-        <div class="row g-4 fr-details">
+        <div class="row g-4">
             <div class="col-xl-5"><section class="fr-panel" aria-labelledby="monthly-title">
                 <h2 id="monthly-title">Collected per billing month</h2>
                 <p class="fr-muted">Paid ledger amounts grouped by the month they were due.</p>
                 @if ($totalCollected > 0)
-                    <div class="overflow-auto fr-chart-scroll" tabindex="0" aria-label="Monthly collections chart">
+                    <div class="overflow-auto" tabindex="0" aria-label="Monthly collections chart">
                         <div class="fr-chart">
                             @foreach ($months as $month)
                                 <div class="fr-chart-column" aria-label="{{ $month->label }}: ₱{{ number_format($month->amount, 2) }}">
@@ -194,6 +177,6 @@
             </div>
         </section>
 
-        <p class="fr-muted mt-3 mb-0">Reports include recorded ledger entries (including utility shares) and accrued rent due within this period. Rent is due at month end; the current unfinished month is excluded unless a charge is recorded. Overdue balances are unpaid charges due before today. Export PDF opens the print dialog; choose Save as PDF.</p>
+        <p class="fr-muted mt-3 mb-0">Rent is first due one month after move-in and follows the move-in day each month. Applied advance payments count toward rent paid for the billing period. Overdue balances are unpaid charges due before today.</p>
     </div>
 @endsection

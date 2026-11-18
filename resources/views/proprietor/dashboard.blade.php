@@ -26,85 +26,270 @@
             </div></section></div>
         </div>
 
-                <section class="card mb-4" aria-labelledby="pd-priority"><div class="card-body">
-            <h2 id="pd-priority" class="h6 fw-semibold mb-3">Priority alerts</h2>
-            <ul class="pd-alerts list-unstyled mb-0">
-                <li><span class="pd-tag pd-high">HIGH RISK</span><a href="{{ route('proprietor.payments.index') }}">{{ $highRiskCount }} {{ Str::plural('tenant', $highRiskCount) }} {{ $highRiskCount === 1 ? 'is' : 'are' }} flagged high-risk for payment default.</a></li>
-                @if ($latestSummary)
-                <li><span class="pd-tag pd-ai">AI SUMMARY</span><a href="{{ route('proprietor.complaints.index') }}">{{ $summaryContent['alert'] }}</a></li>
-                @endif
-                <li><span class="pd-tag pd-medium">OVERDUE</span><a href="{{ route('proprietor.complaints.index') }}">{{ $oldComplaints }} {{ Str::plural('complaint', $oldComplaints) }} {{ $oldComplaints === 1 ? 'has' : 'have' }} been open for more than 7 days.</a></li>
-                <li><span class="pd-tag pd-room">ROOMS</span><a href="{{ route('proprietor.rooms.index') }}">{{ $reservedRooms }} {{ Str::plural('room', $reservedRooms) }} marked reserved, {{ $upcomingMoveIns }} upcoming {{ Str::plural('move-in', $upcomingMoveIns) }}@if ($nextMoveIn) (next {{ \Illuminate\Support\Carbon::parse($nextMoveIn)->format('M j') }})@endif, and {{ $availableBeds }} {{ Str::plural('bed', $availableBeds) }} available.</a></li>
-            </ul>
+        @php
+            $highRisk = $riskCounts['high'];
+            $assessed = array_sum($riskCounts);
+            $dueSoonTotal = (float) $dueSoon->sum('amount');
+            $topIssue = $summaryContent['themes'][0] ?? null;
+            // Each tile: danger (act now), warning (check soon), info (good to know), or clear (nothing to do).
+            $tiles = collect([
+                ['key' => 'risk', 'level' => $highRisk > 0 ? 'danger' : 'clear'],
+                ['key' => 'complaints', 'level' => $oldComplaints > 0 ? 'warning' : 'clear'],
+                ['key' => 'due', 'level' => $dueSoon->isNotEmpty() ? 'info' : 'clear'],
+                ['key' => 'ai', 'level' => $latestSummary ? 'info' : 'clear'],
+            ])->sortBy(fn ($tile) => array_search($tile['level'], ['danger', 'warning', 'info', 'clear']))->values();
+        @endphp
+        <section class="mb-4" aria-labelledby="pd-priority">
+            <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+                <h2 id="pd-priority" class="h6 fw-semibold mb-0">Priority alerts</h2>
+                <span class="pd-note">Most urgent first</span>
+            </div>
+            <div class="row g-3">
+                @foreach ($tiles as $tile)
+                    <div class="col-sm-6 col-xl-3">
+                        <article class="card h-100 pd-tile pd-tile-{{ $tile['level'] }}"><div class="card-body d-flex flex-column gap-1">
+                        @switch($tile['key'])
+                            @case('risk')
+                                <h3 class="pd-stat-label mb-1"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> High-risk tenants</h3>
+                                @if ($highRisk > 0)
+                                    <div class="pd-tile-value">{{ $highRisk }}</div>
+                                    @if ($assessed > 0)
+                                        <div class="pd-riskbar" role="img" aria-label="{{ $riskCounts['high'] }} high, {{ $riskCounts['medium'] }} medium, {{ $riskCounts['low'] }} low risk">
+                                            @foreach (['high', 'medium', 'low'] as $level)
+                                                @if ($riskCounts[$level] > 0)<span class="pd-risk-{{ $level }}" style="width: {{ round($riskCounts[$level] / $assessed * 100, 1) }}%"></span>@endif
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                    <p class="pd-note mb-2">{{ $riskCounts['high'] }} high · {{ $riskCounts['medium'] }} medium · {{ $riskCounts['low'] }} low</p>
+                                    <a href="#pd-follow" class="btn btn-sm btn-outline-danger mt-auto align-self-start">Follow up</a>
+                                @else
+                                    <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> No high-risk tenants</p>
+                                    <p class="pd-note mb-0">{{ $riskCounts['medium'] }} medium · {{ $riskCounts['low'] }} low</p>
+                                @endif
+                                @break
+                            @case('complaints')
+                                <h3 class="pd-stat-label mb-1"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Complaints waiting</h3>
+                                @if ($oldComplaints > 0)
+                                    <div class="pd-tile-value">{{ $oldComplaints }}</div>
+                                    <p class="pd-note mb-2">Open more than 7 days · oldest {{ $oldestOpenComplaintDays }} {{ Str::plural('day', $oldestOpenComplaintDays) }}</p>
+                                    <a href="{{ route('proprietor.complaints.index') }}" class="btn btn-sm btn-outline-warning mt-auto align-self-start">Review</a>
+                                @else
+                                    <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> None waiting over 7 days</p>
+                                    <p class="pd-note mb-0">{{ $openComplaints }} open in total</p>
+                                @endif
+                                @break
+                            @case('due')
+                                <h3 class="pd-stat-label mb-1"><i class="bi bi-calendar-event" aria-hidden="true"></i> Rent due in 7 days</h3>
+                                @if ($dueSoon->isNotEmpty())
+                                    <div class="pd-tile-value">{{ $dueSoon->count() }}</div>
+                                    <p class="pd-note mb-2">₱{{ number_format($dueSoonTotal, 2) }} · next {{ $dueSoon->first()->tenant->name }}, {{ $dueSoon->first()->due_date->format('M j') }}</p>
+                                    <a href="{{ route('proprietor.payments.create', ['tenant_id' => $dueSoon->first()->tenant->id]) }}" class="btn btn-sm btn-outline-primary mt-auto align-self-start">Record payment</a>
+                                @else
+                                    <p class="pd-tile-ok mb-0"><i class="bi bi-check-circle" aria-hidden="true"></i> Nothing due this week</p>
+                                @endif
+                                @break
+                            @case('ai')
+                                <h3 class="pd-stat-label mb-1"><i class="bi bi-stars" aria-hidden="true"></i> Top complaint</h3>
+                                @if ($latestSummary)
+                                    <div class="pd-tile-topic">{{ $topIssue ? $topIssue['theme'] : Str::limit(ltrim(Str::before(trim($summaryContent['text'] ?? $summaryContent['alert'] ?? ''), "\n"), "-•* \t"), 60) }}</div>
+                                    <p class="pd-note mb-2">@if ($topIssue){{ $topIssue['count'] }} {{ Str::plural('report', (int) $topIssue['count']) }} · @endif from the {{ $latestSummary->created_at->diffForHumans() }} summary</p>
+                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start">Read summary</a>
+                                @else
+                                    <p class="pd-tile-ok mb-0">No summary yet</p>
+                                    <a href="#pd-summary" class="btn btn-sm btn-outline-secondary mt-auto align-self-start">Generate one</a>
+                                @endif
+                                @break
+                        @endswitch
+                        </div></article>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+
+        <section class="card mb-4" aria-labelledby="pd-trends"><div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h2 id="pd-trends" class="h6 fw-semibold mb-0">Trends</h2>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Trend period">
+                    @foreach (\App\Services\ProprietorDashboardService::TREND_MONTHS as $months)
+                        <a href="{{ route('proprietor.dashboard', ['trend' => $months]) }}#pd-trends" class="btn {{ $trendMonths === $months ? 'btn-primary' : 'btn-outline-primary' }}" @if ($trendMonths === $months) aria-current="true" @endif>Last {{ $months }} months</a>
+                    @endforeach
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h3 class="pd-stat-label mb-1">Collections</h3>
+                    <p class="pd-note mb-2">What was due each month, and how much of it has been paid.</p>
+                    <div class="pd-chart"><canvas id="pd-collections-chart" role="img" aria-label="Bar chart of amount due and amount collected per month"></canvas></div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="pd-stat-label mb-1">Payment risk over time</h3>
+                    <p class="pd-note mb-2">Tenants at each risk level at the end of every month, using the current risk rules.</p>
+                    <div class="pd-chart"><canvas id="pd-risk-chart" role="img" aria-label="Stacked bar chart of high, medium and low risk tenants per month"></canvas></div>
+                </div>
+            </div>
+            <details class="mt-3">
+                <summary class="pd-note">Show the numbers</summary>
+                <div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0 small">
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="text-end">Due</th><th scope="col" class="text-end">Collected</th><th scope="col" class="text-end">Rate</th><th scope="col" class="text-end">High</th><th scope="col" class="text-end">Medium</th><th scope="col" class="text-end">Low</th></tr></thead>
+                    <tbody>
+                        @foreach ($collectionsTrend as $i => $row)
+                            <tr>
+                                <th scope="row" class="fw-normal">{{ $row['label'] }}</th>
+                                <td class="text-end">₱{{ number_format($row['expected'], 2) }}</td>
+                                <td class="text-end">₱{{ number_format($row['collected'], 2) }}</td>
+                                <td class="text-end">{{ $row['expected'] > 0 ? round($row['collected'] / $row['expected'] * 100).'%' : '—' }}</td>
+                                <td class="text-end">{{ $riskTrend[$i]['high'] }}</td>
+                                <td class="text-end">{{ $riskTrend[$i]['medium'] }}</td>
+                                <td class="text-end">{{ $riskTrend[$i]['low'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table></div>
+            </details>
         </div></section>
-        
+
         <div class="row g-4">
-            <div class="col-xl-7"><section class="card h-100" aria-labelledby="pd-follow"><div class="card-body">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h2 id="pd-follow" class="h6 fw-semibold mb-0">Tenants to follow up</h2><a class="btn btn-outline-primary" href="{{ route('proprietor.settings.edit') }}#risk-thresholds">Risk thresholds</a></div>
-                <p class="pd-note">Ranked by rules tripped. High: 2–4 rules; Medium: 1; Low: 0. Trend uses saved monthly flags; gaps mean no record.</p>
-                <div id="pd-sms-message" class="d-none alert" role="status" aria-live="polite"></div>
+            <div class="col-xl-8"><section class="card h-100" aria-labelledby="pd-follow"><div class="card-body">
+                @php($textable = $followUps->filter(fn ($row) => $row->risk_level === 'high' && filled($row->tenant->guardian_contact_number))->count())
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h2 id="pd-follow" class="h6 fw-semibold mb-0">Tenants to follow up</h2>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if ($textable > 0)
+                            <button type="button" class="btn btn-primary" id="pd-sms-all" data-preview-url="{{ route('proprietor.dashboard.sms.bulk-preview') }}" data-url="{{ route('proprietor.dashboard.sms.bulk') }}"><i class="bi bi-chat-dots me-1" aria-hidden="true"></i> Text all high-risk guardians ({{ $textable }})</button>
+                        @endif
+                        <a class="btn btn-outline-primary" href="{{ route('proprietor.settings.edit') }}#risk-thresholds">Risk thresholds</a>
+                    </div>
+                </div>
+                <p class="pd-note">High risk: 2 or more warning signs. Medium: 1. Sorted by most warning signs, then by amount owed.</p>
+                @if ($followUps->isNotEmpty())
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="pd-follow-filters">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Show risk level">
+                            @foreach (['all' => 'All', 'high' => 'High', 'medium' => 'Medium'] as $value => $label)
+                                <button type="button" class="btn {{ $value === 'all' ? 'btn-primary' : 'btn-outline-primary' }}" data-level="{{ $value }}" aria-pressed="{{ $value === 'all' ? 'true' : 'false' }}">
+                                    {{ $label }} <span class="badge text-bg-light ms-1">{{ $value === 'all' ? $followUps->count() : $followUps->where('risk_level', $value)->count() }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                        <label class="visually-hidden" for="pd-follow-search">Search tenants to follow up</label>
+                        <input type="search" class="form-control form-control-sm pd-follow-search" id="pd-follow-search" placeholder="Search name or room" autocomplete="off">
+                    </div>
+                @endif
+                <div id="pd-sms-message" class="d-none alert" role="status" aria-live="polite" data-refresh-url="{{ route('proprietor.dashboard.sms.refresh') }}"></div>
                 <div class="table-responsive"><table class="table align-middle pd-follow-table">
                     <caption class="visually-hidden">Active tenants with High or Medium payment risk</caption>
-                    <thead><tr><th scope="col">Tenant</th><th scope="col">Room</th><th scope="col">Rules tripped</th><th scope="col">Risk level</th><th scope="col">6-month trend</th><th scope="col">Action</th></tr></thead>
+                    <thead><tr><th scope="col">Tenant</th><th scope="col">Why flagged</th><th scope="col" class="text-end">Owes</th><th scope="col">Last 6 months</th><th scope="col">Action</th></tr></thead>
                     <tbody>
                         @forelse ($followUps as $row)
-                            <tr>
-                                <td class="fw-semibold">{{ $row->tenant->name }}</td>
-                                <td>{{ $row->tenant->currentAssignment?->bed?->room?->room_number ?? 'Unassigned' }}</td>
-                                <td><span title="{{ implode(', ', array_keys(array_filter($row->rules))) }}">{{ $row->rules_tripped }} of 4</span><details class="pd-note"><summary>Rule details</summary><ul class="ps-3 mb-0">@foreach (array_keys(array_filter($row->rules)) as $rule)<li>{{ $rule }}</li>@endforeach</ul></details></td>
-                                <td><span class="pd-tag pd-{{ $row->risk_level }}">{{ ucfirst($row->risk_level) }}</span></td>
+                            @php($room = $row->tenant->currentAssignment?->bed?->room?->room_number)
+                            <tr data-level="{{ $row->risk_level }}" data-search="{{ Str::lower($row->tenant->name.' '.$room) }}">
                                 <td>
-                                    @php
-                                        $previousPoint = null;
-                                        $segments = [];
-                                        $points = [];
-                                        foreach ($row->trend as $index => $point) {
-                                            if (!$point['level']) { $previousPoint = null; continue; }
-                                            $position = ['low' => 30, 'medium' => 19, 'high' => 8][$point['level']];
-                                            $currentPoint = ['x' => 7 + $index * 18, 'y' => $position];
-                                            if ($previousPoint) { $segments[] = [$previousPoint, $currentPoint]; }
-                                            $points[] = $currentPoint;
-                                            $previousPoint = $currentPoint;
-                                        }
-                                        $trendLabel = $row->trend->map(fn ($point) => $point['label'].': '.($point['level'] ?? 'no record'))->implode(', ');
-                                    @endphp
-                                    <svg class="pd-spark" viewBox="0 0 105 40" role="img" aria-label="{{ $trendLabel }}"><title>{{ $trendLabel }}</title>
-                                        @foreach ($segments as [$start, $end])<line x1="{{ $start['x'] }}" y1="{{ $start['y'] }}" x2="{{ $end['x'] }}" y2="{{ $end['y'] }}" stroke="currentColor" stroke-width="2"/>@endforeach
-                                        @foreach ($points as $point)<circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3" fill="currentColor"/>@endforeach
-                                    </svg><span class="pd-note d-block">{{ $points ? $row->trend->first()['label'].'–'.$row->trend->last()['label'] : 'No saved history' }}</span>
+                                    <div class="fw-semibold">{{ $row->tenant->name }}</div>
+                                    <div class="pd-note">{{ $room ? 'Room '.$room : 'No room' }} · <span class="pd-tag pd-{{ $row->risk_level }}">{{ ucfirst($row->risk_level) }}</span></div>
                                 </td>
                                 <td>
-                                    @if ($row->risk_level === 'high' && filled($row->tenant->guardian_contact_number))
-                                        <div class="d-inline-flex flex-column align-items-start gap-1">
-                                            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms"
-                                                    data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}"
-                                                    data-log-id="{{ $row->sms_log_id }}">
-                                                {{ $row->sms_sent ? 'Send SMS again' : 'Send SMS' }}
-                                            </button>
-                                            <small class="text-muted pd-sms-status" aria-live="polite">{{ match ($row->sms_status) {
-                                                'queued' => 'SMS queued',
-                                                'unknown' => 'SMS unconfirmed',
-                                                'delivered' => 'SMS delivered',
-                                                'sent' => 'SMS sent',
-                                                default => '',
-                                            } }}</small>
-                                        </div>
-                                    @elseif ($row->risk_level === 'high')
-                                        <span class="small text-muted">Guardian number missing</span>
-                                    @endif
-                                    <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.index', ['tenant_id' => $row->tenant->id]) }}">View</a>
+                                    <ul class="list-unstyled d-flex flex-wrap gap-1 mb-0">
+                                        @foreach ($row->reasons as $reason)<li class="pd-reason">{{ $reason }}</li>@endforeach
+                                    </ul>
+                                </td>
+                                <td class="text-end text-nowrap {{ $row->owes > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">₱{{ number_format($row->owes, 2) }}</td>
+                                <td>
+                                    @php($trendLabel = $row->trend->map(fn ($point) => $point['label'].': '.($point['level'] ?? 'not billed'))->implode(', '))
+                                    <div class="pd-history" role="img" aria-label="{{ $trendLabel }}" title="{{ $trendLabel }}">
+                                        @foreach ($row->trend as $point)
+                                            <span class="pd-history-cell pd-history-{{ $point['level'] ?? 'none' }}"><span>{{ $point['label'] }}</span></span>
+                                        @endforeach
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap align-items-center gap-1">
+                                        @if ($row->risk_level === 'high' && filled($row->tenant->guardian_contact_number))
+                                            <div class="d-inline-flex flex-column align-items-start gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-primary text-nowrap pd-send-sms"
+                                                        data-url="{{ route('proprietor.dashboard.sms', $row->tenant) }}"
+                                                        data-preview-url="{{ route('proprietor.dashboard.sms.preview', $row->tenant) }}"
+                                                        data-log-id="{{ $row->sms_log_id }}">
+                                                    {{ $row->sms_sent ? 'Send SMS again' : 'SMS guardian' }}
+                                                </button>
+                                                <small class="text-muted pd-sms-status" data-tenant-id="{{ $row->tenant->id }}" aria-live="polite">{{ match ($row->sms_status) {
+                                                    'queued' => 'SMS queued',
+                                                    'unknown' => 'SMS unconfirmed',
+                                                    'delivered' => 'SMS delivered',
+                                                    'sent' => 'SMS sent',
+                                                    default => '',
+                                                } }}</small>
+                                            </div>
+                                        @elseif ($row->risk_level === 'high')
+                                            <span class="small text-muted">Guardian number missing</span>
+                                        @endif
+                                        <a class="btn btn-sm btn-link" href="{{ route('proprietor.payments.history', $row->tenant) }}">Ledger</a>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted py-5">No active tenants currently trip any payment risk rules.</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-check-circle text-success" aria-hidden="true"></i> No tenants need a payment follow-up right now.</td></tr>
                         @endforelse
+                        @if ($followUps->isNotEmpty())
+                            <tr class="d-none" id="pd-follow-none"><td colspan="5" class="text-center text-muted py-4">No tenants match this filter.</td></tr>
+                        @endif
                     </tbody>
                 </table></div>
-                <p class="pd-note mb-0">Payment reminders go to the mobile number saved for the guardian.</p>
+                <p class="pd-note mb-0">
+                    <span class="pd-history-cell pd-history-high pd-history-key"></span> High
+                    <span class="pd-history-cell pd-history-medium pd-history-key ms-2"></span> Medium
+                    <span class="pd-history-cell pd-history-low pd-history-key ms-2"></span> Low
+                    <span class="pd-history-cell pd-history-none pd-history-key ms-2"></span> Not billed yet
+                    · Payment reminders go to the guardian's mobile number.
+                </p>
             </div></section></div>
 
-            <div class="col-xl-5 d-flex flex-column gap-4">
+            <div class="col-xl-4"><section class="card h-100" aria-labelledby="pd-due"><div class="card-body">
+                <h2 id="pd-due" class="h6 fw-semibold mb-1">Rent due in the next 7 days</h2>
+                <p class="pd-note">From each tenant's move-in day. Only what's still unpaid.</p>
+                @if ($dueSoon->isEmpty())
+                    <p class="text-muted mb-0"><i class="bi bi-check-circle text-success" aria-hidden="true"></i> Nothing is due this week.</p>
+                @else
+                    <ul class="list-unstyled mb-0 pd-due-list">
+                        @foreach ($dueSoon->take(8) as $due)
+                            @php($daysAway = (int) \Illuminate\Support\Carbon::parse(\App\Models\Tenant::localDate())->diffInDays($due->due_date))
+                            <li class="d-flex justify-content-between align-items-center gap-2 py-2">
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-truncate">{{ $due->tenant->name }}</div>
+                                    <div class="pd-note">{{ $due->due_date->format('D, M j') }} · {{ $daysAway === 0 ? 'today' : ($daysAway === 1 ? 'tomorrow' : 'in '.$daysAway.' days') }} · ₱{{ number_format($due->amount, 2) }}</div>
+                                </div>
+                                <a class="btn btn-sm btn-outline-primary text-nowrap" href="{{ route('proprietor.payments.create', ['tenant_id' => $due->tenant->id]) }}">Record</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($dueSoon->count() > 8)
+                        <a class="small d-inline-block mt-2" href="{{ route('proprietor.payments.index') }}">And {{ $dueSoon->count() - 8 }} more in the Payment Ledger</a>
+                    @endif
+                    <p class="pd-note mt-2 mb-0">₱{{ number_format($dueSoon->sum('amount'), 2) }} due in total.</p>
+                @endif
+            </div></section></div>
+        </div>
 
+        <div class="row g-4 mt-1">
+            <div class="col-xl-5">
+
+                @php($complaintTotal = collect($complaintsByCategory)->sum(fn ($row) => $row['open'] + $row['resolved']))
+                <section class="card h-100" aria-labelledby="pd-categories"><div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-1">
+                        <h2 id="pd-categories" class="h6 fw-semibold mb-0">Complaints by category</h2>
+                        <a class="small" href="{{ route('proprietor.complaints.index') }}">All complaints</a>
+                    </div>
+                    <p class="pd-note mb-2">Filed in the last {{ $trendMonths }} months ({{ $complaintTotal }} in total). Matches the Trends period.</p>
+                    @if ($complaintTotal === 0)
+                        <p class="text-muted mb-0"><i class="bi bi-check-circle text-success" aria-hidden="true"></i> No complaints in this period.</p>
+                    @else
+                        <div class="pd-chart pd-chart-short"><canvas id="pd-categories-chart" role="img" aria-label="Bar chart of open and resolved complaints per category"></canvas></div>
+                        <ul class="visually-hidden">
+                            @foreach ($complaintsByCategory as $row)<li>{{ $row['label'] }}: {{ $row['open'] }} open, {{ $row['resolved'] }} resolved</li>@endforeach
+                        </ul>
+                    @endif
+                </div></section>
+
+            </div>
+            <div class="col-xl-7">
                 {{-- REDESIGNED COMPLAINT SUMMARY SECTION --}}
                 <section class="card h-100" aria-labelledby="pd-summary">
                     <div class="card-body p-4">
@@ -184,18 +369,56 @@
                 </section>
                 {{-- END OF REDESIGNED COMPLAINT SUMMARY --}}
 
-                <section class="card" aria-labelledby="pd-floor"><div class="card-body">
-                    <h2 id="pd-floor" class="h6 fw-semibold mb-3">Occupancy by floor</h2>
-                    @forelse ($floors as $floor)
-                        @php($percent = $floor->total ? round($floor->occupied / $floor->total * 100) : 0)
-                        <div class="mb-3"><div class="d-flex justify-content-between small mb-2"><span>Floor {{ $floor->label }}</span><span>{{ $floor->occupied }} / {{ $floor->total }} occupied</span></div><div class="progress pd-progress" role="progressbar" aria-label="Floor {{ $floor->label }} occupancy" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ $percent }}%"></div></div></div>
-                    @empty
-                        <p class="text-muted mb-0">No beds have been added to any floor yet.</p>
-                    @endforelse
-                </div></section>
             </div>
         </div>
     </div>
+    {{-- Review and edit a guardian reminder before it is sent. --}}
+    <div class="modal fade" id="pd-sms-modal" tabindex="-1" aria-labelledby="pd-sms-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="pd-sms-modal-title">Text the guardian</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small mb-2" id="pd-sms-to">Loading…</p>
+                <label for="pd-sms-text" class="form-label">Message</label>
+                <textarea class="form-control" id="pd-sms-text" rows="6" maxlength="{{ \App\Services\GuardianSmsMessage::MAX_LENGTH }}"></textarea>
+                <div class="small text-muted mt-1 pd-sms-count" data-for="pd-sms-text" aria-live="polite"></div>
+                <div class="alert alert-warning small mt-2 mb-0 d-none" id="pd-sms-already">This guardian was already texted today. Sending again will reach them twice.</div>
+                <div class="alert alert-danger small mt-2 mb-0 d-none" id="pd-sms-error" role="alert"></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <a class="small" href="{{ route('proprietor.settings.edit') }}#guardian-sms">Change the default message</a>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="pd-sms-send">Send SMS</button>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    {{-- Send a personalized reminder to every high-risk tenant's guardian. --}}
+    <div class="modal fade" id="pd-sms-all-modal" tabindex="-1" aria-labelledby="pd-sms-all-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="pd-sms-all-title">Text all high-risk guardians</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Each message is filled in for that tenant. Edit any of them, or untick a guardian to leave them out. Guardians already texted today are unticked.</p>
+                <div id="pd-sms-all-list"><p class="text-muted">Loading…</p></div>
+                <div class="alert small mt-3 mb-0 d-none" id="pd-sms-all-result" role="status"></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <a class="small" href="{{ route('proprietor.settings.edit') }}#guardian-sms">Change the default message</a>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="pd-sms-all-send" disabled>Send</button>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
     @include('proprietor.dashboard-script')
 
     {{-- ADDED JAVASCRIPT FOR IMMEDIATE FORMATTING ON LOAD --}}
@@ -277,6 +500,103 @@
             if (summaryContainer) {
                 formatRawSummary(summaryContainer);
             }
+        });
+    </script>
+
+    {{-- Trend charts. Without internet the library won't load; the "Show the numbers" table still has everything. --}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof Chart === 'undefined') return;
+            const css = getComputedStyle(document.documentElement);
+            const plum = css.getPropertyValue('--theme-plum').trim() || '#7a1f5c';
+            const muted = css.getPropertyValue('--theme-text-muted').trim() || '#6c757d';
+            const grid = css.getPropertyValue('--theme-border').trim() || '#e9e2e7';
+            const peso = (n) => '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+            // "Nov 2026" -> "Nov"; keep the year on the first bar and on January so the year is never ambiguous.
+            const shortLabels = (rows) => rows.map((m, i) => (i === 0 || m.label.startsWith('Jan')) ? m.label : m.label.split(' ')[0]);
+            const legend = { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12, padding: 10 } };
+            Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+            Chart.defaults.color = muted;
+            const axes = (stacked, money) => ({
+                x: { stacked, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+                y: { stacked, beginAtZero: true, grid: { color: grid }, ticks: { precision: 0, callback: money ? (v) => peso(v) : undefined } },
+            });
+
+            const collections = @json($collectionsTrend);
+            new Chart(document.getElementById('pd-collections-chart'), {
+                type: 'bar',
+                data: {
+                    labels: shortLabels(collections),
+                    datasets: [
+                        { label: 'Due', data: collections.map((m) => m.expected), backgroundColor: grid, borderRadius: 4 },
+                        { label: 'Collected', data: collections.map((m) => m.collected), backgroundColor: plum, borderRadius: 4 },
+                    ],
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: axes(false, true),
+                    plugins: {
+                        legend,
+                        tooltip: { callbacks: {
+                            title: (items) => collections[items[0].dataIndex].label,
+                            label: (c) => `${c.dataset.label}: ${peso(c.raw)}`,
+                            afterBody: (items) => {
+                                const m = collections[items[0].dataIndex];
+                                return m.expected > 0 ? `Collected ${Math.round(m.collected / m.expected * 100)}% of what was due` : '';
+                            },
+                        } },
+                    },
+                },
+            });
+
+            const categories = @json($complaintsByCategory);
+            const categoryCanvas = document.getElementById('pd-categories-chart');
+            if (categoryCanvas) {
+                new Chart(categoryCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: categories.map((c) => c.label),
+                        datasets: [
+                            { label: 'Open', data: categories.map((c) => c.open), backgroundColor: '#f0a020', borderRadius: 3 },
+                            { label: 'Resolved', data: categories.map((c) => c.resolved), backgroundColor: grid, borderRadius: 3 },
+                        ],
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true, beginAtZero: true, grid: { color: grid }, ticks: { precision: 0 } },
+                            y: { stacked: true, grid: { display: false } },
+                        },
+                        plugins: {
+                            legend,
+                            tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw} ${c.raw === 1 ? 'complaint' : 'complaints'}` } },
+                        },
+                    },
+                });
+            }
+
+            const risk = @json($riskTrend);
+            new Chart(document.getElementById('pd-risk-chart'), {
+                type: 'bar',
+                data: {
+                    labels: shortLabels(risk),
+                    datasets: [
+                        { label: 'High', data: risk.map((m) => m.high), backgroundColor: '#d32f2f' },
+                        { label: 'Medium', data: risk.map((m) => m.medium), backgroundColor: '#f0a020' },
+                        { label: 'Low', data: risk.map((m) => m.low), backgroundColor: '#7cb342' },
+                    ],
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: axes(true, false),
+                    plugins: {
+                        legend,
+                        tooltip: { callbacks: { title: (items) => risk[items[0].dataIndex].label, label: (c) => `${c.dataset.label} risk: ${c.raw} ${c.raw === 1 ? 'tenant' : 'tenants'}` } },
+                    },
+                },
+            });
         });
     </script>
 @endsection

@@ -10,7 +10,7 @@
 
     <p class="text-muted small">Record money received from a tenant.</p><div class="card">
         <div class="card-body">
-            <form method="POST" action="{{ route('proprietor.payments.store') }}" id="record-payment-form" data-balance-url="{{ route('proprietor.payments.month-balance') }}">
+            <form method="POST" action="{{ route('proprietor.payments.store') }}" id="record-payment-form" data-preview-url="{{ route('proprietor.payments.preview') }}">
                 @csrf
 
                 <div class="row g-3">
@@ -30,19 +30,26 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label for="payment_type" class="form-label">Payment Type</label>
-                        <select class="form-select @error('payment_type') is-invalid @enderror" id="payment_type" name="payment_type" required>
-                            @foreach ([
-                                'full' => ['Full', 'Pays the whole balance of the oldest unpaid month.'],
-                                'partial' => ['Partial', 'Pays part of the oldest unpaid month; the rest stays unpaid.'],
-                                'advance' => ['Advance', 'Pays upcoming months ahead of time.'],
-                            ] as $value => [$label, $hint])
-                                <option value="{{ $value }}" data-hint="{{ $hint }}" @selected(old('payment_type', 'full') === $value)>{{ $label }}</option>
-                            @endforeach
+                        @php($appliesTo = old('applies_to', $selectedUtilityPaymentId ? 'utilities' : 'rent'))
+                        <label for="applies_to" class="form-label">Apply payment to</label>
+                        <select class="form-select @error('applies_to') is-invalid @enderror" id="applies_to" name="applies_to" required>
+                            <option value="rent" @selected($appliesTo === 'rent')>Rent</option>
+                            <option value="utilities" @selected($appliesTo === 'utilities')>Utility bill</option>
                         </select>
-                        <div class="form-text" id="payment_type_hint"></div>
-                        @error('payment_type')
+                        @error('applies_to')
                             <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-12" id="utility-field" @if ($appliesTo !== 'utilities') hidden @endif>
+                        <label for="utility_payment_id" class="form-label">Utility charge</label>
+                        <select class="form-select @error('utility_payment_id') is-invalid @enderror" id="utility_payment_id" name="utility_payment_id"
+                                data-selected="{{ old('utility_payment_id', $selectedUtilityPaymentId) }}" disabled>
+                            <option value="">Select an unpaid charge</option>
+                        </select>
+                        <div class="form-text">For a new water or electricity charge, <a href="{{ route('proprietor.utility-bills.create') }}">add the utility bill</a> first.</div>
+                        @error('utility_payment_id')
+                            <div class="invalid-feedback d-block">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -72,7 +79,27 @@
                     </div>
 
                     <div class="col-12">
-                        <div class="alert alert-light border small mb-0 d-none" id="month-balance" role="status" aria-live="polite"></div>
+                        <div class="alert alert-light border small mb-0 d-none" id="payment-preview" role="status" aria-live="polite"></div>
+                    </div>
+
+                    <div class="col-12" id="advance-field" @unless (old('apply_excess') || $errors->has('apply_excess')) hidden @endunless>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="apply_excess" id="apply_excess" value="1" @checked(old('apply_excess'))>
+                            <label class="form-check-label" for="apply_excess">Apply the excess to future rent</label>
+                        </div>
+                        @error('apply_excess')
+                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-12">
+                        <label for="note" class="form-label">Note <span class="text-muted">(optional)</span></label>
+                        <textarea class="form-control @error('note') is-invalid @enderror" id="note" name="note" rows="2" maxlength="1000"
+                                  placeholder="Example: Tenant paid August and September rent.">{{ old('note') }}</textarea>
+                        <div class="form-text">Visible to proprietors in the Payment Ledger.</div>
+                        @error('note')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
 
@@ -93,46 +120,116 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('record-payment-form');
     const tenant = document.getElementById('tenant_id');
     const amount = document.getElementById('amount');
-    const typeSelect = document.getElementById('payment_type');
-    const box = document.getElementById('month-balance');
+    const appliesTo = document.getElementById('applies_to');
+    const utilityField = document.getElementById('utility-field');
+    const utility = document.getElementById('utility_payment_id');
+    const advanceField = document.getElementById('advance-field');
+    const advance = document.getElementById('apply_excess');
+    const box = document.getElementById('payment-preview');
+    const submit = form.querySelector('button[type="submit"]');
     const peso = (n) => 'PHP ' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let request = 0;
+    let timer;
+    let selectedUtility = utility.dataset.selected;
+    let bills = [];
 
-    const show = (html, warn = false) => {
-        box.innerHTML = html;
+    const show = (content, warn = false) => {
+        box.replaceChildren(content);
         box.classList.toggle('alert-warning', warn);
         box.classList.toggle('alert-light', !warn);
         box.classList.remove('d-none');
     };
 
-    const render = (b) => {
-        const type = typeSelect.value;
-        if (!b.ok) {
-            show(b.message, true);
-            return;
+    const showUtility = (prefill = false) => {
+        const bill = bills.find(item => String(item.id) === utility.value);
+        if (bill) {
+            if (prefill) amount.value = bill.amount.toFixed(2);
+            submit.disabled = Number(amount.value) !== bill.amount;
+            show(`Due ${bill.due_date} · Balance ${peso(bill.amount)}. Enter the full balance for this utility charge.`);
+        } else {
+            submit.disabled = true;
+            show(bills.length ? 'Select a utility charge.' : 'This tenant has no unpaid utility charges.');
         }
-        let text = `${b.month}: ${b.storage ? 'storage fee' : 'rent'} ${peso(b.amount)}, paid ${peso(b.paid)}, balance <strong>${peso(b.remaining)}</strong>.`;
-        if (type === 'partial') text += b.storage ? ' Storage fees must be paid in full.' : ' Enter less than the balance.';
-        if (type === 'advance') text += ' Any extra amount is applied to the following months in order.';
-        show(text);
-        if (type === 'full') amount.value = b.remaining.toFixed(2);
     };
 
     const load = async () => {
-        const hint = typeSelect.selectedOptions[0]?.dataset.hint || '';
-        document.getElementById('payment_type_hint').textContent = hint;
-        if (!tenant.value) { box.classList.add('d-none'); return; }
         const id = ++request;
-        const url = new URL(form.dataset.balanceUrl, window.location.origin);
-        url.search = new URLSearchParams({ tenant_id: tenant.value, payment_type: typeSelect.value });
+        submit.disabled = true;
+        const payingUtility = appliesTo.value === 'utilities';
+        utilityField.hidden = !payingUtility;
+        utility.disabled = true;
+        utility.required = false;
+        advanceField.hidden = true;
+        advance.required = false;
+        box.classList.add('d-none');
+        if (!tenant.value || (!payingUtility && (!amount.value || !amount.validity.valid))) return;
+
+        const url = new URL(form.dataset.previewUrl, window.location.origin);
+        const fields = { tenant_id: tenant.value, applies_to: appliesTo.value };
+        if (!payingUtility) fields.amount = amount.value;
+        url.search = new URLSearchParams(fields);
         try {
-            const res = await fetch(url, { headers: { Accept: 'application/json' } });
-            if (res.ok && id === request) render(await res.json());
-        } catch (e) { /* the server still checks everything on save */ }
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            const preview = await response.json();
+            if (id !== request) return;
+            if (!response.ok) {
+                show(preview.message || 'Payment preview is unavailable.', true);
+                return;
+            }
+            if (payingUtility) {
+                bills = preview.bills;
+                utility.replaceChildren(new Option('Select an unpaid charge', ''));
+                for (const bill of bills) {
+                    utility.add(new Option(`${bill.label} · due ${bill.due_date} · ${peso(bill.amount)}`, bill.id));
+                }
+                utility.value = bills.some(bill => String(bill.id) === selectedUtility) ? selectedUtility : '';
+                selectedUtility = '';
+                utility.disabled = false;
+                utility.required = true;
+                showUtility(!amount.value);
+                return;
+            }
+
+            const list = document.createElement('ul');
+            list.className = 'mb-0 ps-3';
+            for (const allocation of preview.allocations) {
+                const item = document.createElement('li');
+                const balance = allocation.remaining > 0 ? ` · ${peso(allocation.remaining)} remains due` : ' · clears the balance';
+                item.textContent = `${allocation.upcoming ? 'Upcoming rent' : 'Rent'} due ${allocation.due_date} · applies ${peso(allocation.amount)}${balance}`;
+                list.append(item);
+            }
+            advanceField.hidden = !preview.allocations.some(allocation => allocation.upcoming);
+            advance.required = !advanceField.hidden;
+            if (advanceField.hidden) advance.checked = false;
+            show(list);
+            submit.disabled = false;
+        } catch {
+            if (id === request) show('Payment preview is unavailable. Refresh to try again.', true);
+        }
     };
 
-    ['change', 'tom-change'].forEach((evt) => tenant.addEventListener(evt, load));
-    typeSelect.addEventListener('change', load);
+    const changeCharge = () => {
+        clearTimeout(timer);
+        advance.checked = false;
+        load();
+    };
+    ['change', 'tom-change'].forEach(event => tenant.addEventListener(event, changeCharge));
+    appliesTo.addEventListener('change', changeCharge);
+    utility.addEventListener('change', () => showUtility(true));
+    amount.addEventListener('input', () => {
+        if (appliesTo.value === 'utilities') {
+            showUtility();
+            return;
+        }
+        request++;
+        submit.disabled = true;
+        advance.checked = false;
+        advanceField.hidden = true;
+        advance.required = false;
+        box.classList.add('d-none');
+        clearTimeout(timer);
+        timer = setTimeout(load, 200);
+    });
     load();
 });
 </script>

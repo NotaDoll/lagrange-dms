@@ -9,6 +9,7 @@ use App\Models\RoomAssignment;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BillingPolicy;
+use App\Services\PaymentLedgerService;
 use App\Services\TenantBalanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -16,7 +17,7 @@ use Tests\TestCase;
 
 /**
  * Rent is due every month on the tenant's move-in day, and the Record Payment form
- * picks the month automatically. This tenant moved in on Sep 12, so rent is due on the 12th.
+ * picks the month automatically. This tenant moved in on Aug 12, so the first rent is due Sep 12.
  * "Today" is Oct 19: Sep 12 and Oct 12 are owed; Nov 12 is the next upcoming due date.
  */
 class PaymentTypesTest extends TestCase
@@ -31,10 +32,10 @@ class PaymentTypesTest extends TestCase
     {
         parent::setUp();
         $this->travelTo(now()->setDate(2026, 10, 19)->setTime(10, 0));
-        $this->tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => '2026-09-12']);
+        $this->tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => '2026-08-12']);
         $room = Room::create(['room_number' => '101', 'floor' => '1', 'capacity' => 1, 'monthly_rate' => 3000]);
         $bed = Bed::create(['room_id' => $room->id, 'bed_label' => 'A', 'status' => 'available']);
-        RoomAssignment::create(['tenant_id' => $this->tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-09-12', 'status' => 'active']);
+        RoomAssignment::create(['tenant_id' => $this->tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-08-12', 'status' => 'active']);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
     }
 
@@ -53,14 +54,58 @@ class PaymentTypesTest extends TestCase
 
     public function test_rent_is_due_on_the_move_in_day_without_prorating(): void
     {
-        $entries = app(TenantBalanceService::class)->billingEntries($this->tenant, '2026-09-01', '2026-10-31');
+        $entries = app(TenantBalanceService::class)->billingEntries($this->tenant, '2026-08-01', '2026-10-31');
         $this->assertSame(['2026-09-12', '2026-10-12'], $entries->map(fn ($e) => $e->due_date->toDateString())->all());
         $this->assertSame(['3000.00', '3000.00'], $entries->pluck('amount')->all()); // first month is a full month too
 
         $policy = app(BillingPolicy::class);
         $lateMonth = new Tenant(['move_in_date' => '2026-01-31', 'status' => Tenant::STATUS_ACTIVE]);
         $this->assertSame('2026-02-28', $policy->dueDate($lateMonth, Carbon::parse('2026-02-01'))->toDateString());
+        $this->assertSame('2026-02-28', $policy->firstRentDueDate($lateMonth)->toDateString());
         $this->assertSame('2026-03-31', $policy->dueDate($lateMonth, Carbon::parse('2026-03-01'))->toDateString());
+    }
+
+    public function test_move_in_advance_reduces_rent_and_carries_forward_once(): void
+    {
+        $this->tenant->update(['move_in_date' => '2026-08-01', 'advance_payment' => 3500, 'security_deposit' => 3000]);
+        $this->tenant->roomAssignments()->update(['start_date' => '2026-08-01']);
+        $this->travelTo(now()->setDate(2026, 8, 20)->setTime(10, 0));
+        $this->get(route('proprietor.payments.index', ['tenant_id' => $this->tenant->id]))->assertOk()
+            ->assertSee('Sep 01, 2026')->assertDontSee('Aug 01, 2026')->assertSee('Advance applied to rent');
+        $this->assertSame(0.0, app(TenantBalanceService::class)->outstandingSummary($this->tenant->fresh())['outstanding_balance']);
+
+        $this->travelTo(now()->setDate(2026, 10, 19)->setTime(10, 0));
+        $this->getJson(route('proprietor.payments.month-balance', ['tenant_id' => $this->tenant->id, 'payment_type' => 'full']))
+            ->assertOk()->assertJson(['due_date' => 'Oct 01, 2026', 'amount' => 3000, 'advance_applied' => 500, 'remaining' => 2500]);
+        $this->get(route('proprietor.reports.index', ['tenant_id' => $this->tenant->id, 'date_from' => '2026-10-01', 'date_to' => '2026-10-31']))
+            ->assertOk()->assertViewHas('totalBilled', 3000.0)->assertViewHas('totalCollected', 500.0)->assertViewHas('totalOutstanding', 2500.0);
+        $this->pay('full', 2500)->assertRedirect();
+        $this->assertDatabaseCount('payments', 1);
+        $this->assertSame(0.0, $this->remaining('2026-10-01'));
+        $this->assertSame(3000.0, $this->remaining('2026-11-01'));
+    }
+
+    public function test_mark_paid_collects_only_the_uncovered_portion_of_a_recorded_rent_charge(): void
+    {
+        $this->tenant->update(['advance_payment' => 1000]);
+        $charge = $this->tenant->payments()->create(['amount' => 3000, 'due_date' => '2026-09-12', 'status' => 'pending']);
+        $this->get(route('proprietor.payments.index', ['status' => 'overdue']))->assertOk()->assertSee('2,000.00');
+
+        $this->patch(route('proprietor.payments.settle', $charge), ['paid_date' => '2026-10-19', 'receipt_number' => 'OR-ADV-1'])
+            ->assertRedirect();
+        $this->assertDatabaseHas('payments', ['receipt_number' => 'OR-ADV-1', 'amount' => 2000, 'status' => 'paid']);
+        $this->assertSame(0.0, $this->remaining('2026-09-01'));
+        $this->assertSame(3000.0, $this->remaining('2026-10-01'));
+    }
+
+    public function test_imported_rent_is_aligned_to_the_move_in_day(): void
+    {
+        $payment = app(PaymentLedgerService::class)->create([
+            'tenant_id' => $this->tenant->id, 'amount' => 3000, 'status' => 'pending', 'due_date' => '2026-09-30',
+        ]);
+
+        $this->assertSame('2026-09-12', $payment->due_date->toDateString());
+        $this->assertSame(3000.0, $this->remaining('2026-09-01'));
     }
 
     public function test_full_payment_goes_to_the_oldest_unpaid_month_and_must_match_it(): void
@@ -147,8 +192,45 @@ class PaymentTypesTest extends TestCase
         // A stray status or due date is ignored: money is always Paid, against the month the system picks.
         $this->post(route('proprietor.payments.store'), $entry + ['payment_type' => 'full', 'status' => 'pending', 'due_date' => '2027-05-01'])->assertRedirect();
         $this->assertDatabaseHas('payments', ['status' => 'paid', 'payment_type' => 'full', 'due_date' => '2026-09-12 00:00:00']);
-        $this->get(route('proprietor.payments.create'))->assertOk()->assertSee('Payment Type')->assertSee('Receipt No.')
+        $this->get(route('proprietor.payments.create'))->assertOk()->assertSee('Apply payment to')->assertSee('Receipt No.')->assertSee('Note')
+            ->assertDontSee('name="payment_type"', false)
             ->assertDontSee('name="status"', false)->assertDontSee('Due Date');
+    }
+
+    public function test_rent_payment_clears_the_first_two_of_three_months_under_one_receipt_with_a_note(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 19)->setTime(10, 0));
+        $fields = ['tenant_id' => $this->tenant->id, 'applies_to' => 'rent', 'amount' => 6000];
+        $this->getJson(route('proprietor.payments.preview', $fields))->assertOk()->assertExactJson(['allocations' => [
+            ['due_date' => 'Sep 12, 2026', 'amount' => 3000, 'remaining' => 0, 'upcoming' => false],
+            ['due_date' => 'Oct 12, 2026', 'amount' => 3000, 'remaining' => 0, 'upcoming' => false],
+        ]]);
+        $this->post(route('proprietor.payments.store'), $fields + [
+            'receipt_number' => 'OR-RENT-1', 'paid_date' => '2026-11-19', 'note' => 'Paid two months at the office.',
+        ])->assertRedirect(route('proprietor.payments.index'));
+
+        $rows = $this->tenant->payments()->orderBy('due_date')->get();
+        $this->assertSame(['2026-09-12', '2026-10-12'], $rows->map(fn (Payment $row) => $row->due_date->toDateString())->all());
+        $this->assertSame(['OR-RENT-1', null], $rows->pluck('receipt_number')->all());
+        $this->assertSame(['OR-RENT-1', 'OR-RENT-1'], $rows->pluck('display_receipt')->all());
+        $this->assertSame(['Paid two months at the office.', 'Paid two months at the office.'], $rows->pluck('note')->all());
+        $this->assertSame(3000.0, $this->remaining('2026-11-01'));
+        $this->assertSame(1, app(TenantBalanceService::class)->summary($this->tenant->fresh())['paid_count']);
+        $this->get(route('proprietor.payments.history', $this->tenant))->assertOk()->assertSee('Paid two months at the office.');
+    }
+
+    public function test_future_rent_requires_confirmation_before_saving_any_allocation(): void
+    {
+        $fields = [
+            'tenant_id' => $this->tenant->id, 'applies_to' => 'rent', 'amount' => 6500,
+            'receipt_number' => 'OR-RENT-2', 'paid_date' => '2026-10-19',
+        ];
+        $this->post(route('proprietor.payments.store'), $fields)->assertSessionHasErrors('apply_excess');
+        $this->assertDatabaseCount('payments', 0);
+
+        $this->post(route('proprietor.payments.store'), $fields + ['apply_excess' => '1'])->assertRedirect();
+        $this->assertSame(['full', 'full', 'advance'], $this->tenant->payments()->orderBy('due_date')->pluck('payment_type')->all());
+        $this->assertSame(2500.0, $this->remaining('2026-11-01'));
     }
 
     public function test_unpaid_status_updates_itself_from_the_due_date(): void

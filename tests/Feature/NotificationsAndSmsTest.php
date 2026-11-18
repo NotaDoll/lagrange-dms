@@ -64,55 +64,26 @@ class NotificationsAndSmsTest extends TestCase
         ]);
     }
 
-    public function test_high_risk_tenants_receive_sms_but_guardians_without_consent_do_not(): void
+    public function test_risk_recalculation_saves_flags_but_never_texts_anyone(): void
     {
-        Http::fake([
-            'api.semaphore.co/*' => Http::response(['message_id' => 1], 200),
-        ]);
+        // Guardian reminders are reviewed and sent by the proprietor from the Dashboard, never automatically.
+        Http::fake();
 
-        $tenantUser = User::factory()->create([
-            'role' => 'tenant',
-            'contact_number' => '09171234567',
-        ]);
         $tenant = Tenant::create([
-            'user_id' => $tenantUser->id,
+            'user_id' => User::factory()->create(['role' => 'tenant', 'contact_number' => '09171234567'])->id,
             'guardian_name' => 'Guardian',
             'guardian_contact_number' => '09998887777',
             'status' => 'active',
         ]);
+        foreach (['2026-06-01' => 10, '2026-07-01' => 12] as $due => $days) {
+            Payment::create(['tenant_id' => $tenant->id, 'amount' => 1000, 'due_date' => Carbon::parse($due), 'days_overdue' => $days, 'status' => 'overdue']);
+        }
 
-        Payment::create([
-            'tenant_id' => $tenant->id,
-            'amount' => 1000,
-            'due_date' => Carbon::parse('2026-06-01'),
-            'paid_date' => null,
-            'days_overdue' => 10,
-            'status' => 'overdue',
-        ]);
+        $flag = app(PaymentRiskService::class)->calculateForTenant($tenant);
 
-        Payment::create([
-            'tenant_id' => $tenant->id,
-            'amount' => 1000,
-            'due_date' => Carbon::parse('2026-07-01'),
-            'paid_date' => null,
-            'days_overdue' => 12,
-            'status' => 'overdue',
-        ]);
-
-        app(PaymentRiskService::class)->calculateForTenant($tenant);
-
-        $this->assertSame(1, SmsLog::count());
-        $this->assertDatabaseHas('sms_logs', [
-            'tenant_id' => $tenant->id,
-            'recipient_number' => '09171234567',
-            'recipient_type' => 'tenant',
-            'status' => 'sent',
-        ]);
-        $this->assertDatabaseMissing('sms_logs', [
-            'tenant_id' => $tenant->id,
-            'recipient_number' => '09998887777',
-            'recipient_type' => 'guardian',
-            'status' => 'sent',
-        ]);
+        $this->assertSame('high', $flag->risk_level);
+        $this->assertDatabaseHas('risk_flags', ['tenant_id' => $tenant->id, 'risk_level' => 'high']);
+        $this->assertSame(0, SmsLog::count());
+        Http::assertNothingSent();
     }
 }

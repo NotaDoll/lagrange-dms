@@ -58,10 +58,11 @@ class SummerStorageTest extends TestCase
         $this->assertSame(['150.00', '500.00', '3000.00'], $entries->pluck('amount')->all());
         $this->assertSame($historical->id, $entries->first()->id);
         $this->assertSame('Opening Balance', $entries[1]->description);
-        // Rent is due on the move-in day: the 15th for the 2021 tenant, the 16th for the new one, full month each.
+        // The cutoff keeps established tenants' billing dates. The new tenant owes their first rent in July.
         $this->assertSame('2026-06-15', $entries[2]->due_date->toDateString());
-        $june = $balances->billingEntries($new, '2026-06-01', '2026-06-30')->sole();
-        $this->assertSame(['3000.00', '2026-06-16'], [$june->amount, $june->due_date->toDateString()]);
+        $this->assertTrue($balances->billingEntries($new, '2026-06-01', '2026-06-30')->isEmpty());
+        $july = $balances->billingEntries($new, '2026-07-01', '2026-07-31')->sole();
+        $this->assertSame(['3000.00', '2026-07-16'], [$july->amount, $july->due_date->toDateString()]);
         $this->assertCount(0, $balances->billingEntries($reserved, '2026-06-01', '2026-06-30'));
 
         $url = route('proprietor.payments.accrued.settle', $longStay);

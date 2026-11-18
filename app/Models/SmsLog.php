@@ -10,7 +10,7 @@ class SmsLog extends Model
     protected $table = 'sms_logs';
 
     protected $fillable = [
-        'tenant_id', 'recipient_number', 'recipient_type', 'message', 'status', 'sent_at', 'textbee_batch_id',
+        'tenant_id', 'recipient_number', 'recipient_type', 'message', 'status', 'error_message', 'sent_at', 'textbee_batch_id',
     ];
 
     protected $casts = [
@@ -27,10 +27,9 @@ class SmsLog extends Model
                     ->orWhere(fn (Builder $query) => $query
                         ->whereIn('status', ['sent', 'delivered'])
                         ->whereDate('sent_at', today()));
-            })
-            ->where(fn (Builder $query) => $query
-                ->where('message', 'like', 'Payment follow-up:%')
-                ->orWhere('message', 'like', 'Your dormitory account has been flagged high risk%'));
+            });
+        // Payment reminders are the only texts sent to guardians, and the proprietor can now edit
+        // their wording, so any guardian text today counts (matching on the wording would miss edits).
     }
 
     public function tenant()

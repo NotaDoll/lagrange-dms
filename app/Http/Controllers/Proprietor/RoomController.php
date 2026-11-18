@@ -25,7 +25,7 @@ class RoomController extends Controller
         $type = $request->query('type');
         $type = is_string($type) ? Room::normalizeType($type) : null;
 
-        $query = Room::query()->with(['beds.currentAssignment.tenant.user']);
+        $query = Room::query()->with(['beds.room', 'beds.currentAssignment.tenant.user']);
 
         if ($search !== '') {
             $query->where(function ($roomQuery) use ($search) {

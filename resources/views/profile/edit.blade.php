@@ -23,13 +23,8 @@
                 </div>
             </div>
 
-            <div class="card border-danger">
-                <div class="card-body">
-                    <h5 class="card-title text-danger">Delete Account</h5>
-                    <p class="text-muted small">Once your account is deleted, all of its resources and data will be permanently deleted.</p>
-                    @include('profile.partials.delete-user-form')
-                </div>
-            </div>
+            {{-- No "Delete Account" here: the proprietor is the only administrator, so deleting this
+                 account would lock everyone out of the system. --}}
         </div>
     </div>
 @endsection

@@ -112,7 +112,9 @@ class TenantManagementTest extends TestCase
         $this->assertSame('2026-11-21', $tenant->fresh()->move_in_date->toDateString());
 
         $this->travelTo(now()->setDate(2026, 12, 31)->setTime(12, 0));
-        $this->assertEquals([5000.0, 5000.0], $balance->billingEntries($tenant, '2026-11-01', '2026-12-31')->pluck('amount')->all()); // due Nov 21 and Dec 21, full months
+        $entries = $balance->billingEntries($tenant, '2026-11-01', '2026-12-31');
+        $this->assertSame(['2026-12-21'], $entries->map(fn ($entry) => $entry->due_date->toDateString())->unique()->values()->all());
+        $this->assertSame(['100.00', '4900.00'], $entries->pluck('amount')->all());
     }
 
     public function test_bed_cannot_be_submitted_with_a_different_room_or_type(): void

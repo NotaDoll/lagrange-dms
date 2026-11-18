@@ -5,13 +5,63 @@ namespace App\Http\Controllers\Proprietor;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Services\SettingsService;
 use App\Services\TenantBalanceService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 
 class FinancialReportController extends Controller
 {
     public function index(Request $request)
+    {
+        return view('proprietor.reports.index', $this->reportData($request));
+    }
+
+    public function export(Request $request, SettingsService $settings): Response
+    {
+        return $this->pdfResponse($request, $settings, 'attachment');
+    }
+
+    public function preview(Request $request, SettingsService $settings): Response
+    {
+        return $this->pdfResponse($request, $settings, 'inline');
+    }
+
+    private function pdfResponse(Request $request, SettingsService $settings, string $disposition): Response
+    {
+        $data = $this->reportData($request);
+        $html = view('proprietor.reports.pdf', $data + [
+            'dormitoryName' => $settings->get('general', 'dormitory_name', 'La Grange DMS'),
+            'generatedAt' => now(Tenant::LOCAL_TIMEZONE),
+        ])->render();
+
+        $options = new Options;
+        $options->setIsRemoteEnabled(false);
+        $options->setIsPhpEnabled(false);
+        $options->setIsJavascriptEnabled(false);
+        $pdf = new Dompdf($options);
+        $pdf->setPaper('A4');
+        $pdf->loadHtml($html, 'UTF-8');
+        $pdf->render();
+
+        $canvas = $pdf->getCanvas();
+        $font = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $canvas->page_text(42, 809, 'Financial Report', $font, 8, [0.31, 0.35, 0.40]);
+        $canvas->page_text(476, 809, 'Page {PAGE_NUM} of {PAGE_COUNT}', $font, 8, [0.31, 0.35, 0.40]);
+
+        $filename = "financial-report-{$data['dateFrom']}-to-{$data['dateTo']}.pdf";
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    private function reportData(Request $request): array
     {
         $filters = $request->validate([
             'date_from' => ['nullable', 'date_format:Y-m-d'],
@@ -47,7 +97,7 @@ class FinancialReportController extends Controller
         $totalOverdue = (float) $overdue->sum('amount');
         $paidOnTime = $paid->filter(fn ($payment) => $payment->paid_date && $payment->paid_date->lte($payment->due_date))->count();
         $paidLate = $paid->filter(fn ($payment) => $payment->paid_date && $payment->paid_date->gt($payment->due_date))->count();
-        $unknownPaidDate = $paid->whereNull('paid_date')->count();
+        $unknownPaidDate = $paid->reject(fn (Payment $payment) => $payment->is_advance_credit)->whereNull('paid_date')->count();
 
         $tenants = Tenant::with('user')->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         $tenantRows = $payments->groupBy('tenant_id')->map(function ($entries, $id) use ($reportTenants) {
@@ -91,11 +141,11 @@ class FinancialReportController extends Controller
         $selectedTenant = $tenantId ? $tenants->firstWhere('id', $tenantId)?->name : 'All tenants';
         $rangeLabel = Carbon::parse($dateFrom)->format('M j, Y').' – '.Carbon::parse($dateTo)->format('M j, Y');
 
-        return view('proprietor.reports.index', compact(
+        return compact(
             'balanceRows', 'currentOutstanding', 'unpaidTenantCount',
             'dateFrom', 'dateTo', 'tenantId', 'tenants', 'selectedTenant', 'rangeLabel',
             'totalBilled', 'totalCollected', 'totalOutstanding', 'totalOverdue',
             'incomeCategories', 'paid', 'paidOnTime', 'paidLate', 'unknownPaidDate', 'overdue', 'tenantRows', 'months', 'chartMax'
-        ));
+        );
     }
 }

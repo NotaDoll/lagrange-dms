@@ -28,42 +28,23 @@ class PaymentController extends Controller
         $status = $request->query('status');
         $category = $request->validate(['category' => ['nullable', Rule::in(array_keys(Payment::CATEGORY_LABELS))]])['category'] ?? null;
 
-        $payments = Payment::with(['tenant.user', 'tenant.currentAssignment.bed.room', 'utilityBill.room'])
-            ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
-            ->withCurrentStatus($status)
-            ->when($category === Payment::UTILITIES, fn ($query) => $query->whereNotNull('utility_bill_id'))
-            ->when($category === Payment::RENT, fn ($query) => $query->whereNull('utility_bill_id')
-                ->where(fn ($rent) => $rent->whereNull('charge_type')->orWhere('charge_type', Payment::RENT)))
-            ->when(in_array($category, [Payment::OPENING_BALANCE, Payment::STORAGE], true),
-                fn ($query) => $query->where('charge_type', $category))
-            ->latest('due_date')
-            ->paginate(15)
-            ->withQueryString();
-
         $tenants = Tenant::with('user')
             ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
-        $accrued = collect();
-        if ($status !== 'paid' && in_array($category, [null, Payment::STORAGE, Payment::OPENING_BALANCE], true)) {
-            $accrued = Tenant::movedIn()->with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])
-                ->when($tenantId, fn ($query) => $query->whereKey($tenantId))
-                ->where(fn ($query) => $query->where('opening_balance', '>', 0)->orWhereHas('monthModes'))
-                ->get()->flatMap(fn ($tenant) => $balances->billingEntries(
-                    $tenant, $balances->ledgerStart($tenant), Tenant::localDate(), specialOnly: true
-                ))
-                ->when($status, fn ($entries) => $entries->where('status', $status))
-                ->when($category, fn ($entries) => $entries->where('category', $category))
-                ->sortByDesc(fn ($entry) => $entry->due_date->toDateString())->values();
-        }
-
-        $page = LengthAwarePaginator::resolveCurrentPage('accrued_page');
-        $accruedPayments = new LengthAwarePaginator($accrued->forPage($page, 15), $accrued->count(), 15, $page, [
-            'path' => $request->url(), 'pageName' => 'accrued_page',
-        ]);
-        $accruedPayments->withQueryString();
+        $rows = Tenant::with(['user', 'currentAssignment.bed.room', 'payments.utilityBill.room', 'monthModes', 'roomAssignments.bed.room'])
+            ->when($tenantId, fn ($query) => $query->whereKey($tenantId))
+            ->get()->flatMap(fn (Tenant $tenant) => $balances->ledger($tenant)
+                ->each(fn (Payment $payment) => $payment->setRelation('tenant', $tenant)))
+            ->when(is_string($status) && isset(Payment::STATUS_LABELS[$status]), fn ($entries) => $entries->where('current_status', $status))
+            ->when($category, fn ($entries) => $entries->where('category', $category))
+            ->sortByDesc(fn (Payment $payment) => $payment->due_date->toDateString())->values();
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $payments = (new LengthAwarePaginator($rows->forPage($page, 15), $rows->count(), 15, $page, [
+            'path' => $request->url(),
+        ]))->withQueryString();
         $categories = Payment::CATEGORY_LABELS;
 
-        return view('proprietor.payments.index', compact('payments', 'accruedPayments', 'tenants', 'tenantId', 'status', 'category', 'categories'));
+        return view('proprietor.payments.index', compact('payments', 'tenants', 'tenantId', 'status', 'category', 'categories'));
     }
 
     public function create(Request $request)
@@ -72,8 +53,9 @@ class PaymentController extends Controller
             ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         $selectedTenantId = $request->integer('tenant_id');
+        $selectedUtilityPaymentId = $request->integer('utility_payment_id');
 
-        return view('proprietor.payments.create', compact('tenants', 'selectedTenantId'));
+        return view('proprietor.payments.create', compact('tenants', 'selectedTenantId', 'selectedUtilityPaymentId'));
     }
 
     public function settleAccrued(Request $request, Tenant $tenant)
@@ -129,9 +111,37 @@ class PaymentController extends Controller
             'overdue' => $due !== null && $due->lt(Tenant::localDate()),
             'amount' => $balance['amount'],
             'paid' => $balance['paid'],
+            'advance_applied' => $balance['advance_applied'],
             'remaining' => $balance['remaining'],
             'storage' => $balance['storage'],
         ]);
+    }
+
+    public function preview(Request $request)
+    {
+        $validated = $request->validate([
+            'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
+            'applies_to' => ['required', Rule::in([Payment::RENT, Payment::UTILITIES])],
+            'amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
+        ]);
+        $tenant = Tenant::findOrFail($validated['tenant_id']);
+        if ($validated['applies_to'] === Payment::UTILITIES) {
+            $bills = $tenant->payments()->whereNotNull('utility_bill_id')->where('status', '!=', 'paid')
+                ->with('utilityBill.room')->orderBy('due_date')->orderBy('id')->get()->map(fn (Payment $share) => [
+                    'id' => $share->id,
+                    'label' => $share->description,
+                    'due_date' => $share->due_date->format('M d, Y'),
+                    'amount' => (float) $share->amount,
+                ]);
+
+            return response()->json(['bills' => $bills]);
+        }
+
+        $allocations = isset($validated['amount'])
+            ? $this->paymentLedgerService->previewPayment($tenant, (float) $validated['amount'])
+            : [];
+
+        return response()->json(['allocations' => $allocations]);
     }
 
     public function store(StorePaymentRequest $request)
@@ -139,11 +149,14 @@ class PaymentController extends Controller
         $rows = $this->paymentLedgerService->recordPayment($request->validated());
         $first = $rows->first();
         $first->load('tenant.user');
-        $typeLabel = Payment::PAYMENT_TYPE_LABELS[$first->payment_type];
+        $typeLabel = $request->filled('applies_to')
+            ? ($first->category === Payment::UTILITIES ? 'Utility' : 'Rent')
+            : Payment::PAYMENT_TYPE_LABELS[$first->payment_type];
         $months = $rows->map(fn (Payment $row) => $row->due_date->format('M Y'))->unique()->implode(', ');
         $total = number_format((float) $rows->sum('amount'), 2);
         // Advance rows share one receipt with a per-month suffix (RCPT-X-1, RCPT-X-2, ...).
-        $receipt = $rows->count() > 1 ? preg_replace('/-\d+$/', '', $first->receipt_number) : $first->receipt_number;
+        $receipt = $first->receipt_reference
+            ?? ($rows->count() > 1 ? preg_replace('/-\d+$/', '', $first->receipt_number) : $first->receipt_number);
 
         $this->notificationService->notify(
             $first->tenant->user,
@@ -186,11 +199,12 @@ class PaymentController extends Controller
     /**
      * Display the payment history for a specific tenant.
      */
-    public function history(Tenant $tenant)
+    public function history(Tenant $tenant, Request $request, TenantBalanceService $balances)
     {
-        $payments = $tenant->payments()
-            ->latest('due_date')
-            ->paginate(15);
+        $tenant->load('payments.utilityBill.room');
+        $rows = $balances->ledger($tenant);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $payments = new LengthAwarePaginator($rows->forPage($page, 15), $rows->count(), 15, $page, ['path' => $request->url()]);
 
         $tenant->load('user', 'currentAssignment.bed.room');
 
