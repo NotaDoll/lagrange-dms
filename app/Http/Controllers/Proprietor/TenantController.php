@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Proprietor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTenantRequest;
 use App\Http\Requests\UpdateTenantRequest;
+use App\Models\Payment;
 use App\Models\Tenant;
+use App\Services\PaymentRiskService;
+use App\Services\TenantBalanceService;
 use App\Services\TenantManagementService;
 use App\Services\RoomAvailability;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class TenantController extends Controller
@@ -60,6 +64,37 @@ class TenantController extends Controller
         return view('proprietor.tenants.index', compact('tenants', 'search', 'status', 'tenantCounts'));
     }
 
+    /** Everything about one tenant: details, balance and risk, payment history, complaints, reminders, rooms. */
+    public function show(Tenant $tenant, TenantBalanceService $balances, PaymentRiskService $risk)
+    {
+        $tenant->load([
+            'user', 'consentRecorder', 'currentAssignment.bed.room', 'roomAssignments.bed.room',
+            'payments.utilityBill.room', 'monthModes',
+            'complaints' => fn ($query) => $query->latest(),
+            'smsLogs' => fn ($query) => $query->where('recipient_type', 'guardian')->latest('id')->limit(10),
+        ]);
+
+        $today = Carbon::parse(Tenant::localDate());
+        // Include rows paid ahead (advance payments) as well as everything billed so far.
+        $latestDue = $tenant->payments->max('due_date');
+        $until = $latestDue && $latestDue->gt($today) ? $latestDue : $today;
+        $history = $balances->billingEntries($tenant, $balances->ledgerStart($tenant), $until->toDateString())
+            ->sortByDesc(fn (Payment $entry) => [$entry->due_date->toDateString(), $entry->id ?? PHP_INT_MAX])
+            ->values();
+
+        $evaluation = $tenant->hasMovedIn() ? $risk->evaluate($tenant) : null;
+
+        return view('proprietor.tenants.show', [
+            'tenant' => $tenant,
+            'summary' => $balances->summary($tenant),
+            'rent' => $balances->currentRent($tenant),
+            'history' => $history,
+            'risk' => $evaluation,
+            'riskReasons' => $evaluation ? $risk->reasons($evaluation) : [],
+            'roomHistory' => $tenant->roomAssignments->sortByDesc(fn ($assignment) => [$assignment->start_date->toDateString(), $assignment->id])->values(),
+        ]);
+    }
+
     public function create()
     {
         return view('proprietor.tenants.create', ['roomAvailability' => $this->rooms->forTenant()]);
@@ -70,7 +105,7 @@ class TenantController extends Controller
         $tenant = $this->tenantService->create($request->validated(), $request->user()->id);
 
         return redirect()
-            ->route('proprietor.tenants.index')
+            ->route('proprietor.tenants.show', $tenant)
             ->with($tenant->user_id ? 'success' : 'notice', $tenant->user_id
                 ? 'Tenant created successfully.'
                 : 'Tenant saved. A login with this email already exists, so no new account was created.');
@@ -90,7 +125,7 @@ class TenantController extends Controller
         $loginEmailSkipped = $this->tenantService->update($tenant, $request->validated(), $request->user()->id);
 
         return redirect()
-            ->route('proprietor.tenants.index')
+            ->route('proprietor.tenants.show', $tenant)
             ->with($loginEmailSkipped ? 'notice' : 'success', $loginEmailSkipped
                 ? 'Tenant saved. The login email was kept because another account already uses that email.'
                 : 'Tenant updated successfully.');

@@ -39,16 +39,19 @@ class ProprietorDashboardService
         $overdue = $all->filter(fn ($entry) => $entry->status !== 'paid' && $entry->due_date->lt(today()));
         $thresholds = $this->risk->thresholds();
         $active = $tenants->where('status', 'active');
-        $history = $this->riskHistory($active, $thresholds, max(6, $trendMonths));
-        $evaluated = $active->map(function ($tenant) use ($thresholds, $history) {
-            $evaluation = $this->risk->evaluate($tenant, $thresholds);
+        // Each tenant's billing entries, built once and reused for every month of the risk history.
+        $today = Tenant::localDate();
+        $entries = $active->mapWithKeys(fn ($tenant) => [$tenant->id => $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today)]);
+        $history = $this->riskHistory($active, $thresholds, max(6, $trendMonths), $entries);
+        $evaluated = $active->map(function ($tenant) use ($thresholds, $history, $entries) {
+            $evaluation = $this->risk->evaluate($tenant, $thresholds, null, $entries[$tenant->id]);
             // Sparkline: the last 6 months of the same history the trend chart uses.
             $trend = collect($this->trendMonthStarts(6))->map(fn (Carbon $month) => [
                 'label' => $month->format('M'), 'level' => $history[$tenant->id][$month->format('Y-m')] ?? null,
             ]);
 
             return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend,
-                'reasons' => $this->reasons($evaluation, $thresholds),
+                'reasons' => $this->risk->reasons($evaluation),
                 'owes' => $this->balances->outstandingSummary($tenant)['outstanding_balance'], 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
         });
         $riskCounts = array_merge(['high' => 0, 'medium' => 0, 'low' => 0], $evaluated->countBy('risk_level')->all());
@@ -124,7 +127,7 @@ class ProprietorDashboardService
      *
      * @return array<int, array<string, ?string>> tenant id => ['Y-m' => 'high'|'medium'|'low'|null]
      */
-    private function riskHistory(Collection $tenants, array $thresholds, int $months): array
+    private function riskHistory(Collection $tenants, array $thresholds, int $months, Collection $entries): array
     {
         $today = Carbon::parse(Tenant::localDate());
         $history = [];
@@ -136,7 +139,7 @@ class ProprietorDashboardService
                 $here = $start !== null && $start->lte($asOf) && ($this->policy->assignmentOverlaps($tenant, $month, $asOf)
                     || $tenant->payments->contains(fn ($payment) => $payment->due_date->lte($asOf)));
                 $history[$tenant->id][$month->format('Y-m')] = $here
-                    ? $this->risk->evaluate($tenant, $thresholds, $asOf)['risk_level']
+                    ? $this->risk->evaluate($tenant, $thresholds, $asOf, $entries[$tenant->id])['risk_level']
                     : null;
             }
         }
@@ -171,20 +174,6 @@ class ProprietorDashboardService
 
             return ['category' => $category, 'label' => $label, 'open' => $rows->count() - $resolved, 'resolved' => $resolved];
         })->sortByDesc(fn ($row) => $row['open'] + $row['resolved'])->values()->all();
-    }
-
-    /** The follow-up list's "why flagged" reasons in plain words, one per rule that tripped. */
-    private function reasons(array $evaluation, array $thresholds): array
-    {
-        $plural = fn (int $n, string $word) => $n.' '.Str::plural($word, $n);
-        $days = $evaluation['days_since_last_default'];
-
-        return array_values(array_filter([
-            $evaluation['rules']['Repeated late payments'] ? $plural($evaluation['late_payments_6mo'], 'late payment').' in 6 months' : null,
-            $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
-            $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
-            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Late payment due today' : 'Late payment '.$plural($days, 'day').' ago') : null,
-        ]));
     }
 
     /** Rent coming due in the next 7 days (from each tenant's move-in day) that isn't paid yet. */

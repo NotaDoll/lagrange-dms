@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\RiskFlag;
 use App\Models\Tenant;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class PaymentRiskService
 {
@@ -31,10 +32,12 @@ class PaymentRiskService
      * With $asOf, evaluate as the proprietor would have seen it on that day: only charges due by then,
      * and a payment made after that day still counts as unpaid. Used for the dashboard's risk trend.
      */
-    public function evaluate(Tenant $tenant, ?array $thresholds = null, ?Carbon $asOf = null): array
+    public function evaluate(Tenant $tenant, ?array $thresholds = null, ?Carbon $asOf = null, ?\Illuminate\Support\Collection $entries = null): array
     {
         $today = $asOf ? $asOf->copy()->startOfDay() : Carbon::parse(Tenant::localDate());
-        $charges = $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString())
+        // $entries: the tenant's billing entries up to today, built once by a caller that evaluates many
+        // past dates (the dashboard history); only those due by $today are used, so the result is the same.
+        $charges = ($entries ?? $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString()))
             ->where('category', '!=', Payment::OPENING_BALANCE)
             ->reject(fn (Payment $payment) => $payment->is_advance_credit)
             ->filter(fn (Payment $payment) => $payment->due_date->lte($today))
@@ -75,6 +78,20 @@ class PaymentRiskService
         $count = count(array_filter($rules));
 
         return [...$metrics, 'rules' => $rules, 'rules_tripped' => $count, 'risk_level' => $count >= 2 ? 'high' : ($count === 1 ? 'medium' : 'low')];
+    }
+
+    /** Why a tenant is flagged, in plain words (one per rule that tripped), for the dashboard and tenant page. */
+    public function reasons(array $evaluation): array
+    {
+        $plural = fn (int $n, string $word) => $n.' '.Str::plural($word, $n);
+        $days = $evaluation['days_since_last_default'];
+
+        return array_values(array_filter([
+            $evaluation['rules']['Repeated late payments'] ? $plural($evaluation['late_payments_6mo'], 'late payment').' in 6 months' : null,
+            $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
+            $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
+            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Late payment due today' : 'Late payment '.$plural($days, 'day').' ago') : null,
+        ]));
     }
 
     public function calculateForTenant(Tenant $tenant): RiskFlag

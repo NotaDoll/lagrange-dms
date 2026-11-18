@@ -151,7 +151,7 @@ class ProprietorDashboardTest extends TestCase
         $this->tenant('Other tenant');
         $url = route('proprietor.payments.create', ['tenant_id' => $tenant->id]);
 
-        $this->get(route('proprietor.tenants.index'))->assertOk()->assertSee($url)->assertSee('Record Payment');
+        $this->get(route('proprietor.tenants.show', $tenant))->assertOk()->assertSee($url)->assertSee('Record payment');
         $this->get($url)->assertOk()->assertViewHas('selectedTenantId', $tenant->id)
             ->assertSee('value="'.$tenant->id.'" selected', false);
     }

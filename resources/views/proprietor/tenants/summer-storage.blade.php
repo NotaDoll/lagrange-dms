@@ -3,6 +3,7 @@
 @section('title', 'Summer / Storage')
 
 @section('content')
+    <x-breadcrumbs :items="['Tenants' => route('proprietor.tenants.index'), 'Summer / storage' => null]" />
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h3 mb-0">Summer / Storage</h1>
         <a href="{{ route('proprietor.tenants.index') }}" class="btn btn-outline-secondary">Back to tenants</a>

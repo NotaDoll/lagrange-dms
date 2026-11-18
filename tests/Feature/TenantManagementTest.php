@@ -49,7 +49,7 @@ class TenantManagementTest extends TestCase
         $bed = $this->bed();
 
         $this->actingAs($proprietor)->post(route('proprietor.tenants.store'), $this->form($bed, ['move_in_date' => '2026-12-21']))
-            ->assertRedirect(route('proprietor.tenants.index'))
+            ->assertRedirectContains('/proprietor/tenants/')
             ->assertSessionHas('success', 'Tenant created successfully.')
             ->assertSessionMissing('temp_password');
 
@@ -99,7 +99,7 @@ class TenantManagementTest extends TestCase
             ->assertSessionHasErrors('move_in_date');
         $holdId = $tenant->currentAssignment->id;
         $this->put(route('proprietor.tenants.update', $tenant), $edit + ['move_in_date' => '2026-11-21'])
-            ->assertSessionHasNoErrors()->assertRedirect(route('proprietor.tenants.index'));
+            ->assertSessionHasNoErrors()->assertRedirectContains('/proprietor/tenants/');
 
         $tenant->refresh();
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->status);
@@ -141,7 +141,7 @@ class TenantManagementTest extends TestCase
         $this->actingAs($admin)->put(route('proprietor.tenants.update', $tenant), [
             'first_name' => 'Ana', 'last_name' => 'Cruz', 'email' => ' NEW@example.com ',
             'contact_number' => 'old local number', 'status' => 'inactive',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('proprietor.tenants.index'));
+        ])->assertSessionHasNoErrors()->assertRedirectContains('/proprietor/tenants/');
 
         $this->assertSame('new@example.com', $user->fresh()->email);
         $this->assertSame($user->password, $user->fresh()->password);
@@ -223,7 +223,7 @@ class TenantManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('proprietor.tenants.store'), $this->form($this->bed(), [
             'email' => ' SHARED@example.com ',
-        ]))->assertRedirect(route('proprietor.tenants.index'))->assertSessionHas('notice',
+        ]))->assertRedirectContains('/proprietor/tenants/')->assertSessionHas('notice',
             'Tenant saved. A login with this email already exists, so no new account was created.'
         );
 
@@ -256,7 +256,7 @@ class TenantManagementTest extends TestCase
 
         $this->actingAs($admin)->put(route('proprietor.tenants.update', $tenant), [
             ...$profile, 'email' => ' SHARED@example.com ',
-        ])->assertRedirect(route('proprietor.tenants.index'))->assertSessionHas('notice');
+        ])->assertRedirectContains('/proprietor/tenants/')->assertSessionHas('notice');
 
         $this->assertSame('shared@example.com', $tenant->fresh()->email);
         $this->assertSame('original@example.com', $user->fresh()->email);
@@ -265,7 +265,7 @@ class TenantManagementTest extends TestCase
 
         $this->put(route('proprietor.tenants.update', $tenant), [
             ...$profile, 'email' => ' UNUSED@example.com ',
-        ])->assertRedirect(route('proprietor.tenants.index'))->assertSessionHas('success');
+        ])->assertRedirectContains('/proprietor/tenants/')->assertSessionHas('success');
         $this->assertSame('unused@example.com', $user->fresh()->email);
         $this->assertSame('unused@example.com', $tenant->fresh()->email);
         $this->assertSame($user->password, $user->fresh()->password);

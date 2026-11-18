@@ -63,6 +63,8 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::post('dashboard/sms/refresh', [ProprietorDashboardController::class, 'refreshSmsStatuses'])->middleware('throttle:12,1')->name('dashboard.sms.refresh');
         Route::post('dashboard/summary', [ProprietorDashboardController::class, 'generateSummary'])->middleware('throttle:3,1')->name('dashboard.summary');
         Route::resource('tenants', TenantController::class)->except(['show']);
+        // Numbers only, so it never catches tenants/import or tenants/create.
+        Route::get('tenants/{tenant}', [TenantController::class, 'show'])->whereNumber('tenant')->name('tenants.show');
         Route::resource('rooms', RoomController::class)->except(['show']);
         Route::patch('beds/{bed}/status', [RoomController::class, 'updateBedStatus'])->name('beds.status.update');
 

@@ -3,6 +3,7 @@
 @section('title', 'Tenant Import Results')
 
 @section('content')
+    <x-breadcrumbs :items="['Tenants' => route('proprietor.tenants.index'), 'Bulk import' => route('proprietor.tenants.import.create'), 'Results' => null]" />
     <h1 class="h3 mb-4">Tenant Import Results</h1>
 
     <div class="card mb-3">

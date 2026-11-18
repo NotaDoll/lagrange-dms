@@ -55,7 +55,6 @@
                             <th>Current Room/Bed</th>
                             <th>Status</th>
                             <th>Move-in Date</th>
-                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,9 +64,9 @@
                                 $bed = $assignment?->bed;
                                 $room = $bed?->room;
                             @endphp
-                            <tr>
+                            <tr class="tenant-row" data-href="{{ route('proprietor.tenants.show', $tenant) }}">
                                 <td>
-                                    <div class="fw-semibold">{{ $tenant->name }}</div>
+                                    <a href="{{ route('proprietor.tenants.show', $tenant) }}" class="fw-semibold text-reset text-decoration-none tenant-link">{{ $tenant->name }}</a>
                                     <div class="text-muted small">{{ $tenant->email }}</div>
                                     @if (! $tenant->user_id)
                                         <div class="text-muted small">No login account</div>
@@ -85,25 +84,12 @@
                                         {{ \App\Models\Tenant::STATUS_LABELS[$tenant->status] ?? $tenant->status }}
                                     </span>
                                 </td>
-                                <td>{{ $tenant->actualMoveInDate()?->format('M d, Y') ?? '—' }}</td>
-                                <td class="text-end">
-                                    <div class="btn-group" role="group" aria-label="Tenant actions">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#tenantModal{{ $tenant->id }}">
-                                            View
-                                        </button>
-                                        <a href="{{ route('proprietor.tenants.edit', $tenant) }}" class="btn btn-outline-primary btn-sm">Edit</a>
-                                        <form method="POST" action="{{ route('proprietor.tenants.destroy', $tenant) }}" onsubmit="return confirm('Delete this tenant and their login account?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
-                                        </form>
-                                    </div>
-                                </td>
+                                <td>@if ($tenant->actualMoveInDate()){{ $tenant->actualMoveInDate()->format('M d, Y') }}@else<span class="text-muted">Not yet moved in</span>@endif</td>
                             </tr>
 
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">No tenants found.</td>
+                                <td colspan="4" class="text-center text-muted py-4">No tenants found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -116,78 +102,18 @@
         </div>
     </div>
 
-    @foreach ($tenants as $tenant)
-        <div class="modal fade" id="tenantModal{{ $tenant->id }}" tabindex="-1" aria-labelledby="tenantModalLabel{{ $tenant->id }}" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2 class="modal-title h5" id="tenantModalLabel{{ $tenant->id }}">{{ $tenant->name }}</h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <dl class="row mb-0">
-                            <dt class="col-sm-5">Email</dt>
-                            <dd class="col-sm-7">{{ $tenant->email }}</dd>
-                            <dt class="col-sm-5">Contact Number</dt>
-                            <dd class="col-sm-7">{{ \App\Rules\PhilippineMobile::normalize($tenant->contact_number) ?? $tenant->contact_number ?? 'Not provided' }}</dd>
-                            <dt class="col-sm-5">Home Address</dt>
-                            <dd class="col-sm-7 text-break" style="white-space: pre-line">{{ $tenant->home_address ?? 'Not provided' }}</dd>
-                            <dt class="col-sm-5">Emergency Contact</dt>
-                            <dd class="col-sm-7">
-                                {{ $tenant->emergency_contact_name ?? 'Not provided' }}
-                                @if ($tenant->emergency_contact_number)
-                                    ({{ \App\Rules\PhilippineMobile::normalize($tenant->emergency_contact_number) ?? $tenant->emergency_contact_number }})
-                                @endif
-                            </dd>
-                            <dt class="col-sm-5">Relationship</dt>
-                            <dd class="col-sm-7">{{ \App\Models\Tenant::EMERGENCY_RELATIONSHIPS[$tenant->emergency_contact_relationship] ?? 'Not provided' }}</dd>
-                            <dt class="col-sm-5">Guardian</dt>
-                            <dd class="col-sm-7">
-                                @if ($tenant->guardian_name || $tenant->guardian_contact_number)
-                                    {{ $tenant->guardian_name ?? 'Not provided' }}{{ $tenant->guardian_contact_number ? ' (' . (\App\Rules\PhilippineMobile::normalize($tenant->guardian_contact_number) ?? $tenant->guardian_contact_number) . ')' : '' }}
-                                @else
-                                    Not provided
-                                @endif
-                            </dd>
-                            <dt class="col-sm-5">Move-in Date</dt>
-                            <dd class="col-sm-7">{{ $tenant->actualMoveInDate()?->format('M d, Y') ?? 'Not yet moved in' }}</dd>
-                            <dt class="col-sm-5">Room / Bed</dt>
-                            <dd class="col-sm-7">
-                                @if ($tenant->currentAssignment?->bed?->room)
-                                    {{ $tenant->currentAssignment->bed->locationLabel() }}
-                                @else
-                                    Unassigned
-                                @endif
-                            </dd>
-                            <dt class="col-sm-5">Status</dt>
-                            <dd class="col-sm-7">{{ \App\Models\Tenant::STATUS_LABELS[$tenant->status] ?? $tenant->status }}</dd>
-                            <dt class="col-sm-5">Security Deposit</dt>
-                            <dd class="col-sm-7">₱{{ number_format((float) $tenant->security_deposit, 2) }}</dd>
-                            <dt class="col-sm-5">Advance Payment</dt>
-                            <dd class="col-sm-7">₱{{ number_format((float) $tenant->advance_payment, 2) }}</dd>
-                            <dt class="col-sm-5">Data Privacy Consent</dt>
-                            <dd class="col-sm-7">
-                                @if ($tenant->data_privacy_consent_at)
-                                    {{ $tenant->data_privacy_consent_at->copy()->timezone(\App\Models\Tenant::LOCAL_TIMEZONE)->format('M d, Y, g:i A') }}
-                                    @if ($tenant->consentRecorder)
-                                        <div class="small text-muted">Recorded by {{ $tenant->consentRecorder->name }}</div>
-                                    @endif
-                                @else
-                                    Not recorded
-                                @endif
-                            </dd>
-                        </dl>
-                    </div>
-                    <div class="modal-footer">
-                        @if ($tenant->hasMovedIn())
-                            <a href="{{ route('proprietor.payments.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary">Record Payment</a>
-                        @else
-                            <span class="small text-muted">Payment recording opens after move-in.</span>
-                            <button type="button" class="btn btn-primary" disabled>Record Payment</button>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endforeach
+    <style>
+        .tenant-row { cursor: pointer; }
+        .tenant-row:hover > td { background-color: var(--bs-tertiary-bg, #f8f9fa); }
+        .tenant-link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+    </style>
+    <script>
+        // The whole row opens the tenant; the name stays a real link for keyboard and screen-reader users.
+        document.querySelectorAll('.tenant-row').forEach((row) => row.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, input, form')) return;
+            if (window.getSelection()?.toString()) return; // let people select text
+            if (event.ctrlKey || event.metaKey) { window.open(row.dataset.href, '_blank'); return; }
+            window.location = row.dataset.href;
+        }));
+    </script>
 @endsection
