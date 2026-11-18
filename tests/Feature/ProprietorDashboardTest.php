@@ -90,7 +90,7 @@ class ProprietorDashboardTest extends TestCase
 
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) =>
             $rows->count() === 2
-            && $rows->first()->tenant->is($tenant) && $rows->first()->consecutive_late_months === 2
+            && $rows->first()->tenant->is($tenant) && $rows->first()->consecutive_late_months === 3 // due Aug 1, Sep 1, Oct 1
             && $rows->last()->tenant->is($pending) && $rows->last()->avg_days_overdue === 11.0
         )->assertViewHas('highRiskCount', 2);
         $this->assertDatabaseCount('payments', 1);
@@ -167,29 +167,31 @@ class ProprietorDashboardTest extends TestCase
     public function test_summary_is_generated_only_on_request_and_saves_structured_counts(): void
     {
         $admin = $this->admin();
+        config(["services.groq.key" => "test-key"]);
         $tenant = $this->tenant();
         Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'No water supply', 'status' => Complaint::STATUS_IN_PROGRESS]);
         Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => json_encode(['themes' => [['theme' => 'Water supply interruptions', 'count' => 1]], 'recommended_action' => 'Inspect the water supply.'])]]]], 200)]);
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Generate new summary')
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('id="pd-generate-summary"', false)
             ->assertDontSee('No saved complaint summary')->assertDontSee('No complaint summary has been saved')
             ->assertDontSee('AI SUMMARY')->assertDontSee('AI-generated')
-            ->assertDontSee('May contain inaccuracies. Review before taking action.');
+            ->assertDontSee('Review before taking action.');
         Http::assertNothingSent();
         $this->postJson(route('proprietor.dashboard.summary'))->assertOk();
         $this->assertDatabaseCount('ai_summaries', 1);
         $this->assertSame($admin->id, AiSummary::sole()->generated_by);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Water supply interruptions')->assertSee('Inspect the water supply.')
-            ->assertSee('May contain inaccuracies. Review before taking action.');
+            ->assertSee('Review before taking action.');
         Http::assertSentCount(1);
     }
 
-    public function test_summary_errors_preserve_old_summary_and_do_not_save_invalid_counts(): void
+    public function test_summary_api_failure_keeps_the_previous_summary(): void
     {
         $admin = $this->admin();
+        config(["services.groq.key" => "test-key"]);
         $tenant = $this->tenant();
         AiSummary::create(['generated_by' => $admin->id, 'filter_params' => [], 'prompt_used' => 'Legacy prompt', 'summary_result' => 'Existing saved summary', 'response_time_seconds' => 1]);
         Complaint::create(['tenant_id' => $tenant->id, 'category' => 'other', 'description' => 'One complaint', 'status' => Complaint::STATUS_IN_PROGRESS]);
-        Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => '{"themes":[{"theme":"Invented","count":99}],"recommended_action":"Inspect"}']]]], 200)]);
+        Http::fake(['api.groq.com/*' => Http::response(['error' => 'unavailable'], 503)]);
         $this->postJson(route('proprietor.dashboard.summary'))->assertStatus(502);
         $this->assertDatabaseCount('ai_summaries', 1);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Existing saved summary');

@@ -39,7 +39,7 @@ class SummerStorageTest extends TestCase
         return $tenant;
     }
 
-    public function test_cutoff_preserves_real_dates_and_prorates_only_move_in_month(): void
+    public function test_cutoff_preserves_real_dates_and_bills_from_the_move_in_day(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
         $this->put(route('proprietor.settings.update'), [
@@ -57,17 +57,17 @@ class SummerStorageTest extends TestCase
         $entries = $balances->billingEntries($longStay, '2026-05-01', '2026-06-30');
         $this->assertSame(['150.00', '500.00', '3000.00'], $entries->pluck('amount')->all());
         $this->assertSame($historical->id, $entries->first()->id);
-        $this->assertSame('Balance forward', $entries[1]->description);
-        $this->assertSame('1500.00', $balances->billingEntries($new, '2026-06-01', '2026-06-30')->sole()->amount);
+        $this->assertSame('Opening Balance', $entries[1]->description);
+        // Rent is due on the move-in day: the 15th for the 2021 tenant, the 16th for the new one, full month each.
+        $this->assertSame('2026-06-15', $entries[2]->due_date->toDateString());
+        $june = $balances->billingEntries($new, '2026-06-01', '2026-06-30')->sole();
+        $this->assertSame(['3000.00', '2026-06-16'], [$june->amount, $june->due_date->toDateString()]);
         $this->assertCount(0, $balances->billingEntries($reserved, '2026-06-01', '2026-06-30'));
-        $this->post(route('proprietor.payments.store'), [
-            'tenant_id' => $longStay->id, 'amount' => 3000, 'due_date' => '2026-06-09', 'status' => 'pending',
-        ])->assertSessionHasErrors('due_date');
 
         $url = route('proprietor.payments.accrued.settle', $longStay);
-        $receipt = ['charge_type' => Payment::OPENING_BALANCE, 'due_date' => '2026-06-10', 'paid_date' => '2026-08-15'];
+        $receipt = ['charge_type' => Payment::OPENING_BALANCE, 'due_date' => '2026-06-10', 'paid_date' => '2026-08-15', 'receipt_number' => 'OR-OPEN-1'];
         $this->get(route('proprietor.payments.index', ['category' => Payment::OPENING_BALANCE]))
-            ->assertOk()->assertSee('Balance forward')->assertSee('500.00');
+            ->assertOk()->assertSee('Opening Balance')->assertSee('500.00');
         $this->patch($url, $receipt)->assertRedirect();
         $this->patch($url, $receipt)->assertRedirect();
         $this->assertDatabaseCount('payments', 2);
@@ -91,7 +91,7 @@ class SummerStorageTest extends TestCase
             'year' => 2026, 'months' => [6, 7], 'action' => 'storage', 'tenants' => [$tenant->id, $late->id],
         ])->assertSessionHas('storage_result', fn ($result) => $result['updated'] === 2 && count($result['warnings']) === 3);
         $this->assertSame('200.00', $june->fresh()->amount);
-        $this->assertSame('Storage fee - June 2026', $june->fresh()->description);
+        $this->assertSame('Storage Fee - June 2026', $june->fresh()->description);
         $this->assertSame('100.00', $july->fresh()->amount);
         $this->assertSame(Payment::RENT, $july->fresh()->category);
         $this->assertSame(['100.00'], app(TenantBalanceService::class)
@@ -103,8 +103,8 @@ class SummerStorageTest extends TestCase
             'year' => 2026, 'months' => [6, 7], 'action' => 'amount', 'tenant_id' => $tenant->id, 'amount_month' => 6, 'amount' => 275,
         ])->assertSessionHasNoErrors();
         $this->assertSame('275.00', $june->fresh()->amount);
-        $this->patch(route('proprietor.payments.settle', $june), ['paid_date' => '2026-08-15'])->assertRedirect();
-        $this->get(route('proprietor.payments.index', ['category' => Payment::STORAGE]))->assertOk()->assertSee('Storage fee - June 2026');
+        $this->patch(route('proprietor.payments.settle', $june), ['paid_date' => '2026-08-15', 'receipt_number' => 'OR-504'])->assertRedirect();
+        $this->get(route('proprietor.payments.index', ['category' => Payment::STORAGE]))->assertOk()->assertSee('Storage Fee - June 2026');
         $this->get(route('proprietor.reports.index', ['date_from' => '2026-06-01', 'date_to' => '2026-07-31']))
             ->assertOk()->assertViewHas('incomeCategories', fn ($rows) => $rows[Payment::STORAGE]['collected'] === 275.0
                 && $rows[Payment::RENT]['collected'] === 100.0);

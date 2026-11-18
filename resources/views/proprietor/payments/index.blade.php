@@ -55,7 +55,7 @@
             <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label for="tenant_id" class="form-label">Tenant</label>
-                    <select class="form-select" id="tenant_id" name="tenant_id">
+                    <select class="form-select" id="tenant_id" name="tenant_id" data-searchable data-placeholder="Search tenant">
                         <option value="">All tenants</option>
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>
@@ -69,7 +69,7 @@
                     <label for="status" class="form-label">Status</label>
                     <select class="form-select" id="status" name="status">
                         <option value="">All statuses</option>
-                        @foreach (['pending' => 'Pending', 'paid' => 'Paid', 'overdue' => 'Overdue'] as $value => $label)
+                        @foreach (\App\Models\Payment::STATUS_LABELS as $value => $label)
                             <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
@@ -114,7 +114,9 @@
                                             <input type="hidden" name="charge_type" value="{{ $charge->charge_type }}">
                                             <input type="hidden" name="due_date" value="{{ $charge->due_date->toDateString() }}">
                                             <label class="visually-hidden" for="{{ $fieldId }}">Payment date for {{ $charge->tenant->name }}, {{ $charge->description }}</label>
-                                            <input type="date" class="form-control form-control-sm" id="{{ $fieldId }}" name="paid_date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
+                                            <input type="date" class="form-control form-control-sm" id="{{ $fieldId }}" name="paid_date" value="{{ \App\Models\Tenant::localDate() }}" max="{{ \App\Models\Tenant::localDate() }}" required>
+                                            <label class="visually-hidden" for="{{ $fieldId }}-receipt">Receipt number</label>
+                                            <input type="text" class="form-control form-control-sm" id="{{ $fieldId }}-receipt" name="receipt_number" placeholder="Receipt no." maxlength="50" style="width: 7.5rem;" autocomplete="off" required>
                                             <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
                                         </form>
                                     </td>
@@ -142,6 +144,7 @@
                             <th>Days Overdue</th>
                             <th>Status</th>
                             <th>Receipt No.</th>
+                            <th><span class="visually-hidden">Action</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -160,11 +163,14 @@
                                 <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
                                 <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
-                                <td>{{ $payment->days_overdue }}</td>
+                                <td>{{ $payment->current_days_overdue }}</td>
                                 <td>
-                                    <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->status] }}">
-                                        {{ ucfirst($payment->status) }}
+                                    <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->current_status] }}">
+                                        {{ $payment->status_label }}
                                     </span>
+                                    @if ($payment->payment_type)
+                                        <div class="small text-muted mt-1">{{ \App\Models\Payment::PAYMENT_TYPE_LABELS[$payment->payment_type] ?? ucfirst($payment->payment_type) }}</div>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($payment->receipt_number)
@@ -175,9 +181,23 @@
                                         <span class="text-muted small fst-italic">Not paid</span>
                                     @endif
                                 </td>
+                                <td onclick="event.stopPropagation()" style="cursor: default;">
+                                    @unless ($payment->hasRecordedPayment())
+                                        @php($settleId = 'settle-'.$payment->id)
+                                        <form method="POST" action="{{ route('proprietor.payments.settle', $payment) }}" class="d-flex gap-2 align-items-center">
+                                            @csrf
+                                            @method('PATCH')
+                                            <label class="visually-hidden" for="{{ $settleId }}">Payment date for {{ $payment->tenant->name }}, {{ $payment->description }}</label>
+                                            <input type="date" class="form-control form-control-sm" id="{{ $settleId }}" name="paid_date" value="{{ \App\Models\Tenant::localDate() }}" max="{{ \App\Models\Tenant::localDate() }}" required>
+                                            <label class="visually-hidden" for="{{ $settleId }}-receipt">Receipt number</label>
+                                            <input type="text" class="form-control form-control-sm" id="{{ $settleId }}-receipt" name="receipt_number" placeholder="Receipt no." maxlength="50" style="width: 7.5rem;" autocomplete="off" required>
+                                            <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">Mark paid</button>
+                                        </form>
+                                    @endunless
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-center text-muted py-4">No payments found.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">No payments found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -189,3 +209,5 @@
         </div>
     </div>
 @endsection
+
+@include('partials.searchable-select')

@@ -30,7 +30,7 @@ class PaymentController extends Controller
 
         $payments = Payment::with(['tenant.user', 'tenant.currentAssignment.bed.room', 'utilityBill.room'])
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
-            ->when($status, fn ($query) => $query->where('status', $status))
+            ->withCurrentStatus($status)
             ->when($category === Payment::UTILITIES, fn ($query) => $query->whereNotNull('utility_bill_id'))
             ->when($category === Payment::RENT, fn ($query) => $query->whereNull('utility_bill_id')
                 ->where(fn ($rent) => $rent->whereNull('charge_type')->orWhere('charge_type', Payment::RENT)))
@@ -81,10 +81,11 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'charge_type' => ['required', Rule::in([Payment::OPENING_BALANCE, Payment::STORAGE])],
             'due_date' => ['required', 'date_format:Y-m-d'],
-            'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-        ]);
+            'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Tenant::localDate()],
+            'receipt_number' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9#\/\-. ]+$/', Rule::unique('payments', 'receipt_number')],
+        ], ['receipt_number.required' => 'Enter the receipt number before marking it paid.', 'receipt_number.unique' => 'This receipt number is already used on another payment.']);
 
-        $this->paymentLedgerService->settleAccrued($tenant, $validated['charge_type'], $validated['due_date'], $validated['paid_date']);
+        $this->paymentLedgerService->settleAccrued($tenant, $validated['charge_type'], $validated['due_date'], $validated['paid_date'], $validated['receipt_number'] ?? null);
 
         return redirect()->route('proprietor.payments.index', ['tenant_id' => $tenant->id])
             ->with('success', 'Payment Ledger updated.');
@@ -93,46 +94,66 @@ class PaymentController extends Controller
     public function settle(Request $request, Payment $payment)
     {
         $validated = $request->validate([
-            'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-        ]);
-        $this->paymentLedgerService->settle($payment, $validated['paid_date']);
+            'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Tenant::localDate()],
+            'receipt_number' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9#\/\-. ]+$/', Rule::unique('payments', 'receipt_number')],
+        ], ['receipt_number.required' => 'Enter the receipt number before marking it paid.', 'receipt_number.unique' => 'This receipt number is already used on another payment.']);
+        $this->paymentLedgerService->settle($payment, $validated['paid_date'], $validated['receipt_number'] ?? null);
 
         return redirect()->route('proprietor.payments.index')->with('success', 'Payment marked as paid. Financial Report has been updated.');
     }
 
-    public function store(StorePaymentRequest $request)
+    /**
+     * JSON for the Record Payment form: which due date this payment type would go to
+     * (worked out from the tenant's move-in day) and that month's balance.
+     */
+    public function monthBalance(Request $request, TenantBalanceService $balances)
     {
-        $payment = $this->paymentLedgerService->create($request->validated());
-        $payment->load('tenant.user');
+        $validated = $request->validate([
+            'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
+            'payment_type' => ['required', Rule::in(array_keys(Payment::PAYMENT_TYPE_LABELS))],
+        ]);
+        $tenant = Tenant::findOrFail($validated['tenant_id']);
+        $target = $this->paymentLedgerService->targetMonth($tenant, $validated['payment_type']);
 
-        if ($payment->status === 'paid') {
-            $type = 'payment_confirmation';
-            $message = sprintf(
-                'Your payment of PHP %s due on %s has been recorded as paid.',
-                number_format((float) $payment->amount, 2),
-                $payment->due_date->format('M d, Y')
-            );
-        } elseif ($payment->status === 'overdue') {
-            $type = 'payment_overdue';
-            $message = sprintf(
-                'A payment of PHP %s is overdue. Its due date was %s.',
-                number_format((float) $payment->amount, 2),
-                $payment->due_date->format('M d, Y')
-            );
-        } else {
-            $type = 'payment_due';
-            $message = sprintf(
-                'A payment of PHP %s is due on %s.',
-                number_format((float) $payment->amount, 2),
-                $payment->due_date->format('M d, Y')
-            );
+        if ($target['month'] === null) {
+            return response()->json(['ok' => false, 'message' => $target['reason']]);
         }
 
-        $this->notificationService->notify($payment->tenant->user, $type, $message);
+        $balance = $balances->monthBalance($tenant, $target['month']);
+        $due = $balance['unpaid_rows']->first()?->due_date ?? $balance['charge']?->due_date;
+
+        return response()->json([
+            'ok' => true,
+            'month' => $target['month']->format('F Y'),
+            'due_date' => $due?->format('M d, Y'),
+            'overdue' => $due !== null && $due->lt(Tenant::localDate()),
+            'amount' => $balance['amount'],
+            'paid' => $balance['paid'],
+            'remaining' => $balance['remaining'],
+            'storage' => $balance['storage'],
+        ]);
+    }
+
+    public function store(StorePaymentRequest $request)
+    {
+        $rows = $this->paymentLedgerService->recordPayment($request->validated());
+        $first = $rows->first();
+        $first->load('tenant.user');
+        $typeLabel = Payment::PAYMENT_TYPE_LABELS[$first->payment_type];
+        $months = $rows->map(fn (Payment $row) => $row->due_date->format('M Y'))->unique()->implode(', ');
+        $total = number_format((float) $rows->sum('amount'), 2);
+        // Advance rows share one receipt with a per-month suffix (RCPT-X-1, RCPT-X-2, ...).
+        $receipt = $rows->count() > 1 ? preg_replace('/-\d+$/', '', $first->receipt_number) : $first->receipt_number;
+
+        $this->notificationService->notify(
+            $first->tenant->user,
+            'payment_confirmation',
+            "Your {$typeLabel} payment of PHP {$total} for {$months} has been recorded. Receipt No: {$receipt}"
+        );
 
         return redirect()
             ->route('proprietor.payments.index')
-            ->with('success', 'Payment recorded successfully.');
+            ->with('success', "{$typeLabel} payment of PHP {$total} recorded for {$months}.");
     }
 
     public function import(Request $request)

@@ -53,12 +53,14 @@ class RoomTransferRentTest extends TestCase
             $this->get(route($route))->assertOk()->assertSee('1,500.00')
                 ->assertViewHas('rentTerms', fn ($terms) => $terms['room'] === 'NEW' && $terms['monthly_rate'] === 1500.0
                     && $terms['effective_from']->toDateString() === '2026-10-19')
-                ->assertViewHas('outstandingBalance', 2222.58);
+                ->assertViewHas('outstandingBalance', 3900.0); // Aug 10, Sep 10, Oct 10 at the old 1,300
         }
         $this->travelTo(now()->setDate(2026, 10, 31)->setTime(12, 0));
-        $this->assertSame(3722.58, $service->summary($tenant->fresh())['outstanding_balance']);
+        $this->assertSame(3900.0, $service->summary($tenant->fresh())['outstanding_balance']); // Oct was already billed on Oct 10
+        $this->travelTo(now()->setDate(2026, 11, 10)->setTime(12, 0));
+        $this->assertSame(5400.0, $service->summary($tenant->fresh())['outstanding_balance']); // Nov 10 at the new 1,500
         $this->actingAs(User::factory()->create(['role' => 'proprietor']))
-            ->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 3722.58);
+            ->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 5400.0);
     }
 
     public function test_latest_transfer_wins_when_multiple_assignments_start_on_the_same_day(): void
@@ -69,10 +71,10 @@ class RoomTransferRentTest extends TestCase
         $this->transfer($tenant, $this->bed('LATEST', 1800));
         $service = app(TenantBalanceService::class);
         $this->assertSame(1800.0, $service->currentRent($tenant)['monthly_rate']);
-        $this->assertSame(4022.58, $service->summary($tenant->fresh())['outstanding_balance']);
+        $this->assertSame(3900.0, $service->summary($tenant->fresh())['outstanding_balance']); // Aug–Oct due on the 10th, before the transfers
         $this->actingAs($tenant->user)->get(route('tenant.payments.index'))->assertOk()
             ->assertViewHas('rentTerms', fn ($terms) => $terms['room'] === 'LATEST')
-            ->assertViewHas('outstandingBalance', 4022.58);
+            ->assertViewHas('outstandingBalance', 3900.0);
     }
 
     public function test_unassigned_tenant_retains_existing_debt_without_showing_an_active_rent(): void
@@ -82,6 +84,6 @@ class RoomTransferRentTest extends TestCase
         $this->transfer($tenant, null);
         $this->actingAs($tenant->user)->get(route('tenant.dashboard'))->assertOk()
             ->assertSee('No room is currently assigned.')
-            ->assertViewHas('rentTerms', null)->assertViewHas('outstandingBalance', 2222.58);
+            ->assertViewHas('rentTerms', null)->assertViewHas('outstandingBalance', 3900.0);
     }
 }

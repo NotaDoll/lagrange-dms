@@ -69,6 +69,7 @@ class ProprietorDashboardController extends Controller
         try {
             $summary = $summarizer->summarize($complaints, [
                 'generated_by' => $request->user()->id,
+                'fallback'     => false,
             ]);
 
             return response()->json([
@@ -81,7 +82,7 @@ class ProprietorDashboardController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'Unable to generate a summary: '.$exception->getMessage(),
+                'message' => 'Unable to generate a summary. '.$exception->getMessage(),
             ], 502);
         }
     }

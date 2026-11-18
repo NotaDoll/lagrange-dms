@@ -36,11 +36,14 @@
                                 <td>PHP {{ number_format((float) $payment->amount, 2) }}</td>
                                 <td>{{ $payment->due_date->format('M d, Y') }}</td>
                                 <td>{{ $payment->paid_date?->format('M d, Y') ?? 'Not paid' }}</td>
-                                <td>{{ $payment->days_overdue }}</td>
+                                <td>{{ $payment->current_days_overdue }}</td>
                                 <td>
-                                    <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->status] }}">
-                                        {{ ucfirst($payment->status) }}
+                                    <span class="badge text-bg-{{ ['pending' => 'secondary', 'paid' => 'success', 'overdue' => 'danger'][$payment->current_status] }}">
+                                        {{ $payment->status_label }}
                                     </span>
+                                    @if ($payment->payment_type)
+                                        <div class="small text-muted mt-1">{{ \App\Models\Payment::PAYMENT_TYPE_LABELS[$payment->payment_type] ?? ucfirst($payment->payment_type) }}</div>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($payment->receipt_number)

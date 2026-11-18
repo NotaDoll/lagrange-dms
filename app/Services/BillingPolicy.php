@@ -21,6 +21,22 @@ class BillingPolicy
             : null;
     }
 
+    /**
+     * Rent falls due every month on the tenant's move-in day (moved in on the 10th → due every 10th).
+     * In shorter months a 29th–31st move-in day falls on the month's last day.
+     */
+    public function dueDate(Tenant $tenant, Carbon $month): ?Carbon
+    {
+        $moveIn = $tenant->actualMoveInDate();
+        if ($moveIn === null) {
+            return null;
+        }
+
+        $first = $month->copy()->startOfMonth()->startOfDay();
+
+        return $first->day(min($moveIn->day, $first->daysInMonth));
+    }
+
     public function assignmentOverlaps(Tenant $tenant, Carbon $from, Carbon $to): bool
     {
         $tenant->loadMissing('roomAssignments');

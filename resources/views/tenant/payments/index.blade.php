@@ -75,7 +75,7 @@
                         <tr>
                             <td data-label="Receipt No.">PAY-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</td>
                             <td data-label="Description">
-                                {{ ucfirst($payment->status) }} {{ $payment->description }} due {{ $payment->due_date->format('M d, Y') }}
+                                {{ $payment->status_label }} · {{ $payment->description }} due {{ $payment->due_date->format('M d, Y') }}
                             </td>
                             <td data-label="Amount">PHP {{ number_format((float) $payment->amount, 2) }}</td>
                             <td data-label="Date">{{ ($payment->paid_date ?? $payment->due_date)->format('M d, Y') }}</td>

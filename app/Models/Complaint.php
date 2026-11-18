@@ -19,6 +19,12 @@ class Complaint extends Model
 
     protected $casts = ['read_at' => 'datetime'];
 
+    /** Complaints the proprietor still has to act on (anything not resolved). */
+    public function scopeOpen($query)
+    {
+        return $query->where('status', '!=', self::STATUS_RESOLVED);
+    }
+
     public function isUnread(): bool
     {
         return $this->read_at === null;

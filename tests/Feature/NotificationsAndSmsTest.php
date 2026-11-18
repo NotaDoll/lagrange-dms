@@ -43,14 +43,18 @@ class NotificationsAndSmsTest extends TestCase
             'status' => 'active',
             'move_in_date' => '2026-07-01',
         ]);
+        $room = \App\Models\Room::create(['room_number' => 'N1', 'floor' => '1', 'capacity' => 1, 'monthly_rate' => 1200]);
+        $bed = \App\Models\Bed::create(['room_id' => $room->id, 'bed_label' => 'A', 'status' => 'available']);
+        \App\Models\RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-07-01', 'status' => 'active']);
 
         $this->actingAs($proprietor)
             ->post(route('proprietor.payments.store'), [
                 'tenant_id' => $tenant->id,
                 'amount' => 1200,
-                'due_date' => '2026-07-01',
+                'due_date' => '2026-07-31',
                 'paid_date' => '2026-07-01',
-                'status' => 'paid',
+                'payment_type' => 'full',
+                'receipt_number' => 'OR-1',
             ])
             ->assertRedirect(route('proprietor.payments.index'));
 

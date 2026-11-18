@@ -42,8 +42,8 @@ class TenantBalanceService
             ->groupBy(fn ($entry) => $entry->due_date->format('Y-m'));
 
         for ($month = $firstMonth->copy(); $month->lte($lastDate); $month->addMonth()) {
-            $due = $month->copy()->endOfMonth()->startOfDay();
-            if ($due->lt($from) || $due->gt($lastDate)) {
+            $due = $this->policy->dueDate($tenant, $month);
+            if ($due === null || $due->lt($start) || $due->lt($from) || $due->gt($lastDate)) {
                 continue;
             }
 
@@ -73,15 +73,53 @@ class TenantBalanceService
         return $entries;
     }
 
+    /**
+     * What a tenant owes for one month's rent or storage fee, and how much of it is already paid.
+     * Utility shares and the opening balance are separate charges and are not included.
+     *
+     * @return array{charge: ?Payment, amount: float, paid: float, remaining: float, unrecorded: float, unpaid_rows: Collection, has_unpaid_record: bool, storage: bool}
+     */
+    public function monthBalance(Tenant $tenant, Carbon $month): array
+    {
+        $month = $month->copy()->startOfMonth();
+        $tenant->loadMissing(['roomAssignments.bed.room', 'payments', 'monthModes']);
+        $mode = $tenant->monthModes->first(fn ($item) => $item->month->isSameMonth($month));
+        $charge = $this->monthlyCharge($tenant, $month, $mode);
+        $recorded = $tenant->payments->whereNull('utility_bill_id')
+            ->filter(fn (Payment $entry) => $entry->charge_type !== Payment::OPENING_BALANCE && $entry->due_date->isSameMonth($month));
+        $unpaidRows = $recorded->reject->hasRecordedPayment()->sortBy('id')->values();
+        $paid = round((float) $recorded->filter->hasRecordedPayment()->sum('amount'), 2);
+        $unpaidRecorded = round((float) $unpaidRows->sum('amount'), 2);
+        $amount = round((float) ($charge?->amount ?? 0), 2);
+        // Same rule as billingEntries(): recorded rows (paid or not) cover the computed charge first;
+        // whatever is left of it is still owed, plus any recorded charge not yet paid.
+        $unrecorded = max(0, round($amount - (float) $recorded->sum('amount'), 2));
+        if ($charge?->charge_type === Payment::STORAGE && $recorded->contains->hasRecordedPayment()) {
+            $unrecorded = 0;
+        }
+
+        return [
+            'charge' => $charge,
+            'amount' => max($amount, round($paid + $unpaidRecorded, 2)),
+            'paid' => $paid,
+            'remaining' => round($unpaidRecorded + $unrecorded, 2),
+            'unrecorded' => $unrecorded,
+            'unpaid_rows' => $unpaidRows,
+            'has_unpaid_record' => $unpaidRows->isNotEmpty(),
+            'storage' => $charge?->charge_type === Payment::STORAGE,
+        ];
+    }
+
     public function monthlyCharge(Tenant $tenant, Carbon $month, ?TenantMonthMode $mode): ?Payment
     {
         $start = $this->policy->tenantStart($tenant);
-        $due = $month->copy()->endOfMonth()->startOfDay();
-        if ($start === null || $start->gt($due)) {
+        $due = $this->policy->dueDate($tenant, $month);
+        if ($start === null || $due === null || $start->gt($due)) {
             return null;
         }
 
-        $periodStart = $month->copy()->max($start);
+        // The charge due on $due pays for the month that starts that day, so it follows the room held then.
+        $periodStart = $due;
         $tenant->loadMissing('roomAssignments.bed.room');
         $assignment = $tenant->roomAssignments
             ->filter(fn ($item) => $item->start_date->lte($due)
@@ -95,11 +133,8 @@ class TenantBalanceService
             return $this->computedEntry($tenant, $mode->storageFee(), $due, Payment::STORAGE);
         }
 
+        // Billing runs from move-in day to move-in day, so every month (including the first) is a full month.
         $rate = $assignment->bed?->room?->monthlyRateFor($month->format('Y-m')) ?? 0;
-        $moveIn = $tenant->actualMoveInDate();
-        if ($moveIn->equalTo($start) && $moveIn->isSameMonth($month) && $moveIn->day > 1) {
-            $rate = round($rate * ($month->daysInMonth - $moveIn->day + 1) / $month->daysInMonth, 2);
-        }
 
         return $this->computedEntry($tenant, $rate, $due, Payment::RENT);
     }
@@ -170,7 +205,7 @@ class TenantBalanceService
             'monthly_rate' => $storage ? $mode->storageFee() : (float) $room->monthly_rate,
             'label' => $storage ? 'Storage fee' : 'Rent',
             'effective_from' => $storage ? $month : $assignment->start_date,
-            'due_date' => $month->copy()->endOfMonth(),
+            'due_date' => $this->policy->dueDate($tenant, $month),
         ];
     }
 

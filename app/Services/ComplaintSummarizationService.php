@@ -17,12 +17,19 @@ class ComplaintSummarizationService
 
         $facts = $this->computeFacts($complaints);
         $prompt = $this->buildPrompt($complaints, $facts);
-        $text = $this->summarizePrompt($prompt, $facts)
-            ?? "AI summary unavailable (check your API key and laravel.log).\n\n".$this->formatFacts($facts);
+        $text = $this->summarizePrompt($prompt, $facts);
+
+        if ($text === null) {
+            if (($options['fallback'] ?? true) === false) {
+                throw new \RuntimeException('The AI service did not respond. Your previous summary was kept.');
+            }
+
+            $text = "AI summary unavailable (check your API key and laravel.log).\n\n".$this->formatFacts($facts);
+        }
 
         return AiSummary::create([
             'generated_by'          => $options['generated_by'] ?? null,
-            'filter_params'         => collect($options)->except('generated_by')->all(),
+            'filter_params'         => collect($options)->except(['generated_by', 'fallback'])->all(),
             'prompt_used'           => $prompt,
             'summary_result'        => $text,
             'response_time_seconds' => round(microtime(true) - $startedAt, 2),

@@ -6,18 +6,6 @@
         <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div><h1 class="h3 fw-bold mb-1">Dashboard</h1><p class="text-muted mb-0">{{ today()->format('l, F j, Y') }}</p></div>
         </header>
-        <section class="card mb-4" aria-labelledby="pd-priority"><div class="card-body">
-            <h2 id="pd-priority" class="h6 fw-semibold mb-3">Priority alerts</h2>
-            <ul class="pd-alerts list-unstyled mb-0">
-                <li><span class="pd-tag pd-high">HIGH RISK</span><a href="{{ route('proprietor.payments.index') }}">{{ $highRiskCount }} {{ Str::plural('tenant', $highRiskCount) }} {{ $highRiskCount === 1 ? 'is' : 'are' }} flagged high-risk for payment default.</a></li>
-                @if ($latestSummary)
-                <li><span class="pd-tag pd-ai">AI SUMMARY</span><a href="{{ route('proprietor.complaints.index') }}">{{ $summaryContent['alert'] }}</a></li>
-                @endif
-                <li><span class="pd-tag pd-medium">OVERDUE</span><a href="{{ route('proprietor.complaints.index') }}">{{ $oldComplaints }} {{ Str::plural('complaint', $oldComplaints) }} {{ $oldComplaints === 1 ? 'has' : 'have' }} been open for more than 7 days.</a></li>
-                <li><span class="pd-tag pd-room">ROOMS</span><a href="{{ route('proprietor.rooms.index') }}">{{ $reservedRooms }} {{ Str::plural('room', $reservedRooms) }} marked reserved, {{ $upcomingMoveIns }} upcoming {{ Str::plural('move-in', $upcomingMoveIns) }}@if ($nextMoveIn) (next {{ \Illuminate\Support\Carbon::parse($nextMoveIn)->format('M j') }})@endif, and {{ $availableBeds }} {{ Str::plural('bed', $availableBeds) }} available.</a></li>
-            </ul>
-        </div></section>
-
         <div class="row g-3 mb-4">
             <div class="col-sm-6 col-xl-3"><section class="card h-100"><div class="card-body">
                 <h2 class="pd-stat-label">Occupancy</h2><div class="pd-stat-value">{{ $occupiedBeds }} <span>/ {{ $totalBeds }}</span></div>
@@ -38,6 +26,18 @@
             </div></section></div>
         </div>
 
+                <section class="card mb-4" aria-labelledby="pd-priority"><div class="card-body">
+            <h2 id="pd-priority" class="h6 fw-semibold mb-3">Priority alerts</h2>
+            <ul class="pd-alerts list-unstyled mb-0">
+                <li><span class="pd-tag pd-high">HIGH RISK</span><a href="{{ route('proprietor.payments.index') }}">{{ $highRiskCount }} {{ Str::plural('tenant', $highRiskCount) }} {{ $highRiskCount === 1 ? 'is' : 'are' }} flagged high-risk for payment default.</a></li>
+                @if ($latestSummary)
+                <li><span class="pd-tag pd-ai">AI SUMMARY</span><a href="{{ route('proprietor.complaints.index') }}">{{ $summaryContent['alert'] }}</a></li>
+                @endif
+                <li><span class="pd-tag pd-medium">OVERDUE</span><a href="{{ route('proprietor.complaints.index') }}">{{ $oldComplaints }} {{ Str::plural('complaint', $oldComplaints) }} {{ $oldComplaints === 1 ? 'has' : 'have' }} been open for more than 7 days.</a></li>
+                <li><span class="pd-tag pd-room">ROOMS</span><a href="{{ route('proprietor.rooms.index') }}">{{ $reservedRooms }} {{ Str::plural('room', $reservedRooms) }} marked reserved, {{ $upcomingMoveIns }} upcoming {{ Str::plural('move-in', $upcomingMoveIns) }}@if ($nextMoveIn) (next {{ \Illuminate\Support\Carbon::parse($nextMoveIn)->format('M j') }})@endif, and {{ $availableBeds }} {{ Str::plural('bed', $availableBeds) }} available.</a></li>
+            </ul>
+        </div></section>
+        
         <div class="row g-4">
             <div class="col-xl-7"><section class="card h-100" aria-labelledby="pd-follow"><div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h2 id="pd-follow" class="h6 fw-semibold mb-0">Tenants to follow up</h2><a class="btn btn-outline-primary" href="{{ route('proprietor.settings.edit') }}#risk-thresholds">Risk thresholds</a></div>

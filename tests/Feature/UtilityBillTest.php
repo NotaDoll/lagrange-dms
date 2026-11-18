@@ -41,7 +41,7 @@ class UtilityBillTest extends TestCase
 
     private function admin(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 19));
+        $this->travelTo(now()->setDate(2026, 10, 19)->setTime(10, 0));
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
     }
 
@@ -66,9 +66,9 @@ class UtilityBillTest extends TestCase
         $this->get(route('proprietor.utility-bills.index'))->assertOk()->assertSee('tenant shares')->assertSee('Electricity');
         $this->get(route('proprietor.utility-bills.create'))->assertOk()->assertSee('Tenant share preview');
         $this->get(route('proprietor.utility-bills.edit', $bill))->assertOk();
-        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 5300.0);
+        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 10500.0); // 4 tenants x rent due Sep 1 and Oct 1, plus the 100 bill
         $share = $first->payments()->sole();
-        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19'])->assertRedirect();
+        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19', 'receipt_number' => 'OR-505'])->assertRedirect();
         $this->assertSame($before, app(TenantBalanceService::class)->summary($first->fresh())['outstanding_balance']);
         $this->actingAs($first->user)->get(route('tenant.payments.index'))->assertOk()->assertSee('Electricity')->assertViewHas('outstandingBalance', $before);
     }
@@ -82,10 +82,10 @@ class UtilityBillTest extends TestCase
             'billing_period_start' => '2026-09-01', 'billing_period_end' => '2026-09-30', 'due_date' => '2026-09-30',
         ]))->assertRedirect();
         $share = Payment::sole();
-        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19'])->assertRedirect();
-        $this->assertSame(1300.0, app(TenantBalanceService::class)->summary($tenant->fresh())['outstanding_balance']);
-        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 1400.0)
-            ->assertViewHas('totalCollected', 100.0)->assertViewHas('totalOutstanding', 1300.0);
+        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19', 'receipt_number' => 'OR-506'])->assertRedirect();
+        $this->assertSame(2600.0, app(TenantBalanceService::class)->summary($tenant->fresh())['outstanding_balance']); // rent due Sep 1 and Oct 1
+        $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 2700.0)
+            ->assertViewHas('totalCollected', 100.0)->assertViewHas('totalOutstanding', 2600.0);
     }
 
     public function test_bill_edits_replace_unpaid_shares_and_protect_collected_shares(): void
@@ -100,7 +100,7 @@ class UtilityBillTest extends TestCase
         $this->assertDatabaseCount('payments', 2);
         $this->assertSame(200.0, (float) $bill->payments()->sum('amount'));
         $share = $bill->payments()->first();
-        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19'])->assertRedirect();
+        $this->patch(route('proprietor.payments.settle', $share), ['paid_date' => '2026-10-19', 'receipt_number' => 'OR-507'])->assertRedirect();
         $this->put(route('proprietor.utility-bills.update', $bill), $this->billData($room, ['amount' => '300.00']))->assertSessionHasErrors('amount');
         $this->assertSame('200.00', $bill->fresh()->amount);
         $this->put(route('proprietor.utility-bills.update', $bill), $this->billData($room, ['amount' => '200.00', 'status' => 'paid', 'paid_date' => '2026-10-19', 'notes' => 'Provider paid']))->assertSessionHasNoErrors()->assertRedirect();

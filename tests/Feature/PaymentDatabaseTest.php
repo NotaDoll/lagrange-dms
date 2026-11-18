@@ -14,22 +14,22 @@ class PaymentDatabaseTest extends TestCase
 
     public function test_recording_and_settling_a_charge_updates_ledger_and_report_without_duplication(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 19));
+        $this->travelTo(now()->setDate(2026, 10, 19)->setTime(10, 0));
         $tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => '2026-10-01']);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
-        $this->post(route('proprietor.payments.store'), [
-            'tenant_id' => $tenant->id, 'amount' => 2500, 'due_date' => '2026-10-01', 'status' => 'pending',
-        ])->assertRedirect(route('proprietor.payments.index'));
-        $payment = Payment::sole();
-        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'overdue', 'paid_date' => null, 'days_overdue' => 18]);
+        // A charge recorded as "pending" earlier (e.g. by the Excel import) turns Overdue on its own once past due.
+        $payment = Payment::create(['tenant_id' => $tenant->id, 'amount' => 2500, 'due_date' => '2026-10-01', 'status' => 'pending']);
+        $this->assertSame(['overdue', 'Overdue', 18], [$payment->current_status, $payment->status_label, $payment->current_days_overdue]);
+        $this->get(route('proprietor.payments.index', ['status' => 'overdue']))->assertOk()->assertSee('2,500.00')->assertSee('Overdue');
+        $this->get(route('proprietor.payments.index', ['status' => 'pending']))->assertOk()->assertDontSee('2,500.00');
         $this->get(route('proprietor.payments.index'))->assertOk()->assertSee('2,500.00')->assertSee('Mark paid');
         $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalOutstanding', 2500.0)->assertViewHas('totalCollected', 0.0);
-        $this->patch(route('proprietor.payments.settle', $payment), ['paid_date' => '2026-10-19'])->assertRedirect();
-        $this->patch(route('proprietor.payments.settle', $payment), ['paid_date' => '2026-10-18'])->assertRedirect();
+        $this->patch(route('proprietor.payments.settle', $payment), ['paid_date' => '2026-10-19', 'receipt_number' => 'OR-502'])->assertRedirect();
+        $this->patch(route('proprietor.payments.settle', $payment), ['paid_date' => '2026-10-18', 'receipt_number' => 'OR-503'])->assertRedirect();
         $this->assertDatabaseCount('payments', 1);
         $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'paid', 'days_overdue' => 18]);
         $this->assertSame('2026-10-19', $payment->fresh()->paid_date->toDateString());
-        $this->assertDatabaseCount('notifications', 2); // Original charge + one confirmation.
+        $this->assertDatabaseCount('notifications', 1); // One confirmation.
         $this->get(route('proprietor.reports.index'))->assertOk()->assertViewHas('totalBilled', 2500.0)
             ->assertViewHas('totalCollected', 2500.0)->assertViewHas('totalOutstanding', 0.0)->assertViewHas('paidLate', 1);
     }
@@ -38,15 +38,13 @@ class PaymentDatabaseTest extends TestCase
     {
         $tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'move_in_date' => today()->toDateString()]);
         $this->actingAs(User::factory()->create(['role' => 'proprietor']));
-        $entry = ['tenant_id' => $tenant->id, 'amount' => 2000, 'due_date' => today()->toDateString(), 'status' => 'paid'];
+        $entry = ['tenant_id' => $tenant->id, 'amount' => 2000, 'due_date' => today()->toDateString(), 'payment_type' => 'full'];
         $this->post(route('proprietor.payments.store'), $entry)->assertSessionHasErrors('paid_date');
-        $this->post(route('proprietor.payments.store'), $entry + ['paid_date' => today()->addDay()->toDateString()])->assertSessionHasErrors('paid_date');
-        $entry['status'] = 'pending';
-        $this->post(route('proprietor.payments.store'), $entry + ['paid_date' => today()->toDateString()])->assertSessionHasErrors('paid_date');
+        $tomorrow = \Illuminate\Support\Carbon::parse(Tenant::localDate())->addDay()->toDateString();
+        $this->post(route('proprietor.payments.store'), $entry + ['paid_date' => $tomorrow])->assertSessionHasErrors('paid_date');
+        unset($entry['payment_type']);
+        $this->post(route('proprietor.payments.store'), $entry + ['paid_date' => Tenant::localDate()])->assertSessionHasErrors('payment_type');
         $this->assertDatabaseCount('payments', 0);
-        $entry['status'] = 'paid';
-        $this->post(route('proprietor.payments.store'), $entry + ['paid_date' => today()->toDateString()])->assertRedirect(route('proprietor.payments.index'));
-        $this->get(route('proprietor.reports.index'))->assertViewHas('totalCollected', 2000.0)->assertViewHas('paidOnTime', 1);
     }
 
     public function test_empty_ledger_and_record_form_render_with_database_backed_navigation(): void

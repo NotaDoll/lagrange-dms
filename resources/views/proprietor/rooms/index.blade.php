@@ -356,7 +356,7 @@
                                     <div class="alert alert-warning mb-0">No tenants are available to assign right now. Add a tenant, or end another tenant's bed assignment, then try again.</div>
                                 @else
                                     <label for="tenant_id_{{ $bed->id }}" class="form-label">Tenant</label>
-                                    <select class="form-select" id="tenant_id_{{ $bed->id }}" name="tenant_id" required>
+                                    <select class="form-select" id="tenant_id_{{ $bed->id }}" name="tenant_id" required data-searchable data-placeholder="Search tenant by name or email">
                                         <option value="">Select tenant</option>
                                         @foreach ($availableTenants as $tenant)
                                             <option value="{{ $tenant->id }}">{{ $tenant->name }} - {{ $tenant->email }}</option>
@@ -444,3 +444,5 @@
         })();
     </script>
 @endsection
+
+@include('partials.searchable-select')

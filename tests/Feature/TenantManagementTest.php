@@ -80,7 +80,7 @@ class TenantManagementTest extends TestCase
         $this->get(route('proprietor.tenants.index'))->assertOk()->assertSee('Not yet moved in');
         $this->get(route('proprietor.tenants.edit', $tenant))->assertOk()->assertSee('Set when the tenant moves in.');
         $this->post(route('proprietor.payments.store'), [
-            'tenant_id' => $tenant->id, 'amount' => 5000, 'due_date' => '2026-11-30', 'status' => 'pending',
+            'tenant_id' => $tenant->id, 'amount' => 5000, 'due_date' => '2026-11-30', 'payment_type' => 'full', 'paid_date' => \App\Models\Tenant::localDate(), 'receipt_number' => 'OR-1',
         ])->assertSessionHasErrors('tenant_id');
         $this->post(route('proprietor.utility-bills.store'), [
             'room_id' => $bed->room_id, 'bill_type' => 'water', 'billing_period_start' => '2026-11-01',
@@ -112,7 +112,7 @@ class TenantManagementTest extends TestCase
         $this->assertSame('2026-11-21', $tenant->fresh()->move_in_date->toDateString());
 
         $this->travelTo(now()->setDate(2026, 12, 31)->setTime(12, 0));
-        $this->assertEquals([1666.67, 5000.0], $balance->billingEntries($tenant, '2026-11-01', '2026-12-31')->pluck('amount')->all());
+        $this->assertEquals([5000.0, 5000.0], $balance->billingEntries($tenant, '2026-11-01', '2026-12-31')->pluck('amount')->all()); // due Nov 21 and Dec 21, full months
     }
 
     public function test_bed_cannot_be_submitted_with_a_different_room_or_type(): void
