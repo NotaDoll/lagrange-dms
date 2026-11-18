@@ -24,18 +24,12 @@ return [
 
     'groq' => [
         'key' => env('GROQ_API_KEY'),
-        'model' => env('GROQ_MODEL'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-120b'),
     ],
 
     'textbee' => [
         'key' => env('TEXTBEE_API_KEY'),
     ],
-
-    'groq' => [
-    'key'   => env('GROQ_API_KEY'),
-    'model' => env('GROQ_MODEL', 'openai/gpt-oss-120b'),
-],
-
 
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
