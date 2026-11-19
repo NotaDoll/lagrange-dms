@@ -405,6 +405,18 @@ class ProprietorDashboardTest extends TestCase
             ->assertSee('Complaints by category')->assertSee('Complaint Summary');
     }
 
+    public function test_remembered_risk_history_refreshes_as_soon_as_a_payment_is_recorded(): void
+    {
+        $this->admin();
+        $tenant = $this->resident('Paid Late', '2026-08-15', '701'); // rent due Sep 15 and Oct 15
+        $septemberLevel = fn () => collect($this->get(route('proprietor.dashboard'))->viewData('riskTrend'))->firstWhere('label', 'Sep 2026');
+
+        $this->assertSame(1, $septemberLevel()['medium'] + $septemberLevel()['high']); // Sep 15 unpaid at Sep 30
+        // Paid on the due date, recorded today: September was on time after all.
+        Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => '2026-09-15', 'paid_date' => '2026-09-15', 'status' => 'paid', 'payment_type' => 'full']);
+        $this->assertSame(['label' => 'Sep 2026', 'high' => 0, 'medium' => 0, 'low' => 1], $septemberLevel());
+    }
+
     public function test_follow_up_list_shows_an_all_clear_message_without_filters(): void
     {
         $this->admin();

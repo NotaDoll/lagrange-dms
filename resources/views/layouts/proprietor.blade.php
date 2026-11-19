@@ -46,7 +46,7 @@
             display: flex;
             align-items: center;
             gap: .45rem;
-            margin-bottom: clamp(.5rem, 1.5vh, .9rem);
+            margin-bottom: clamp(.75rem, 2vh, 1.4rem);
         }
 
         .proprietor-logo-link {
@@ -66,22 +66,24 @@
             object-fit: contain;
         }
 
+        /* Menu items: roomy, square, full-width highlight bars. */
         .proprietor-sidebar .nav-link {
             position: relative;
             display: flex;
             align-items: center;
-            gap: .65rem;
+            gap: .85rem;
             white-space: nowrap;
             line-height: 1.35;
             color: #6b7280;
-            border-radius: 12px;
+            border-radius: 0;
             font-size: 1rem;
-            padding: clamp(.25rem, .95vh, .55rem) .75rem;
-            margin-bottom: .2rem;
+            /* Bleed past the sidebar padding so the highlight spans the full width. */
+            margin: 0 -1rem clamp(.2rem, .6vh, .4rem);
+            padding: clamp(.45rem, 1.3vh, .75rem) 1.75rem;
             transition: color .2s ease, background-color .2s ease;
         }
 
-        .proprietor-sidebar .nav-link > .bi { flex-shrink: 0; font-size: 1.1rem; }
+        .proprietor-sidebar .nav-link > .bi { flex-shrink: 0; font-size: 1.15rem; }
 
         .proprietor-sidebar .nav-link:hover {
             color: #1a1a1a;
@@ -99,8 +101,23 @@
             color: #6b7280;
             font-size: .75rem;
             font-weight: 600;
-            margin: .45rem .75rem .25rem;
+            margin: clamp(.6rem, 1.6vh, 1rem) .75rem clamp(.3rem, .8vh, .5rem);
         }
+
+        /* The sidebar's ☰ toggle: a plain icon with a round highlight. */
+        #proprietorSidebarToggle {
+            width: 40px;
+            height: 40px;
+            min-height: 40px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            color: var(--theme-plum);
+            font-size: 1.35rem;
+            background: transparent;
+        }
+        #proprietorSidebarToggle:hover,
+        #proprietorSidebarToggle:focus-visible { background: var(--theme-pink-light); color: var(--theme-plum); }
 
         .proprietor-unread-badge {
             display: grid;
@@ -242,10 +259,16 @@
             .proprietor-sidebar-collapsed .proprietor-logo-link,
             .proprietor-sidebar-collapsed .proprietor-sidebar-label { display: none; }
 
+            /* Collapsed: each icon sits in a circle, so hover and active highlights are round. */
             .proprietor-sidebar-collapsed .proprietor-sidebar .nav-link {
                 justify-content: center;
-                padding-inline: 0;
+                width: 44px;
+                height: 44px;
+                margin: 0 auto clamp(.35rem, 1vh, .6rem);
+                padding: 0;
+                border-radius: 50%;
             }
+            .proprietor-sidebar-collapsed .proprietor-sidebar-header { margin-bottom: clamp(.75rem, 2vh, 1.25rem); }
 
             .proprietor-sidebar-collapsed .proprietor-sidebar-heading {
                 margin: .4rem .25rem;
@@ -253,7 +276,7 @@
                 font-size: 0;
             }
 
-            .proprietor-sidebar-collapsed .proprietor-logout-btn { padding-inline: 0; }
+            .proprietor-sidebar-collapsed .proprietor-logout-btn { width: 44px; height: 44px; padding: 0; margin: 0 auto; border-radius: 50%; }
             .proprietor-sidebar-collapsed .proprietor-unread-badge {
                 position: absolute;
                 inset: 0 .15rem auto auto;
@@ -331,9 +354,8 @@
                     sidebarToggle.setAttribute('aria-label', desktop.matches
                         ? (collapsed ? 'Expand sidebar' : 'Collapse sidebar')
                         : 'Close navigation');
-                    toggleIcon.className = 'bi ' + (desktop.matches
-                        ? (collapsed ? 'bi-chevron-bar-right' : 'bi-chevron-bar-left')
-                        : 'bi-x-lg');
+                    // Desktop: the ☰ menu icon both collapses and expands. Phone drawer: ✕ closes it.
+                    toggleIcon.className = 'bi ' + (desktop.matches ? 'bi-list' : 'bi-x-lg');
 
                     tooltipTargets.forEach(target => {
                         if (desktop.matches && collapsed) {

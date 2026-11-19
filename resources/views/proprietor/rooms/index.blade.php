@@ -139,7 +139,6 @@
                 <p class="rm-sub">Review room availability and manage bed assignments.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#rmFilters" aria-expanded="true" aria-controls="rmFilters"><i class="bi bi-funnel me-1"></i>Filters</button>
                 <a href="{{ route('proprietor.rooms.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add new room</a>
             </div>
         </div>

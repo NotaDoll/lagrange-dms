@@ -5,6 +5,10 @@ namespace App\Services;
 use App\Models\AiSummary;
 use App\Models\Bed;
 use App\Models\Complaint;
+use App\Models\Payment;
+use App\Models\Setting;
+use App\Models\TenantMonthMode;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Room;
 use App\Models\RoomAssignment;
 use App\Models\Tenant;
@@ -33,18 +37,31 @@ class ProprietorDashboardService
         ])->get();
         $from = today()->startOfMonth()->toDateString();
         $to = today()->endOfMonth()->toDateString();
-        $period = $tenants->flatMap(fn ($tenant) => $this->balances->billingEntries($tenant, $from, $to));
-        $all = $tenants->flatMap(fn ($tenant) => $this->balances->billingEntries($tenant,
-            $this->balances->ledgerStart($tenant), $to));
+        $todayDate = Carbon::parse(Tenant::localDate());
+        $monthStart = $todayDate->copy()->startOfMonth();
+        $monthEnd = $todayDate->copy()->endOfMonth()->startOfDay();
+
+        // Each tenant's ledger is built ONCE (it's the slowest step) and every figure below is filtered
+        // from it: collections, overdue, amount owed, and risk. It runs to the end of this month, or to
+        // the latest utility share if that's later, so "owed" matches TenantBalanceService::outstandingSummary().
+        $ledgers = $tenants->mapWithKeys(function (Tenant $tenant) use ($monthEnd) {
+            $latestUtility = $tenant->payments->whereNotNull('utility_bill_id')->max('due_date');
+            $end = $latestUtility && $latestUtility->gt($monthEnd) ? $latestUtility : $monthEnd;
+
+            return [$tenant->id => $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $end->toDateString())];
+        });
+        $all = $ledgers->flatten(1)->filter(fn ($entry) => $entry->due_date->lte($monthEnd))->values();
+        $period = $all->filter(fn ($entry) => $entry->due_date->gte($monthStart))->values();
         $overdue = $all->filter(fn ($entry) => $entry->status !== 'paid' && $entry->due_date->lt(today()));
+        $owes = fn (Tenant $tenant) => round((float) $ledgers[$tenant->id]
+            ->filter(fn ($entry) => $entry->utility_bill_id || $entry->due_date->lte($todayDate))
+            ->whereIn('status', ['pending', 'overdue'])->sum('amount'), 2);
+
         $thresholds = $this->risk->thresholds();
         $active = $tenants->where('status', 'active');
-        // Each tenant's billing entries, built once and reused for every month of the risk history.
-        $today = Tenant::localDate();
-        $entries = $active->mapWithKeys(fn ($tenant) => [$tenant->id => $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today)]);
-        $history = $this->riskHistory($active, $thresholds, max(6, $trendMonths), $entries);
-        $evaluated = $active->map(function ($tenant) use ($thresholds, $history, $entries) {
-            $evaluation = $this->risk->evaluate($tenant, $thresholds, null, $entries[$tenant->id]);
+        $history = $this->cachedRiskHistory($active, $thresholds, max(6, $trendMonths), $ledgers);
+        $evaluated = $active->map(function ($tenant) use ($thresholds, $history, $ledgers, $owes) {
+            $evaluation = $this->risk->evaluate($tenant, $thresholds, null, $ledgers[$tenant->id]);
             // Sparkline: the last 6 months of the same history the trend chart uses.
             $trend = collect($this->trendMonthStarts(6))->map(fn (Carbon $month) => [
                 'label' => $month->format('M'), 'level' => $history[$tenant->id][$month->format('Y-m')] ?? null,
@@ -52,7 +69,7 @@ class ProprietorDashboardService
 
             return (object) ['tenant' => $tenant, ...$evaluation, 'trend' => $trend,
                 'reasons' => $this->risk->reasons($evaluation),
-                'owes' => $this->balances->outstandingSummary($tenant)['outstanding_balance'], 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
+                'owes' => $owes($tenant), 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
         });
         $riskCounts = array_merge(['high' => 0, 'medium' => 0, 'low' => 0], $evaluated->countBy('risk_level')->all());
         $followUps = $evaluated->filter(fn ($row) => $row->risk_level !== 'low')
@@ -131,20 +148,45 @@ class ProprietorDashboardService
     {
         $today = Carbon::parse(Tenant::localDate());
         $history = [];
+        // Done once per tenant, then reused for every month (this is what keeps the history fast).
+        $starts = $tenants->mapWithKeys(fn (Tenant $tenant) => [$tenant->id => $this->policy->tenantStart($tenant)]);
+        $charges = $tenants->mapWithKeys(fn (Tenant $tenant) => [$tenant->id => $this->risk->prepareCharges($entries[$tenant->id])]);
+        $firstDue = $tenants->mapWithKeys(fn (Tenant $tenant) => [$tenant->id => $tenant->payments->min('due_date')]);
 
         foreach ($this->trendMonthStarts($months) as $month) {
             $asOf = $month->isSameMonth($today) ? $today->copy() : $month->copy()->endOfMonth()->startOfDay();
             foreach ($tenants as $tenant) {
-                $start = $this->policy->tenantStart($tenant);
+                $start = $starts[$tenant->id];
                 $here = $start !== null && $start->lte($asOf) && ($this->policy->assignmentOverlaps($tenant, $month, $asOf)
-                    || $tenant->payments->contains(fn ($payment) => $payment->due_date->lte($asOf)));
+                    || ($firstDue[$tenant->id] !== null && $firstDue[$tenant->id]->lte($asOf)));
                 $history[$tenant->id][$month->format('Y-m')] = $here
-                    ? $this->risk->evaluate($tenant, $thresholds, $asOf, $entries[$tenant->id])['risk_level']
+                    ? $this->risk->evaluatePrepared($charges[$tenant->id], $asOf, $thresholds)['risk_level']
                     : null;
             }
         }
 
         return $history;
+    }
+
+    /**
+     * riskHistory() is the costliest part of the dashboard (tenants × months risk checks), and past
+     * months don't change unless the data does. So the result is kept for the day and thrown away as
+     * soon as anything it depends on changes: payments, tenants, room assignments, storage months,
+     * settings (billing start, thresholds) or the date itself.
+     */
+    private function cachedRiskHistory(Collection $tenants, array $thresholds, int $months, Collection $entries): array
+    {
+        $version = md5(json_encode([
+            Tenant::localDate(), $thresholds, $months, $tenants->pluck('id')->values(),
+            Payment::count(), Payment::max('updated_at'),
+            Tenant::count(), Tenant::max('updated_at'),
+            RoomAssignment::count(), RoomAssignment::max('updated_at'),
+            TenantMonthMode::count(), TenantMonthMode::max('updated_at'),
+            Setting::max('updated_at'),
+        ]));
+
+        return Cache::remember('dashboard.risk-history.'.$version, now()->addDay(),
+            fn () => $this->riskHistory($tenants, $thresholds, $months, $entries));
     }
 
     /** Per month: how many tenants were high, medium, and low risk (from riskHistory). */

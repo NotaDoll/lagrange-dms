@@ -179,7 +179,7 @@
             </a>
             <button class="btn proprietor-menu-btn" type="button" id="proprietorSidebarToggle"
                 aria-label="Collapse sidebar" aria-expanded="true" aria-controls="proprietorSidebar">
-                <i class="bi bi-chevron-bar-left" id="proprietorSidebarToggleIcon" aria-hidden="true"></i>
+                <i class="bi bi-list" id="proprietorSidebarToggleIcon" aria-hidden="true"></i>
             </button>
         </div>
 

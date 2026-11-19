@@ -37,38 +37,76 @@ class PaymentRiskService
         $today = $asOf ? $asOf->copy()->startOfDay() : Carbon::parse(Tenant::localDate());
         // $entries: the tenant's billing entries up to today, built once by a caller that evaluates many
         // past dates (the dashboard history); only those due by $today are used, so the result is the same.
-        $charges = ($entries ?? $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString()))
+        $charges = $this->prepareCharges($entries ?? $this->balances->billingEntries($tenant, $this->balances->ledgerStart($tenant), $today->toDateString()));
+
+        return $this->evaluatePrepared($charges, $today, $thresholds ?? $this->thresholds());
+    }
+
+    /**
+     * Step 1 of a risk check, done once per tenant: reduce the ledger to what the rules need, with
+     * dates as day numbers. Callers checking many dates (the dashboard history) reuse the result.
+     *
+     * @return list<array{due: int, month: int, paid: ?int, recorded: bool, stored: int}>
+     */
+    public function prepareCharges(\Illuminate\Support\Collection $entries): array
+    {
+        return $entries
             ->where('category', '!=', Payment::OPENING_BALANCE)
             ->reject(fn (Payment $payment) => $payment->is_advance_credit)
-            ->filter(fn (Payment $payment) => $payment->due_date->lte($today))
             ->map(fn (Payment $payment) => [
-                'due_date' => $payment->due_date,
-                'days_overdue' => $payment->hasRecordedPayment() && (! $payment->paid_date || $payment->paid_date->lte($today))
-                    ? (int) max(0, $payment->paid_date
-                        ? $payment->due_date->diffInDays($payment->paid_date, false)
-                        : $payment->days_overdue)
-                    : (int) max(0, $payment->due_date->diffInDays($today, false)),
-            ]);
-        $late = $charges->where('days_overdue', '>', 0);
-        $months = $late->map(fn ($charge) => $charge['due_date']->format('Y-m'))->unique()->sort()->values();
+                'due' => self::dayNumber($payment->due_date),
+                'month' => $payment->due_date->year * 12 + $payment->due_date->month - 1,
+                'paid' => $payment->paid_date ? self::dayNumber($payment->paid_date) : null,
+                'recorded' => $payment->hasRecordedPayment(),
+                'stored' => (int) $payment->days_overdue,
+            ])->values()->all();
+    }
+
+    /**
+     * Step 2 of a risk check: the four rules as of $asOf. Only charges due by then count, and a
+     * payment made after $asOf still counts as unpaid on that day.
+     */
+    public function evaluatePrepared(array $charges, Carbon $asOf, array $thresholds): array
+    {
+        $today = self::dayNumber($asOf);
+        $sixMonthsAgo = self::dayNumber($asOf->copy()->startOfDay()->subMonthsNoOverflow(6));
+        $days = [];
+        $lateMonths = [];
+        $lastLateDue = null;
+        $late6 = 0;
+
+        foreach ($charges as $charge) {
+            if ($charge['due'] > $today) {
+                continue;
+            }
+            $paidByThen = $charge['recorded'] && ($charge['paid'] === null || $charge['paid'] <= $today);
+            $daysLate = $paidByThen
+                ? max(0, $charge['paid'] !== null ? $charge['paid'] - $charge['due'] : $charge['stored'])
+                : max(0, $today - $charge['due']);
+            $days[] = $daysLate;
+            if ($daysLate > 0) {
+                $lateMonths[$charge['month']] = true;
+                $lastLateDue = max($lastLateDue ?? $charge['due'], $charge['due']);
+                $late6 += $charge['due'] >= $sixMonthsAgo ? 1 : 0;
+            }
+        }
+
+        ksort($lateMonths);
         $streak = 0;
         $consecutive = 0;
         $previous = null;
-        foreach ($months as $month) {
-            $current = Carbon::parse($month.'-01');
-            $streak = $previous && $previous->copy()->addMonth()->isSameMonth($current) ? $streak + 1 : 1;
+        foreach (array_keys($lateMonths) as $month) {
+            $streak = $previous !== null && $month === $previous + 1 ? $streak + 1 : 1;
             $consecutive = max($consecutive, $streak);
-            $previous = $current;
+            $previous = $month;
         }
-        $last = $late->max('due_date');
-        $sixMonthsAgo = $today->copy()->subMonthsNoOverflow(6);
+
         $metrics = [
-            'late_payments_6mo' => $late->filter(fn ($charge) => $charge['due_date']->gte($sixMonthsAgo))->count(),
+            'late_payments_6mo' => $late6,
             'consecutive_late_months' => $consecutive,
-            'avg_days_overdue' => round((float) $charges->avg('days_overdue'), 1),
-            'days_since_last_default' => $last ? (int) $last->copy()->startOfDay()->diffInDays($today) : null,
+            'avg_days_overdue' => round($days === [] ? 0.0 : array_sum($days) / count($days), 1),
+            'days_since_last_default' => $lastLateDue === null ? null : $today - $lastLateDue,
         ];
-        $thresholds ??= $this->thresholds();
         $rules = [
             'Repeated late payments' => $metrics['late_payments_6mo'] >= (int) $thresholds['late_payments'],
             'Consecutive late months' => $metrics['consecutive_late_months'] >= (int) $thresholds['consecutive_months'],
@@ -78,6 +116,12 @@ class PaymentRiskService
         $count = count(array_filter($rules));
 
         return [...$metrics, 'rules' => $rules, 'rules_tripped' => $count, 'risk_level' => $count >= 2 ? 'high' : ($count === 1 ? 'medium' : 'low')];
+    }
+
+    /** Whole days since 1970 in the date's own (Philippine) time zone, so date differences are plain subtraction. */
+    private static function dayNumber(Carbon $date): int
+    {
+        return intdiv($date->getTimestamp() + $date->getOffset(), 86400);
     }
 
     /** Why a tenant is flagged, in plain words (one per rule that tripped), for the dashboard and tenant page. */
