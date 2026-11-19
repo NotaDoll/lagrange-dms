@@ -189,17 +189,12 @@
 
             <section class="card" aria-labelledby="tenant-contacts">
                 <div class="card-body">
-                    <h2 id="tenant-contacts" class="h6 fw-semibold mb-3">Emergency contact and guardian</h2>
+                    <h2 id="tenant-contacts" class="h6 fw-semibold mb-3">Guardian</h2>
                     <dl class="row small mb-0 tenant-dl">
-                        <dt class="col-5">Emergency contact</dt>
-                        <dd class="col-7">
-                            {{ $tenant->emergency_contact_name ?? 'Not provided' }}
-                            @if ($tenant->emergency_contact_relationship)<div class="text-muted">{{ Tenant::EMERGENCY_RELATIONSHIPS[$tenant->emergency_contact_relationship] ?? '' }}</div>@endif
-                            @if ($tenant->emergency_contact_number)<div>{{ $phone($tenant->emergency_contact_number) }}</div>@endif
-                        </dd>
                         <dt class="col-5">Guardian</dt>
                         <dd class="col-7">
                             {{ $tenant->guardian_name ?? 'Not provided' }}
+                            @if ($tenant->guardian_relationship)<div class="text-muted">{{ Tenant::GUARDIAN_RELATIONSHIPS[$tenant->guardian_relationship] ?? '' }}</div>@endif
                             @if ($tenant->guardian_contact_number)<div>{{ $phone($tenant->guardian_contact_number) }}</div>@else<div class="text-muted">No number (no SMS reminders)</div>@endif
                         </dd>
                     </dl>

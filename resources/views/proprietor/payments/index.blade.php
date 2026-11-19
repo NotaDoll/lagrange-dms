@@ -7,6 +7,7 @@
         <h1 class="h3 mb-0">Payment Ledger</h1>
 
         <div class="d-flex gap-2">
+            <a href="{{ route('proprietor.risk.index') }}" class="btn btn-outline-danger"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Risk Dashboard</a>
             <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
                 <i class="bi bi-upload" aria-hidden="true"></i> Import Excel
             </button>
@@ -58,7 +59,7 @@
                         <option value="">All tenants</option>
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}" @selected((string) $tenantId === (string) $tenant->id)>
-                                {{ ucwords(strtolower($tenant->name)) }}
+                                {{ ucwords(strtolower($tenant->name)) }}{{ ($riskLevels[$tenant->id] ?? null) === 'high' ? ' (High risk)' : '' }}
                             </option>
                         @endforeach
                     </select>

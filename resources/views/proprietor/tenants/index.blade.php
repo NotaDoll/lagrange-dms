@@ -39,7 +39,7 @@
             <form method="GET" action="{{ route('proprietor.tenants.index') }}" class="row g-2 align-items-end mb-3">
                 <div class="col-12 col-md-7">
                     <label for="tenant-search" class="form-label">Search tenants</label>
-                    <input id="tenant-search" name="search" type="search" class="form-control" value="{{ $search }}" placeholder="Name, email, phone, or emergency contact">
+                    <input id="tenant-search" name="search" type="search" class="form-control" value="{{ $search }}" placeholder="Name, email, phone, or guardian">
                 </div>
                 <div class="col-8 col-md-3">
                     <label for="tenant-status" class="form-label">Status</label>

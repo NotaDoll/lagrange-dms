@@ -65,12 +65,10 @@ class StoreTenantRequest extends FormRequest
             'status' => ['required', Rule::in($statuses)],
             'security_deposit' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'advance_payment' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'opening_balance' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'emergency_contact_name' => [$requiredOnCreate, 'string', 'max:255'],
-            'emergency_contact_number' => [$requiredOnCreate, 'string', 'max:50', new PhilippineMobile($tenant?->emergency_contact_number)],
-            'emergency_contact_relationship' => [$requiredOnCreate, Rule::in(array_keys(Tenant::EMERGENCY_RELATIONSHIPS))],
-            'guardian_name' => ['nullable', 'string', 'max:255'],
-            'guardian_contact_number' => ['nullable', 'string', 'max:50', new PhilippineMobile($tenant?->guardian_contact_number)],
+            // The guardian receives the SMS payment reminders, so a new tenant must have one.
+            'guardian_name' => [$requiredOnCreate, 'string', 'max:255'],
+            'guardian_contact_number' => [$requiredOnCreate, 'string', 'max:50', new PhilippineMobile($tenant?->guardian_contact_number)],
+            'guardian_relationship' => [$requiredOnCreate, Rule::in(array_keys(Tenant::GUARDIAN_RELATIONSHIPS))],
             'data_privacy_consent' => $tenant ? ['sometimes', 'accepted'] : ['required', 'accepted'],
         ];
     }

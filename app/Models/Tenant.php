@@ -26,19 +26,19 @@ class Tenant extends Model
         self::STATUS_MOVED_OUT => 'Moved Out',
     ];
 
-    public const EMERGENCY_RELATIONSHIPS = [
+    /** How the guardian is related to the tenant. */
+    public const GUARDIAN_RELATIONSHIPS = [
         'mother' => 'Mother',
         'father' => 'Father',
         'sibling' => 'Sibling',
-        'guardian' => 'Guardian',
-        'other' => 'Other',
+        'guardian' => 'Legal guardian',
+        'other' => 'Other relative',
     ];
 
     protected $fillable = [
         'user_id', 'name', 'first_name', 'middle_name', 'last_name', 'email', 'contact_number',
-        'emergency_contact_name', 'emergency_contact_number',
-        'guardian_name', 'guardian_contact_number', 'move_in_date', 'status',
-        'home_address', 'emergency_contact_relationship', 'security_deposit', 'advance_payment', 'opening_balance',
+        'guardian_name', 'guardian_contact_number', 'guardian_relationship', 'move_in_date', 'status',
+        'home_address', 'security_deposit', 'advance_payment',
         'data_privacy_consent_at', 'consent_recorded_by',
     ];
 
@@ -46,7 +46,6 @@ class Tenant extends Model
         'move_in_date' => 'date',
         'security_deposit' => 'decimal:2',
         'advance_payment' => 'decimal:2',
-        'opening_balance' => 'decimal:2',
         'data_privacy_consent_at' => 'datetime',
         // RA 10173 compliance (Sec. 3.3): guardian numbers encrypted at rest.
         // Uses APP_KEY — back up your .env's APP_KEY, changing it makes this unreadable.

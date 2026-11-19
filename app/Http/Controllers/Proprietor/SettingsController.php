@@ -31,6 +31,7 @@ class SettingsController extends Controller
             'address' => ['nullable', 'string', 'max:500'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:20'],
+            'risk_grace_days' => ['sometimes', 'required', 'integer', 'min:0', 'max:60'],
             'risk_late_payments' => ['sometimes', 'required', 'integer', 'min:1', 'max:255'],
             'risk_consecutive_months' => ['sometimes', 'required', 'integer', 'min:1', 'max:255'],
             'risk_average_days' => ['sometimes', 'required', 'integer', 'min:0', 'max:3650'],

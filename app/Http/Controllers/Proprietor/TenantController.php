@@ -39,8 +39,7 @@ class TenantController extends Controller
                     ->orWhere('tenants.name', 'like', "%{$search}%")
                     ->orWhere('tenants.email', 'like', "%{$search}%")
                     ->orWhere('tenants.contact_number', 'like', "%{$search}%"))
-                    ->orWhere('emergency_contact_name', 'like', "%{$search}%")
-                    ->orWhere('emergency_contact_number', 'like', "%{$search}%");
+                    ->orWhere('guardian_name', 'like', "%{$search}%");
             });
         }
 

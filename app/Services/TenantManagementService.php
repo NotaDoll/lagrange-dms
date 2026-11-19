@@ -56,12 +56,6 @@ class TenantManagementService
                 throw ValidationException::withMessages(['status' => 'This tenant cannot be changed back to Reserved.']);
             }
 
-            if (array_key_exists('opening_balance', $validated)
-                && (float) $validated['opening_balance'] !== (float) $tenant->opening_balance
-                && $tenant->payments()->where('charge_type', Payment::OPENING_BALANCE)->exists()) {
-                throw ValidationException::withMessages(['opening_balance' => 'The balance forward has already been collected.']);
-            }
-
             $previousMoveIn = $tenant->actualMoveInDate()?->toDateString();
             $assignment = $tenant->currentAssignment()->lockForUpdate()->first();
 
@@ -160,8 +154,7 @@ class TenantManagementService
     private function tenantAttributes(array $validated, ?string $previousMoveIn = null): array
     {
         $attributes = Arr::only($validated, [
-            'home_address', 'emergency_contact_name', 'emergency_contact_relationship',
-            'guardian_name', 'status', 'security_deposit', 'advance_payment', 'opening_balance',
+            'home_address', 'guardian_name', 'guardian_relationship', 'status', 'security_deposit', 'advance_payment',
         ]);
 
         $attributes['move_in_date'] = match ($validated['status']) {
@@ -170,13 +163,13 @@ class TenantManagementService
             default => $previousMoveIn === null ? null : ($validated['move_in_date'] ?? $previousMoveIn),
         };
 
-        foreach (['security_deposit', 'advance_payment', 'opening_balance'] as $field) {
+        foreach (['security_deposit', 'advance_payment'] as $field) {
             if (array_key_exists($field, $attributes)) {
                 $attributes[$field] ??= 0;
             }
         }
 
-        return [...$attributes, ...$this->phoneAttributes($validated, ['emergency_contact_number', 'guardian_contact_number'])];
+        return [...$attributes, ...$this->phoneAttributes($validated, ['guardian_contact_number'])];
     }
 
     private function phoneAttributes(array $validated, array $fields): array

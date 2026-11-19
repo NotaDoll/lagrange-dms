@@ -167,40 +167,12 @@
             color: #1f1f1f;
         }
 
-        .user-profile-room-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            font-size: 1.05rem;
-            color: #111827;
-            
-        }
-
         .user-profile-room {
             font-weight: 300;
             letter-spacing: 0.02em;
             text-transform: uppercase;
             font-size: 15px;
             color: #1f1f1f;
-        }
-
-        .user-profile-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 300;
-            color: #2f9e44;
-            font-size: 15px;
-        }
-
-        .user-status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #2f9e44;
-            display: inline-block;
         }
 
         .user-profile-divider {

@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Services\NotificationService;
 use App\Services\PaymentLedgerService;
+use App\Services\PaymentRiskService;
 use App\Services\TenantBalanceService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,8 @@ class PaymentController extends Controller
 {
     public function __construct(
         private readonly PaymentLedgerService $paymentLedgerService,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly PaymentRiskService $paymentRiskService,
     ) {}
 
     public function index(Request $request, TenantBalanceService $balances)
@@ -28,12 +30,19 @@ class PaymentController extends Controller
         $status = $request->query('status');
         $category = $request->validate(['category' => ['nullable', Rule::in(array_keys(Payment::CATEGORY_LABELS))]])['category'] ?? null;
 
-        $tenants = Tenant::with('user')
+        $tenants = Tenant::with(['user', 'currentAssignment.bed.room', 'payments.utilityBill.room', 'monthModes', 'roomAssignments.bed.room'])
             ->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+        $riskLevels = [];
+        $ledgers = $tenants->mapWithKeys(function (Tenant $tenant) use ($balances, &$riskLevels) {
+                $ledger = $balances->ledger($tenant);
+                $riskLevels[$tenant->id] = $tenant->status === Tenant::STATUS_ACTIVE
+                    ? $this->paymentRiskService->evaluate($tenant, entries: $ledger)['risk_level']
+                    : null;
 
-        $rows = Tenant::with(['user', 'currentAssignment.bed.room', 'payments.utilityBill.room', 'monthModes', 'roomAssignments.bed.room'])
-            ->when($tenantId, fn ($query) => $query->whereKey($tenantId))
-            ->get()->flatMap(fn (Tenant $tenant) => $balances->ledger($tenant)
+                return [$tenant->id => $ledger];
+            });
+        $rows = $tenants->when($tenantId, fn ($rows) => $rows->where('id', $tenantId))
+            ->flatMap(fn (Tenant $tenant) => $ledgers[$tenant->id]
                 ->each(fn (Payment $payment) => $payment->setRelation('tenant', $tenant)))
             ->when(is_string($status) && isset(Payment::STATUS_LABELS[$status]), fn ($entries) => $entries->where('current_status', $status))
             ->when($category, fn ($entries) => $entries->where('category', $category))
@@ -44,7 +53,7 @@ class PaymentController extends Controller
         ]))->withQueryString();
         $categories = Payment::CATEGORY_LABELS;
 
-        return view('proprietor.payments.index', compact('payments', 'tenants', 'tenantId', 'status', 'category', 'categories'));
+        return view('proprietor.payments.index', compact('payments', 'tenants', 'tenantId', 'status', 'category', 'categories', 'riskLevels'));
     }
 
     public function create(Request $request)
@@ -61,7 +70,7 @@ class PaymentController extends Controller
     public function settleAccrued(Request $request, Tenant $tenant)
     {
         $validated = $request->validate([
-            'charge_type' => ['required', Rule::in([Payment::OPENING_BALANCE, Payment::STORAGE])],
+            'charge_type' => ['required', Rule::in([Payment::STORAGE])],
             'due_date' => ['required', 'date_format:Y-m-d'],
             'paid_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Tenant::localDate()],
             'receipt_number' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9#\/\-. ]+$/', Rule::unique('payments', 'receipt_number')],

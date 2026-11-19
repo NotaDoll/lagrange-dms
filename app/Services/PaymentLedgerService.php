@@ -42,7 +42,6 @@ class PaymentLedgerService
             }
             if ($charge) {
                 $existing = $tenant->payments()->whereNull('utility_bill_id')
-                    ->where(fn ($query) => $query->whereNull('charge_type')->orWhere('charge_type', '!=', Payment::OPENING_BALANCE))
                     ->whereDate('due_date', '>=', $month)->whereDate('due_date', '<=', $month->copy()->endOfMonth())->exists();
                 if ($existing || (float) $charge->amount !== round((float) $validated['amount'], 2)) {
                     throw ValidationException::withMessages([

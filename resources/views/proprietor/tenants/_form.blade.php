@@ -159,70 +159,37 @@
         @error('advance_payment') <div class="invalid-feedback" id="advance_payment-error">{{ $message }}</div> @enderror
     </div>
 
-    <div class="col-md-4">
-        <label for="opening_balance" class="form-label">Opening balance (optional)</label>
-        <input type="number" min="0" max="99999999.99" step="0.01" id="opening_balance" name="opening_balance"
-               class="form-control @error('opening_balance') is-invalid @enderror"
-               value="{{ old('opening_balance', $tenant->opening_balance ?? '') }}"
-               aria-describedby="opening-balance-help @error('opening_balance') opening-balance-error @enderror">
-        <div class="form-text" id="opening-balance-help">Amount owed in pesos as of the billing start date.</div>
-        @error('opening_balance') <div class="invalid-feedback" id="opening-balance-error">{{ $message }}</div> @enderror
-    </div>
-
-    <div class="col-md-4">
-        <label for="emergency_contact_name" class="form-label">Emergency Contact Name</label>
-        <input type="text" id="emergency_contact_name" name="emergency_contact_name" class="form-control text-uppercase @error('emergency_contact_name') is-invalid @enderror" maxlength="255" @required(! $editing)
-            value="{{ old('emergency_contact_name', ($tenant?->emergency_contact_name ?? '')) }}" @error('emergency_contact_name') aria-invalid="true" aria-describedby="emergency_contact_name-error" @enderror>
-        @error('emergency_contact_name') <div class="invalid-feedback" id="emergency_contact_name-error">{{ $message }}</div> @enderror
-    </div>
-
-    <div class="col-md-4">
-        <label for="emergency_contact_number" class="form-label">Emergency Contact Number</label>
-        <input type="tel" id="emergency_contact_number" name="emergency_contact_number" class="form-control @error('emergency_contact_number') is-invalid @enderror" maxlength="50" @required(! $editing)
-            value="{{ old('emergency_contact_number', ($tenant?->emergency_contact_number ?? '')) }}" @error('emergency_contact_number') aria-invalid="true" aria-describedby="emergency_contact_number-error" @enderror>
-        @error('emergency_contact_number') <div class="invalid-feedback" id="emergency_contact_number-error">{{ $message }}</div> @enderror
-    </div>
-
-    <div class="col-md-4">
-        <label for="emergency_contact_relationship" class="form-label">Relationship</label>
-        <select class="form-select @error('emergency_contact_relationship') is-invalid @enderror"
-            id="emergency_contact_relationship" name="emergency_contact_relationship" @required(! $editing)
-            @error('emergency_contact_relationship') aria-invalid="true" aria-describedby="emergency_contact_relationship-error" @enderror>
-            <option value="" @disabled(! $editing) @selected(! old('emergency_contact_relationship', $tenant?->emergency_contact_relationship))>Select relationship</option>
-            @foreach (\App\Models\Tenant::EMERGENCY_RELATIONSHIPS as $value => $label)
-                <option value="{{ $value }}" @selected(old('emergency_contact_relationship', $tenant?->emergency_contact_relationship) === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        @error('emergency_contact_relationship')
-            <div class="invalid-feedback" id="emergency_contact_relationship-error">{{ $message }}</div>
-        @enderror
-    </div>
-
     <div class="col-12">
-        <div class="alert alert-info mb-0">
-            Guardian details are optional. Collect and encode them only when the tenant or guardian has given consent.
-        </div>
+        <div class="form-text mb-0">Payment reminders are texted to the guardian's mobile number.</div>
     </div>
 
-    <div class="col-md-6">
-        <label for="guardian_name" class="form-label">Guardian Name <span class="text-muted">(Optional)</span></label>
-        <input type="text" id="guardian_name" name="guardian_name" class="form-control text-uppercase @error('guardian_name') is-invalid @enderror" maxlength="255"
+    <div class="col-md-4">
+        <label for="guardian_name" class="form-label">Guardian Name</label>
+        <input type="text" id="guardian_name" name="guardian_name" class="form-control text-uppercase @error('guardian_name') is-invalid @enderror" maxlength="255" @required(! $editing)
             value="{{ old('guardian_name', ($tenant?->guardian_name ?? '')) }}" @error('guardian_name') aria-invalid="true" aria-describedby="guardian_name-error" @enderror>
         @error('guardian_name') <div class="invalid-feedback" id="guardian_name-error">{{ $message }}</div> @enderror
     </div>
 
-    <div class="col-md-6">
-        <label for="guardian_contact_number" class="form-label">Guardian Number <span class="text-muted">(Optional)</span></label>
-        <input type="tel" id="guardian_contact_number" name="guardian_contact_number" class="form-control @error('guardian_contact_number') is-invalid @enderror" maxlength="50"
+    <div class="col-md-4">
+        <label for="guardian_contact_number" class="form-label">Guardian Number</label>
+        <input type="tel" id="guardian_contact_number" name="guardian_contact_number" class="form-control @error('guardian_contact_number') is-invalid @enderror" maxlength="50" @required(! $editing)
             value="{{ old('guardian_contact_number', ($tenant?->guardian_contact_number ?? '')) }}" @error('guardian_contact_number') aria-invalid="true" aria-describedby="guardian_contact_number-error" @enderror>
         @error('guardian_contact_number') <div class="invalid-feedback" id="guardian_contact_number-error">{{ $message }}</div> @enderror
     </div>
 
-    <div class="col-12">
-        <div class="form-check small">
-            <input type="checkbox" class="form-check-input" id="same_as_emergency_contact">
-            <label class="form-check-label" for="same_as_emergency_contact">Same as emergency contact</label>
-        </div>
+    <div class="col-md-4">
+        <label for="guardian_relationship" class="form-label">Relationship</label>
+        <select class="form-select @error('guardian_relationship') is-invalid @enderror"
+            id="guardian_relationship" name="guardian_relationship" @required(! $editing)
+            @error('guardian_relationship') aria-invalid="true" aria-describedby="guardian_relationship-error" @enderror>
+            <option value="" @disabled(! $editing) @selected(! old('guardian_relationship', $tenant?->guardian_relationship))>Select relationship</option>
+            @foreach (\App\Models\Tenant::GUARDIAN_RELATIONSHIPS as $value => $label)
+                <option value="{{ $value }}" @selected(old('guardian_relationship', $tenant?->guardian_relationship) === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+        @error('guardian_relationship')
+            <div class="invalid-feedback" id="guardian_relationship-error">{{ $message }}</div>
+        @enderror
     </div>
 
     <div class="col-12">
@@ -296,24 +263,6 @@
     typeSelect.addEventListener('change', () => renderRooms());
     roomSelect.addEventListener('change', () => renderBeds());
     renderRooms(@js($selectedRoomId), @js($selectedBedId));
-
-    const sameAsEmergency = get('same_as_emergency_contact');
-    const emergencyName = get('emergency_contact_name');
-    const emergencyNumber = get('emergency_contact_number');
-    const guardianName = get('guardian_name');
-    const guardianNumber = get('guardian_contact_number');
-    function copyEmergencyContact() {
-        if (sameAsEmergency.checked) {
-            guardianName.value = emergencyName.value;
-            guardianNumber.value = emergencyNumber.value;
-        }
-    }
-
-    sameAsEmergency.addEventListener('change', copyEmergencyContact);
-    [emergencyName, emergencyNumber].forEach(field => field.addEventListener('input', copyEmergencyContact));
-    [guardianName, guardianNumber].forEach(field => field.addEventListener('input', () => {
-        sameAsEmergency.checked = false;
-    }));
 
     const moveIn = get('move_in_date');
     const status = get('status');

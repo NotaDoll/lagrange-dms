@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  * One-off clean-up for rows recorded before rent was billed on the move-in day
  * (e.g. the Excel import put every due date on the 30th). Each rent/storage row keeps
  * its month but moves to the tenant's move-in day; days late are recalculated for paid rows.
- * Utility shares and opening balances keep their own dates.
+ * Utility shares keep their own dates.
  */
 class DueDateAlignment
 {
@@ -26,7 +26,6 @@ class DueDateAlignment
 
         Payment::query()
             ->whereNull('utility_bill_id')
-            ->where(fn ($query) => $query->whereNull('charge_type')->orWhere('charge_type', '!=', Payment::OPENING_BALANCE))
             ->with('tenant.user')
             ->orderBy('id')
             ->each(function (Payment $payment) use (&$changes) {

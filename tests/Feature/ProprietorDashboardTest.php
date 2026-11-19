@@ -86,7 +86,6 @@ class ProprietorDashboardTest extends TestCase
         ]);
         $pending = $this->tenant('Pending charge');
         $pending->payments()->create(['amount' => 1200, 'due_date' => '2026-10-20', 'status' => 'pending', 'days_overdue' => 0]);
-        $this->tenant('Balance only')->update(['opening_balance' => 1000]);
 
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) =>
             $rows->count() === 2
@@ -108,6 +107,9 @@ class ProprietorDashboardTest extends TestCase
             'dormitory_name' => 'La Grange', 'risk_late_payments' => 20, 'risk_consecutive_months' => 20,
             'risk_average_days' => 100, 'risk_recent_default_days' => 1,
         ])->assertRedirect();
+        // Still flagged: the Oct 1 charge is 30 days unpaid, and an overdue balance always trips "Recent default".
+        $this->get(route('proprietor.dashboard'))->assertViewHas('highRiskCount', 0)->assertViewHas('followUps', fn ($rows) => $rows->count() === 1);
+        $this->put(route('proprietor.settings.update'), ['dormitory_name' => 'La Grange', 'risk_grace_days' => 60])->assertRedirect();
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) => $rows->isEmpty());
         $this->get(route('proprietor.settings.edit'))->assertOk()->assertSee('Payment risk thresholds');
     }
@@ -364,10 +366,10 @@ class ProprietorDashboardTest extends TestCase
                 $row = $rows->firstWhere(fn ($r) => $r->tenant->is($behind));
 
                 return $rows->count() === 1 && $row->owes === 3900.0 && $row->reasons === [
-                    '3 late payments in 6 months',
+                    'Late in 3 months of the last 6',
                     'Late 3 months in a row',
                     'Pays 41.3 days late on average',
-                    'Late payment 11 days ago',
+                    'Has an overdue balance now',
                 ];
             })
             ->assertSee('Why flagged')->assertSee('₱3,900.00')

@@ -14,10 +14,10 @@
 
             <ul class="small mb-4">
                 <li>Use one row per tenant. The first row contains the template headers.</li>
-                <li>Enter the tenant's first name, last name, email, contact number, home address, room type, room number, bed label, status, and emergency contact name, number, and relationship. Middle name and guardian details are optional.</li>
+                <li>Enter the tenant's first name, last name, email, contact number, home address, room type, room number, bed label, status, and guardian name, number, and relationship. Middle name is optional. Payment reminders are texted to the guardian's number.</li>
                 <li>Use CABIN, SUITE, DELUXE, or SUPREME for room type. Enter the number and bed letter in their own columns (for example, CABIN, 2, A).</li>
                 <li>Use <code>reserved</code> with a blank move-in date, or <code>active</code> with a move-in date in <code>YYYY-MM-DD</code> format, today or earlier.</li>
-                <li>Use <code>mother</code>, <code>father</code>, <code>sibling</code>, <code>guardian</code>, or <code>other</code> for the emergency relationship. Blank deposit and advance payment amounts default to ₱0.</li>
+                <li>Use <code>mother</code>, <code>father</code>, <code>sibling</code>, <code>guardian</code>, or <code>other</code> for the guardian relationship. Blank deposit and advance payment amounts default to ₱0.</li>
                 <li>In Excel, format contact numbers as <strong>Text</strong> to keep leading zeros. Format move-in dates as Text before entering them.</li>
             </ul>
 

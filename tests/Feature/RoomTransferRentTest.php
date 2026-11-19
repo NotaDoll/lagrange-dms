@@ -35,7 +35,7 @@ class RoomTransferRentTest extends TestCase
     {
         app(TenantManagementService::class)->update($tenant, [
             'first_name' => 'Transfer', 'last_name' => 'Tenant', 'email' => $tenant->user->email,
-            'emergency_contact_name' => 'Guardian', 'emergency_contact_number' => '09123456789',
+            'guardian_name' => 'Guardian', 'guardian_contact_number' => '09123456789',
             'move_in_date' => '2026-08-10', 'status' => 'active', 'bed_id' => $bed?->id,
         ]);
     }

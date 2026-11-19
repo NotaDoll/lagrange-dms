@@ -23,12 +23,11 @@ class TenantsImport
     public const COLUMNS = [
         'first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'home_address',
         'room_type', 'room_number', 'bed', 'status', 'move_in_date', 'security_deposit', 'advance_payment',
-        'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship',
-        'guardian_name', 'guardian_number', 'opening_balance',
+        'guardian_name', 'guardian_number', 'guardian_relationship',
     ];
 
     private const OPTIONAL_COLUMNS = [
-        'middle_name', 'move_in_date', 'security_deposit', 'advance_payment', 'guardian_name', 'guardian_number', 'opening_balance',
+        'middle_name', 'move_in_date', 'security_deposit', 'advance_payment',
     ];
 
     private ?array $headers = null;
@@ -276,16 +275,16 @@ class TenantsImport
     {
         $data['email'] = Str::lower($data['email'] ?? '');
         $data['status'] = Str::lower($data['status'] ?? '');
-        $data['emergency_contact_relationship'] = Str::lower($data['emergency_contact_relationship'] ?? '');
+        $data['guardian_relationship'] = Str::lower($data['guardian_relationship'] ?? '');
         $data['guardian_contact_number'] = $data['guardian_number'] ?? null;
         $data['data_privacy_consent'] = true;
 
-        foreach (['contact_number', 'emergency_contact_number', 'guardian_contact_number'] as $field) {
+        foreach (['contact_number', 'guardian_contact_number'] as $field) {
             $number = $data[$field] ?? null;
             $data[$field] = PhilippineMobile::normalize($number, allowMissingZero: true) ?? $number;
         }
 
-        foreach (['security_deposit', 'advance_payment', 'opening_balance'] as $field) {
+        foreach (['security_deposit', 'advance_payment'] as $field) {
             $data[$field] = isset($data[$field]) ? trim(str_replace(['₱', ','], '', $data[$field])) : null;
         }
 

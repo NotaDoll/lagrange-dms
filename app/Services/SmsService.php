@@ -18,7 +18,6 @@ class SmsService
         $normalizedNumber = $this->normalizeNumber($number);
         $tenant = $recipientTenant ?? Tenant::with('user')->get()->first(function (Tenant $tenant) use ($normalizedNumber) {
             return $this->normalizeNumber($tenant->contact_number) === $normalizedNumber
-                || $this->normalizeNumber($tenant->emergency_contact_number) === $normalizedNumber
                 || $this->normalizeNumber($tenant->guardian_contact_number) === $normalizedNumber;
         });
 

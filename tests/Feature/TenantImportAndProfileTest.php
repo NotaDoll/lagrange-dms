@@ -24,7 +24,7 @@ class TenantImportAndProfileTest extends TestCase
     private function row(string $bed, string $status, ?string $date, string $email = 'shared@example.com', string $type = 'CABIN', string $number = '2'): array
     {
         return ['Ana', '', 'Dela Cruz', $email, '9171234567', '12 Mabini St, Cebu City', $type, $number, $bed,
-            $status, $date, '₱5,000.00', '', 'Maria Dela Cruz', '09179876543', 'Mother', '', ''];
+            $status, $date, '₱5,000.00', '', 'Maria Dela Cruz', '09179876543', 'Mother'];
     }
 
     private function csv(array $rows): UploadedFile
@@ -58,7 +58,7 @@ class TenantImportAndProfileTest extends TestCase
         $room = $this->roomWithBeds(['A', 'B', 'C', 'D', 'E']);
         $file = $this->csv([
             array_map('strtoupper', TenantsImport::COLUMNS),
-            array_merge($this->row('a', 'ACTIVE', '2022-11-13'), ['₱1,250.25']),
+            $this->row('a', 'ACTIVE', '2022-11-13'),
             $this->row('B', 'reserved', null),
             $this->row('A', 'reserved', null),
             $this->row('C', 'reserved', '2026-11-13'),
@@ -93,7 +93,6 @@ class TenantImportAndProfileTest extends TestCase
         $this->assertDatabaseCount('tenants', 3);
         $longStay = Tenant::where('email', 'shared@example.com')->where('status', Tenant::STATUS_ACTIVE)->sole();
         $this->assertSame('2022-11-13', $longStay->move_in_date->toDateString());
-        $this->assertSame('1250.25', $longStay->opening_balance);
         $this->assertDatabaseCount('users', 2);
         $this->assertDatabaseMissing('users', ['email' => 'late-bed@example.com']);
 

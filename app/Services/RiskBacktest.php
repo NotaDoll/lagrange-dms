@@ -28,10 +28,12 @@ class RiskBacktest
      * @param  string  $flagAt  'high' counts only High as "flagged"; 'medium' counts Medium or High.
      * @return array{observations: list<array>, cutoffs: list<array>, totals: array}
      */
-    public function run(int $months = 6, int $windowMonths = 2, int $graceDays = 5, string $flagAt = 'high'): array
+    public function run(int $months = 6, int $windowMonths = 2, ?int $graceDays = null, string $flagAt = 'high'): array
     {
         $today = Carbon::parse(Tenant::localDate());
         $thresholds = $this->risk->thresholds();
+        // By default "defaulted" uses the same grace period the risk rules use to call a month late.
+        $graceDays ??= (int) $thresholds['grace_days'];
         $flagged = $flagAt === 'medium' ? ['medium', 'high'] : ['high'];
         $tenants = Tenant::with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])
             ->where('status', '!=', Tenant::STATUS_RESERVED)->get();
@@ -77,8 +79,7 @@ class RiskBacktest
     private function chargesDueBetween(Tenant $tenant, Carbon $from, Carbon $to): Collection
     {
         return $this->balances->billingEntries($tenant, $from->toDateString(), $to->toDateString())
-            ->filter(fn (Payment $entry) => $entry->category !== Payment::OPENING_BALANCE && ! $entry->is_advance_credit
-                && $entry->due_date->betweenIncluded($from, $to));
+            ->filter(fn (Payment $entry) => ! $entry->is_advance_credit && $entry->due_date->betweenIncluded($from, $to));
     }
 
     /** How late the charge was paid, or how overdue it still was when the window ended. */

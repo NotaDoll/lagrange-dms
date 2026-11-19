@@ -56,14 +56,14 @@
                     </div>
 
                     <div class="col-md-6">
-                        <h2 class="h5">Emergency Contact</h2>
+                        <h2 class="h5">Guardian</h2>
                         <dl class="row mb-0">
                             <dt class="col-sm-5">Name</dt>
-                            <dd class="col-sm-7 text-break">{{ $tenant->emergency_contact_name ?? 'Not provided' }}</dd>
+                            <dd class="col-sm-7 text-break">{{ $tenant->guardian_name ?? 'Not provided' }}</dd>
                             <dt class="col-sm-5">Number</dt>
-                            <dd class="col-sm-7">{{ $phone($tenant->emergency_contact_number) }}</dd>
+                            <dd class="col-sm-7">{{ $phone($tenant->guardian_contact_number) }}</dd>
                             <dt class="col-sm-5">Relationship</dt>
-                            <dd class="col-sm-7">{{ \App\Models\Tenant::EMERGENCY_RELATIONSHIPS[$tenant->emergency_contact_relationship] ?? 'Not provided' }}</dd>
+                            <dd class="col-sm-7">{{ \App\Models\Tenant::GUARDIAN_RELATIONSHIPS[$tenant->guardian_relationship] ?? 'Not provided' }}</dd>
                         </dl>
                     </div>
 
@@ -72,23 +72,12 @@
                             <h2 class="h5">Storage months</h2>
                             <ul class="mb-0">
                                 @foreach ($tenant->monthModes as $mode)
-                                    <li>{{ $mode->month->format('F Y') }}</li>
+                                    <li>{{ $mode->month->format('F Y') }} · Storage fee: ₱{{ number_format($mode->storageFee(), 2) }}</li>
                                 @endforeach
                             </ul>
                         </div>
                     @endif
 
-                    @if ($tenant->guardian_name || $tenant->guardian_contact_number)
-                        <div class="col-md-6">
-                            <h2 class="h5">Guardian</h2>
-                            <dl class="row mb-0">
-                                <dt class="col-sm-5">Name</dt>
-                                <dd class="col-sm-7 text-break">{{ $tenant->guardian_name ?? 'Not provided' }}</dd>
-                                <dt class="col-sm-5">Number</dt>
-                                <dd class="col-sm-7">{{ $phone($tenant->guardian_contact_number) }}</dd>
-                            </dl>
-                        </div>
-                    @endif
                 </div>
             </div>
         </div>

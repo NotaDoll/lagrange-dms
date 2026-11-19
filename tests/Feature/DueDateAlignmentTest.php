@@ -24,7 +24,6 @@ class DueDateAlignmentTest extends TestCase
         $paid = Payment::create(['tenant_id' => $tenant->id, 'amount' => 3000, 'due_date' => '2026-10-30', 'paid_date' => '2026-10-20', 'status' => 'paid', 'days_overdue' => 0]);
         $unpaid = Payment::create(['tenant_id' => $tenant->id, 'amount' => 3000, 'due_date' => '2026-11-30', 'status' => 'pending', 'days_overdue' => 0]);
         $february = Payment::create(['tenant_id' => $late31->id, 'amount' => 2000, 'due_date' => '2026-02-28', 'paid_date' => '2026-03-02', 'status' => 'paid', 'days_overdue' => 2]);
-        $opening = Payment::create(['tenant_id' => $tenant->id, 'amount' => 500, 'due_date' => '2026-01-01', 'status' => 'pending', 'charge_type' => Payment::OPENING_BALANCE]);
         $room = Room::create(['room_number' => '101', 'floor' => '1', 'capacity' => 1, 'monthly_rate' => 3000]);
         $bill = UtilityBill::create(['room_id' => $room->id, 'bill_type' => 'water', 'billing_period_start' => '2026-10-01', 'billing_period_end' => '2026-10-31', 'amount' => 100, 'due_date' => '2026-11-30', 'status' => 'pending']);
         $utility = Payment::create(['tenant_id' => $tenant->id, 'amount' => 100, 'due_date' => '2026-11-30', 'status' => 'pending', 'utility_bill_id' => $bill->id]);
@@ -40,8 +39,7 @@ class DueDateAlignmentTest extends TestCase
         $this->assertSame(['2026-11-14', 'overdue', 5], [$unpaid->fresh()->due_date->toDateString(), $unpaid->fresh()->status, $unpaid->fresh()->days_overdue]);
         // Moved in on the 31st: February stays on its last day.
         $this->assertSame('2026-02-28', $february->fresh()->due_date->toDateString());
-        // Opening balances, utility shares and not-yet-moved-in tenants keep their dates.
-        $this->assertSame('2026-01-01', $opening->fresh()->due_date->toDateString());
+        // Utility shares and not-yet-moved-in tenants keep their dates.
         $this->assertSame('2026-11-30', $utility->fresh()->due_date->toDateString());
         $this->assertSame('2026-12-30', $reservedRow->fresh()->due_date->toDateString());
 

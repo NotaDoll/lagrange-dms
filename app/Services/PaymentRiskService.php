@@ -15,6 +15,8 @@ class PaymentRiskService
         'consecutive_months' => 2,
         'average_days' => 5,
         'recent_default_days' => 30,
+        // A charge paid this many days after its due date or fewer still counts as on time.
+        'grace_days' => 5,
     ];
 
     public function __construct(
@@ -51,7 +53,6 @@ class PaymentRiskService
     public function prepareCharges(\Illuminate\Support\Collection $entries): array
     {
         return $entries
-            ->where('category', '!=', Payment::OPENING_BALANCE)
             ->reject(fn (Payment $payment) => $payment->is_advance_credit)
             ->map(fn (Payment $payment) => [
                 'due' => self::dayNumber($payment->due_date),
@@ -64,16 +65,19 @@ class PaymentRiskService
 
     /**
      * Step 2 of a risk check: the four rules as of $asOf. Only charges due by then count, and a
-     * payment made after $asOf still counts as unpaid on that day.
+     * payment made after $asOf still counts as unpaid on that day. A month is late when any charge
+     * due in it was paid (or is still unpaid) more than grace_days after its due date. Late months,
+     * the late streak and the average use the last 6 months; "recent default" counts days since the
+     * last late charge was settled, so a charge that is still overdue counts as 0 days ago.
      */
     public function evaluatePrepared(array $charges, Carbon $asOf, array $thresholds): array
     {
         $today = self::dayNumber($asOf);
         $sixMonthsAgo = self::dayNumber($asOf->copy()->startOfDay()->subMonthsNoOverflow(6));
-        $days = [];
-        $lateMonths = [];
-        $lastLateDue = null;
-        $late6 = 0;
+        $grace = (int) $thresholds['grace_days'];
+        $months = [];          // month => worst days late of its charges (6-month window only)
+        $undecided = [];       // month => true while a charge is unpaid but still within the grace period
+        $lastLateEnd = null;   // day the most recent late charge was settled (today if still unpaid)
 
         foreach ($charges as $charge) {
             if ($charge['due'] > $today) {
@@ -83,29 +87,47 @@ class PaymentRiskService
             $daysLate = $paidByThen
                 ? max(0, $charge['paid'] !== null ? $charge['paid'] - $charge['due'] : $charge['stored'])
                 : max(0, $today - $charge['due']);
-            $days[] = $daysLate;
-            if ($daysLate > 0) {
-                $lateMonths[$charge['month']] = true;
-                $lastLateDue = max($lastLateDue ?? $charge['due'], $charge['due']);
-                $late6 += $charge['due'] >= $sixMonthsAgo ? 1 : 0;
+            $late = $daysLate > $grace;
+
+            // Recent default looks at all history: an old charge that is still unpaid is a default today.
+            if ($late) {
+                $end = $paidByThen ? ($charge['paid'] ?? $charge['due'] + $charge['stored']) : $today;
+                $lastLateEnd = max($lastLateEnd ?? $end, $end);
+            }
+            if ($charge['due'] < $sixMonthsAgo) {
+                continue;
+            }
+            // Rent, utility shares and part-payments due in one month count as one month, judged by the worst.
+            $months[$charge['month']] = max($months[$charge['month']] ?? 0, $daysLate);
+            if (! $paidByThen && ! $late) {
+                $undecided[$charge['month']] = true;
             }
         }
 
-        ksort($lateMonths);
+        ksort($months);
+        $lateMonths = array_keys(array_filter($months, fn (int $days) => $days > $grace));
+
+        // Current streak: late months in a row up to the latest month whose outcome is known. A month
+        // still inside its grace period is skipped rather than counted as on time.
         $streak = 0;
-        $consecutive = 0;
-        $previous = null;
-        foreach (array_keys($lateMonths) as $month) {
-            $streak = $previous !== null && $month === $previous + 1 ? $streak + 1 : 1;
-            $consecutive = max($consecutive, $streak);
-            $previous = $month;
+        $expected = null;
+        foreach (array_reverse(array_keys($months)) as $month) {
+            $isLate = $months[$month] > $grace;
+            if (! $isLate && isset($undecided[$month]) && $expected === null) {
+                continue;
+            }
+            if (! $isLate || ($expected !== null && $month !== $expected)) {
+                break;
+            }
+            $streak++;
+            $expected = $month - 1;
         }
 
         $metrics = [
-            'late_payments_6mo' => $late6,
-            'consecutive_late_months' => $consecutive,
-            'avg_days_overdue' => round($days === [] ? 0.0 : array_sum($days) / count($days), 1),
-            'days_since_last_default' => $lastLateDue === null ? null : $today - $lastLateDue,
+            'late_payments_6mo' => count($lateMonths),
+            'consecutive_late_months' => $streak,
+            'avg_days_overdue' => round($months === [] ? 0.0 : array_sum($months) / count($months), 1),
+            'days_since_last_default' => $lastLateEnd === null ? null : max(0, $today - $lastLateEnd),
         ];
         $rules = [
             'Repeated late payments' => $metrics['late_payments_6mo'] >= (int) $thresholds['late_payments'],
@@ -131,10 +153,10 @@ class PaymentRiskService
         $days = $evaluation['days_since_last_default'];
 
         return array_values(array_filter([
-            $evaluation['rules']['Repeated late payments'] ? $plural($evaluation['late_payments_6mo'], 'late payment').' in 6 months' : null,
+            $evaluation['rules']['Repeated late payments'] ? 'Late in '.$plural($evaluation['late_payments_6mo'], 'month').' of the last 6' : null,
             $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
             $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
-            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Late payment due today' : 'Late payment '.$plural($days, 'day').' ago') : null,
+            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Has an overdue balance now' : 'Last late payment settled '.$plural($days, 'day').' ago') : null,
         ]));
     }
 

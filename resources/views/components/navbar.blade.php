@@ -86,10 +86,7 @@
                             <li class="user-profile-card">
                                 <div class="user-profile-summary">
                                     <div class="user-profile-name">{{ $user->name ?? 'User' }}</div>
-                                    <div class="user-profile-room-row">
-                                        <span class="user-profile-room">{{ $roomLabel }}</span>
-                                        <span class="user-profile-status"><span class="user-status-dot"></span>Active</span>
-                                    </div>
+                                    <span class="user-profile-room">{{ $roomLabel }}</span>
                                 </div>
                             </li>
                             <div class="user-profile-divider"></div>

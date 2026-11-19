@@ -56,11 +56,12 @@ Artisan::command('payments:align-due-dates {--apply : Save the changes (without 
 Artisan::command('risk:backtest
     {--months=6 : How many past month-ends to test}
     {--window=2 : Months after each cutoff to check what the tenant actually did}
-    {--grace=5 : Days late that still count as paying on time}
+    {--grace= : Days late that still count as paying on time (default: the grace period in Settings)}
     {--flag=high : Count "high" only, or "medium" (medium or high), as flagged}
-    {--csv= : Also save every tenant/month row to this CSV file (for Chapter 4)}', function (\App\Services\RiskBacktest $backtest) {
+    {--csv= : Also save every tenant/month row to this CSV file (for Chapter 4)}', function (\App\Services\RiskBacktest $backtest, \App\Services\PaymentRiskService $risk) {
     $flag = $this->option('flag') === 'medium' ? 'medium' : 'high';
-    $result = $backtest->run((int) $this->option('months'), (int) $this->option('window'), (int) $this->option('grace'), $flag);
+    $grace = $this->option('grace') === null ? (int) $risk->thresholds()['grace_days'] : (int) $this->option('grace');
+    $result = $backtest->run((int) $this->option('months'), (int) $this->option('window'), $grace, $flag);
 
     if ($result['observations'] === []) {
         $this->warn('No tenant had charges due in any checked window yet. Import payment history first, or use fewer --months.');
@@ -70,7 +71,7 @@ Artisan::command('risk:backtest
 
     $pct = fn ($value) => $value === null ? '—' : $value.'%';
     $this->info(sprintf('Risk flag backtest: flagged = %s, outcome window = %d months, late = more than %d days.',
-        $flag === 'medium' ? 'Medium or High' : 'High', (int) $this->option('window'), (int) $this->option('grace')));
+        $flag === 'medium' ? 'Medium or High' : 'High', (int) $this->option('window'), $grace));
     $this->table(
         ['Cutoff', 'Tenants', 'TP', 'FP', 'FN', 'TN', 'Accuracy', 'False positive rate', 'Flagged but on time'],
         array_map(fn ($c) => [$c['cutoff'], $c['tenants_checked'], $c['tp'], $c['fp'], $c['fn'], $c['tn'], $pct($c['accuracy']), $pct($c['false_positive_rate']), $pct($c['flagged_but_paid_on_time'])], $result['cutoffs'])

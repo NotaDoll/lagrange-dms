@@ -47,33 +47,22 @@ class SummerStorageTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->assertSame('2026-06-10', app(SettingsService::class)->get('general', 'billing_start_date'));
         $room = $this->room();
-        $longStay = $this->tenant($room, 'A', '2021-06-15', ['opening_balance' => 500]);
+        $longStay = $this->tenant($room, 'A', '2021-06-15');
         $new = $this->tenant($room, 'B', '2026-06-16');
-        $reserved = $this->tenant($room, 'C', '2026-06-16', ['status' => Tenant::STATUS_RESERVED, 'opening_balance' => 100]);
+        $reserved = $this->tenant($room, 'C', '2026-06-16', ['status' => Tenant::STATUS_RESERVED]);
         $historical = $longStay->payments()->create(['amount' => 150, 'due_date' => '2026-05-31', 'status' => 'paid']);
         $balances = app(TenantBalanceService::class);
 
         $this->assertSame('2021-06-15', $longStay->fresh()->move_in_date->toDateString());
         $entries = $balances->billingEntries($longStay, '2026-05-01', '2026-06-30');
-        $this->assertSame(['150.00', '500.00', '3000.00'], $entries->pluck('amount')->all());
+        $this->assertSame(['150.00', '3000.00'], $entries->pluck('amount')->all());
         $this->assertSame($historical->id, $entries->first()->id);
-        $this->assertSame('Opening Balance', $entries[1]->description);
         // The cutoff keeps established tenants' billing dates. The new tenant owes their first rent in July.
-        $this->assertSame('2026-06-15', $entries[2]->due_date->toDateString());
+        $this->assertSame('2026-06-15', $entries[1]->due_date->toDateString());
         $this->assertTrue($balances->billingEntries($new, '2026-06-01', '2026-06-30')->isEmpty());
         $july = $balances->billingEntries($new, '2026-07-01', '2026-07-31')->sole();
         $this->assertSame(['3000.00', '2026-07-16'], [$july->amount, $july->due_date->toDateString()]);
         $this->assertCount(0, $balances->billingEntries($reserved, '2026-06-01', '2026-06-30'));
-
-        $url = route('proprietor.payments.accrued.settle', $longStay);
-        $receipt = ['charge_type' => Payment::OPENING_BALANCE, 'due_date' => '2026-06-10', 'paid_date' => '2026-08-15', 'receipt_number' => 'OR-OPEN-1'];
-        $this->get(route('proprietor.payments.index', ['category' => Payment::OPENING_BALANCE]))
-            ->assertOk()->assertSee('Opening Balance')->assertSee('500.00');
-        $this->patch($url, $receipt)->assertRedirect();
-        $this->patch($url, $receipt)->assertRedirect();
-        $this->assertDatabaseCount('payments', 2);
-        $this->assertSame(1, $balances->billingEntries($longStay->fresh(), '2026-06-01', '2026-06-30')
-            ->where('charge_type', Payment::OPENING_BALANCE)->count());
     }
 
     public function test_retroactive_storage_regenerates_unpaid_rent_and_keeps_paid_rent_and_the_bed(): void

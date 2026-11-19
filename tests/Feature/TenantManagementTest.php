@@ -35,9 +35,9 @@ class TenantManagementTest extends TestCase
             'status' => Tenant::STATUS_RESERVED,
             'security_deposit' => '500.00',
             'advance_payment' => '100.00',
-            'emergency_contact_name' => 'Maria Cruz',
-            'emergency_contact_number' => '639988765432',
-            'emergency_contact_relationship' => 'mother',
+            'guardian_name' => 'Maria Cruz',
+            'guardian_contact_number' => '639988765432',
+            'guardian_relationship' => 'mother',
             'data_privacy_consent' => '1',
         ], $overrides);
     }
@@ -58,9 +58,9 @@ class TenantManagementTest extends TestCase
         $this->assertTrue($user->must_change_password);
         $this->assertTrue(Hash::check('DELAPENACRUZ09171234567', $user->password));
         $this->assertSame('09171234567', $user->contact_number);
-        $this->assertSame('09988765432', $tenant->emergency_contact_number);
+        $this->assertSame('09988765432', $tenant->guardian_contact_number);
         $this->assertSame('123 Main Street', $tenant->home_address);
-        $this->assertSame('mother', $tenant->emergency_contact_relationship);
+        $this->assertSame('mother', $tenant->guardian_relationship);
         $this->assertSame('500.00', $tenant->security_deposit);
         $this->assertSame('100.00', $tenant->advance_payment);
         $this->assertSame($proprietor->id, $tenant->consent_recorded_by);

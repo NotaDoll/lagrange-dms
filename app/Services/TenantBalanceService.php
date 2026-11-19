@@ -74,18 +74,10 @@ class TenantBalanceService
             return $entries;
         }
 
-        $openingDate = $this->policy->startDate();
-        $openingRecorded = $tenant->payments->where('charge_type', Payment::OPENING_BALANCE);
-        $opening = (float) $tenant->opening_balance;
-        if ($opening > 0 && $openingRecorded->isEmpty() && $openingDate->betweenIncluded($from, $to) && $openingDate->lte($today)) {
-            $entries->push($this->computedEntry($tenant, $opening, $openingDate, Payment::OPENING_BALANCE));
-        }
-
         $firstMonth = $start->copy()->startOfMonth()->max($from->copy()->startOfMonth());
         $lastDate = $to->copy()->min($showFirstDue ?? $today);
         $monthModes = $tenant->monthModes->keyBy(fn ($mode) => $mode->month->format('Y-m'));
         $recordedMonths = $tenant->payments->whereNull('utility_bill_id')
-            ->where('charge_type', '!=', Payment::OPENING_BALANCE)
             ->groupBy(fn ($entry) => $entry->due_date->format('Y-m'));
 
         for ($month = $firstMonth->copy(); $month->lte($lastDate); $month->addMonth()) {
@@ -125,7 +117,7 @@ class TenantBalanceService
 
     /**
      * What a tenant owes for one month's rent or storage fee, and how much of it is already paid.
-     * Utility shares and the opening balance are separate charges and are not included.
+     * Utility shares are separate charges and are not included.
      *
      * @return array{charge: ?Payment, amount: float, paid: float, remaining: float, unrecorded: float, unpaid_rows: Collection, has_unpaid_record: bool, storage: bool, advance_applied: float}
      */
@@ -185,7 +177,7 @@ class TenantBalanceService
         $mode = $tenant->monthModes->first(fn ($item) => $item->month->isSameMonth($month));
         $charge = $this->monthlyCharge($tenant, $month, $mode);
         $recorded = $tenant->payments->whereNull('utility_bill_id')
-            ->filter(fn (Payment $entry) => $entry->charge_type !== Payment::OPENING_BALANCE && $entry->due_date->isSameMonth($month));
+            ->filter(fn (Payment $entry) => $entry->due_date->isSameMonth($month));
         if ($rentOnly) {
             if ($charge?->category !== Payment::RENT || $recorded->contains(fn (Payment $entry) => $entry->category === Payment::STORAGE && $entry->hasRecordedPayment())) {
                 $charge = null;
@@ -299,7 +291,7 @@ class TenantBalanceService
 
         return [
             'outstanding_balance' => round((float) $unpaid->sum('amount'), 2),
-            'unpaid_months' => $unpaid->where('charge_type', '!=', Payment::OPENING_BALANCE)
+            'unpaid_months' => $unpaid
                 ->map(fn ($payment) => $payment->due_date->format('Y-m'))->unique()->count(),
         ];
     }

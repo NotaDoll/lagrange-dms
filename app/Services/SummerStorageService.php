@@ -45,10 +45,16 @@ class SummerStorageService
                     }
 
                     $payments = $tenant->payments()->whereNull('utility_bill_id')
-                        ->where(fn ($query) => $query->whereNull('charge_type')->orWhere('charge_type', '!=', Payment::OPENING_BALANCE))
                         ->whereDate('due_date', '>=', $month)->whereDate('due_date', '<=', $month->copy()->endOfMonth())
                         ->orderBy('id')->lockForUpdate()->get();
                     $hasPayment = $payments->contains(fn (Payment $entry) => $entry->hasRecordedPayment());
+
+                    if ($mode === TenantMonthMode::REGULAR
+                        && $previous?->mode === TenantMonthMode::STORAGE
+                        && $payments->contains(fn (Payment $entry) => $entry->category === Payment::STORAGE && $entry->hasRecordedPayment())) {
+                        $warnings[] = $label.' was kept as Storage because its storage fee has already been paid.';
+                        continue;
+                    }
 
                     $storage = null;
                     if ($mode === TenantMonthMode::STORAGE) {

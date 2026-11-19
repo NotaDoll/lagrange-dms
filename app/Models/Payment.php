@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    public const OPENING_BALANCE = 'opening_balance';
     public const STORAGE = 'storage';
     public const RENT = 'rent';
     public const UTILITIES = 'utilities';
@@ -15,7 +14,6 @@ class Payment extends Model
         'rent' => 'Monthly Rent',
         'utilities' => 'Utility Bills',
         'storage' => 'Storage Fee',
-        'opening_balance' => 'Opening Balance',
     ];
 
     public const TYPE_FULL = 'full';
