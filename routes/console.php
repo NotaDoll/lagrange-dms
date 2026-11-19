@@ -94,3 +94,37 @@ Artisan::command('risk:backtest
 
     return 0;
 })->purpose('Check payment risk flags against what tenants actually paid (accuracy, false positive rate)');
+
+Artisan::command('admin:create', function () {
+    // Asks for everything interactively so the password never appears in the shell history.
+    $first = trim((string) $this->ask('First name'));
+    $last = trim((string) $this->ask('Last name'));
+    $email = \Illuminate\Support\Str::lower(trim((string) $this->ask('Email (used to log in)')));
+    $password = (string) $this->secret('Password (at least 8 characters)');
+    $confirm = (string) $this->secret('Type the password again');
+
+    $validator = \Illuminate\Support\Facades\Validator::make(
+        ['first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $password, 'password_confirmation' => $confirm],
+        [
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ],
+    );
+    if ($validator->fails()) {
+        foreach ($validator->errors()->all() as $error) {
+            $this->error($error);
+        }
+
+        return 1;
+    }
+
+    \App\Models\User::create([
+        'name' => "$first $last", 'first_name' => $first, 'last_name' => $last, 'email' => $email,
+        'password' => \Illuminate\Support\Facades\Hash::make($password), 'role' => 'proprietor',
+    ]);
+    $this->info("Admin account created for $first $last. Log in with $email.");
+
+    return 0;
+})->purpose('Create another admin (proprietor) login');
