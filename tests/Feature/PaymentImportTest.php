@@ -30,10 +30,10 @@ class PaymentImportTest extends TestCase
         RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-05-14', 'status' => 'active']);
 
         $csv = implode("\n", [
-            'tenant_id,amount,due_date,status,paid_date',
-            "{$tenant->id},3000,2026-09-30,paid,2026-09-25",
-            "{$tenant->id},3000,2026-10-30,pending,",
-            "{$tenant->id},3000,2026-05-30,paid,2026-05-30", // before the first rent date (Jun 14)
+            'tenant_id,amount,due_date,status,paid_date,receipt_number',
+            "{$tenant->id},3000,2026-09-30,paid,2026-09-25,0801",
+            "{$tenant->id},3000,2026-10-30,pending,,",
+            "{$tenant->id},3000,2026-05-30,paid,2026-05-30,0802", // before the first rent date (Jun 14)
         ]);
 
         $this->actingAs(User::factory()->create(['role' => 'proprietor']))
@@ -43,8 +43,9 @@ class PaymentImportTest extends TestCase
             ->assertSessionHas('import_errors', fn ($errors) => count($errors) === 1 && str_contains($errors[0], 'Row 4'));
 
         $september = Payment::whereMonth('due_date', 9)->sole();
-        $this->assertSame(['2026-09-14', 'paid', '2026-09-25', 11], [
+        $this->assertSame(['2026-09-14', 'paid', '2026-09-25', 11, '0801'], [
             $september->due_date->toDateString(), $september->status, $september->paid_date->toDateString(), $september->days_overdue,
+            $september->receipt_number,
         ]);
 
         $october = Payment::whereMonth('due_date', 10)->sole();

@@ -57,7 +57,12 @@ class PaymentLedgerService
 
             $receiptNumber = null;
             if ($validated['status'] === 'paid') {
-                $receiptNumber = 'RCPT-' . strtoupper(uniqid());
+                $receiptNumber = filled($validated['receipt_number'] ?? null)
+                    ? trim((string) $validated['receipt_number'])
+                    : 'RCPT-'.strtoupper(uniqid());
+                if (Payment::where('receipt_number', $receiptNumber)->exists()) {
+                    throw ValidationException::withMessages(['receipt_number' => "Receipt number {$receiptNumber} is already used on another payment."]);
+                }
             }
 
             return $tenant->payments()->create([

@@ -63,6 +63,8 @@ class PaymentsImport implements ToCollection, WithHeadingRow
                     'due_date'  => $dueDate,
                     'status'    => strtolower($row['status']),
                     'paid_date' => $paidDate,
+                    // Optional column; blank paid rows get a generated receipt number.
+                    'receipt_number' => isset($row['receipt_number']) ? trim((string) $row['receipt_number']) : null,
                 ];
 
                 if ($validatedData['status'] !== 'paid') {
