@@ -121,6 +121,7 @@ Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])
         Route::view('/password', 'tenant.password')->withoutMiddleware(EnsureTenantPasswordChanged::class)->name('password.edit');
         Route::get('/my-information', [TenantProfileController::class, 'show'])->name('profile.show');
         Route::get('/payments', [TenantPaymentController::class, 'index'])->name('payments.index');
+        Route::get('/complaints', [TenantComplaintController::class, 'index'])->name('complaints.index');
         Route::get('/complaints/create', [TenantComplaintController::class, 'create'])->name('complaints.create');
         Route::post('/complaints', [TenantComplaintController::class, 'store'])->name('complaints.store');
         Route::get('/announcements', [TenantAnnouncementController::class, 'index'])->name('announcements.index');

@@ -14,6 +14,7 @@ class TenantDashboardController extends Controller
         $tenant = auth()->user()->tenant()->firstOrFail();
         $balance = $balanceService->summary($tenant);
         $rentTerms = $balanceService->currentRent($tenant);
+        $recentTransactions = $balanceService->ledger($tenant)->take(5);
         $outstandingBalance = $balance['outstanding_balance'];
 
         $announcementsCount = Announcement::count();
@@ -22,6 +23,7 @@ class TenantDashboardController extends Controller
         return view('tenant.dashboard', compact(
             'rentTerms',
             'outstandingBalance',
+            'recentTransactions',
             'announcementsCount',
             'latestAnnouncement'
         ));

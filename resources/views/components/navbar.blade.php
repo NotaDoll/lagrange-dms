@@ -60,7 +60,7 @@
                         <a class="nav-link {{ request()->routeIs('tenant.payments.*') ? 'active' : '' }}" href="{{ route('tenant.payments.index') }}">Payments</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.create') }}">Complaints</a>
+                        <a class="nav-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.index') }}">Complaints</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('tenant.announcements.*') ? 'active' : '' }}" href="{{ route('tenant.announcements.index') }}">Announcements</a>
@@ -146,7 +146,7 @@
             <nav class="tenant-sidebar-links" aria-label="Main menu">
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.dashboard') ? 'active' : '' }}" href="{{ route('tenant.dashboard') }}"><i class="bi bi-grid-1x2-fill" aria-hidden="true"></i><span>Dashboard</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.payments.*') ? 'active' : '' }}" href="{{ route('tenant.payments.index') }}"><i class="bi bi-credit-card-fill" aria-hidden="true"></i><span>Payments</span></a>
-                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.create') }}"><i class="bi bi-chat-left-text-fill" aria-hidden="true"></i><span>Complaints</span></a>
+                <a class="tenant-sidebar-link {{ request()->routeIs('tenant.complaints.*') ? 'active' : '' }}" href="{{ route('tenant.complaints.index') }}"><i class="bi bi-chat-left-text-fill" aria-hidden="true"></i><span>Complaints</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.announcements.*') ? 'active' : '' }}" href="{{ route('tenant.announcements.index') }}"><i class="bi bi-megaphone-fill" aria-hidden="true"></i><span>Announcements</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.faq.*') ? 'active' : '' }}" href="{{ route('tenant.faq.index') }}"><i class="bi bi-question-circle-fill" aria-hidden="true"></i><span>FAQs</span></a>
             </nav>

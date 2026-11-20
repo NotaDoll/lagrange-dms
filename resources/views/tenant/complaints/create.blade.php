@@ -154,7 +154,7 @@
 <div class="cp-create-wrapper">
 
     <div class="cp-create-header">
-        <a href="{{ route('tenant.dashboard') }}" class="cp-back-link">Back</a>
+        <a href="{{ route('tenant.complaints.index') }}" class="cp-back-link">My Complaints</a>
     </div>
 
     <div class="cp-create-card">

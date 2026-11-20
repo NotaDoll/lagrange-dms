@@ -78,7 +78,21 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Sample data removed as requested. This will just show the headers -->
+                    @forelse ($recentTransactions as $payment)
+                        <tr>
+                            <td data-label="Receipt No.">{{ $payment->display_receipt ?? ($payment->exists ? 'PAY-'.str_pad($payment->id, 6, '0', STR_PAD_LEFT) : '—') }}</td>
+                            <td data-label="Description">
+                                {{ $payment->status_label }} · {{ $payment->description }} due {{ $payment->due_date->format('M d, Y') }}
+                            </td>
+                            <td data-label="Amount">PHP {{ number_format((float) $payment->amount, 2) }}</td>
+                            <td data-label="Date">{{ ($payment->paid_date ?? $payment->due_date)->format('M d, Y') }}</td>
+                            <td data-label=""></td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No transactions found.</td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

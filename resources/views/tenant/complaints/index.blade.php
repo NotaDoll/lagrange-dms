@@ -5,6 +5,10 @@
 
 <!-- Header -->
 <div class="container mt-4">
+    @if (session('success'))
+        <div class="alert alert-success" role="status">{{ session('success') }}</div>
+    @endif
+
     <div class="cp-header">
         <div>
             <h1>My Complaints</h1>
@@ -27,6 +31,7 @@
                 @php
                     $activeStatus = (array) request('status', []);
                     $activeCategory = (array) request('category', []);
+                    $activeDateFilter = $dateFilter ?? request('date_filter', 'all');
                     $hasFilters = count(array_filter($activeStatus)) > 0 || count(array_filter($activeCategory)) > 0;
                 @endphp
 
@@ -113,10 +118,10 @@
                         <div class="mb-0">
                             <div class="filter-section-title">Date Submitted</div>
                             <select name="date_filter" class="form-select">
-                                <option value="30" {{ request('date_filter') == '30' ? 'selected' : '' }}>Last 30 days</option>
-                                <option value="7" {{ request('date_filter') == '7' ? 'selected' : '' }}>Last 7 days</option>
-                                <option value="90" {{ request('date_filter') == '90' ? 'selected' : '' }}>Last 90 days</option>
-                                <option value="all" {{ request('date_filter') == 'all' ? 'selected' : '' }}>All time</option>
+                                <option value="30" {{ $activeDateFilter === '30' ? 'selected' : '' }}>Last 30 days</option>
+                                <option value="7" {{ $activeDateFilter === '7' ? 'selected' : '' }}>Last 7 days</option>
+                                <option value="90" {{ $activeDateFilter === '90' ? 'selected' : '' }}>Last 90 days</option>
+                                <option value="all" {{ $activeDateFilter === 'all' ? 'selected' : '' }}>All time</option>
                             </select>
                         </div>
 
@@ -142,7 +147,7 @@
                     @forelse ($complaints as $complaint)
                         <tr>
                             <td>{{ ucfirst($complaint->category) }}</td>
-                            <td>{{ Str::limit($complaint->description, 90) }}</td>
+                            <td>{{ $complaint->description }}</td>
                             <td>
                                 <span class="cp-status {{ $complaint->status }}">
                                     {{ Str::headline($complaint->status) }}
