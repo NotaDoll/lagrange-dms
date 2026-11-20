@@ -122,7 +122,7 @@ class GuardianSmsTest extends TestCase
             Payment::create(['tenant_id' => $paidUp->id, 'amount' => 1300, 'due_date' => "2026-$day", 'paid_date' => "2026-$day", 'status' => 'paid', 'payment_type' => 'full']);
         }
 
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Text all high-risk guardians (2)');
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Send reminders (2)');
         $preview = $this->getJson(route('proprietor.dashboard.sms.bulk-preview'))->assertOk()->json('recipients');
         $this->assertSame(['Ana Reyes', 'Juan Dela Cruz'], array_column($preview, 'tenant_name'));
         $this->assertStringStartsWith('Dear Pedro Reyes, Ana Reyes has an overdue', $preview[0]['message']);

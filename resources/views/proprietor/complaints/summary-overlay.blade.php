@@ -19,13 +19,25 @@
                     <p class="fw-semibold mb-2" id="anSummaryCount"></p>
                     <div class="d-flex flex-wrap gap-1 mb-2" id="anSummaryChips"></div>
                     <p class="text-muted small mb-3" id="anSummaryGenerated"></p>
-                    <div class="complaint-detail-description text-break" id="anSummaryText"></div>
+                    <div class="p-3 rounded mb-3" id="anSummaryUrgent" style="background-color: #fff5f5; border: 1px solid #fed7d7;" hidden>
+                        <h3 class="h6 fw-bold text-danger mb-1"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Most urgent</h3>
+                        <p class="mb-0 small" id="anSummaryUrgentText"></p>
+                    </div>
+                    {{-- Older summaries without issue groups show their saved text instead. --}}
+                    <div class="complaint-detail-description text-break" id="anSummaryText" hidden></div>
+                    <div id="anSummaryThemes" hidden>
+                        <p class="small text-muted mb-2">Sorted by what each complaint actually says. Click an issue to see its complaints.</p>
+                        <div class="d-flex flex-column gap-3" id="anSummaryThemeLinks"></div>
+                    </div>
+                    <div class="alert alert-warning small mt-3 mb-0 py-2" id="anSummaryRecategorized" hidden>
+                        <strong id="anSummaryRecategorizedTitle"></strong>
+                        <ul class="mb-0 mt-1 ps-3" id="anSummaryRecategorizedList"></ul>
+                    </div>
+                    <a class="btn btn-sm btn-outline-primary mt-3" id="anSummaryAllComplaints" hidden>
+                        <i class="bi bi-list-ul" aria-hidden="true"></i> View all complaints in this summary
+                    </a>
 
-                    <details class="mt-3 small" id="anSummaryIncluded">
-                        <summary>View included complaints</summary>
-                        <ul class="mt-2 mb-1" id="anSummaryComplaints"></ul>
-                        <p class="text-muted mb-0" id="anSummaryMissing" hidden>Some complaints are no longer available.</p>
-                    </details>
+                    <p class="text-muted small mt-3 mb-0" id="anSummaryMissing" hidden>Some complaints in this summary are no longer available.</p>
                 </div>
 
                 <div data-summary-panel="history" hidden>

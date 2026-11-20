@@ -177,7 +177,7 @@ class ProprietorDashboardController extends Controller
     {
         $complaints = Complaint::open()
             ->latest()
-            ->get(['category', 'description', 'status', 'created_at']);
+            ->get(['id', 'category', 'description', 'status', 'created_at']);
 
         if ($complaints->isEmpty()) {
             return response()->json(['message' => 'There are no open complaints to summarize.'], 422);
@@ -186,7 +186,8 @@ class ProprietorDashboardController extends Controller
         try {
             $summary = $summarizer->summarize($complaints, [
                 'generated_by' => $request->user()->id,
-                'fallback'     => false,
+                'complaint_count' => $complaints->count(),
+                'complaint_ids' => $complaints->modelKeys(),
             ]);
 
             return response()->json([

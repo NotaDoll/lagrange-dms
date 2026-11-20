@@ -146,15 +146,15 @@
                 <tbody>
                     @forelse ($complaints as $complaint)
                         <tr>
-                            <td>{{ ucfirst($complaint->category) }}</td>
-                            <td>{{ $complaint->description }}</td>
-                            <td>
+                            <td class="cp-cell-category">{{ ucfirst($complaint->category) }}</td>
+                            <td class="cp-cell-description">{{ $complaint->description }}</td>
+                            <td class="cp-cell-status">
                                 <span class="cp-status {{ $complaint->status }}">
                                     {{ Str::headline($complaint->status) }}
                                 </span>
                             </td>
-                            <td>{{ $complaint->created_at->format('m/d/y  h:i A') }}</td>
-                            <td class="text-end">
+                            <td class="cp-cell-time">{{ $complaint->created_at->format('m/d/y  h:i A') }}</td>
+                            <td class="text-end cp-cell-menu">
                                 <button class="cp-row-menu" type="button">&#8942;</button>
                             </td>
                         </tr>

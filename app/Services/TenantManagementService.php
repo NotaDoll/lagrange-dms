@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Rules\PhilippineMobile;
+use App\Support\PersonName;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +141,8 @@ class TenantManagementService
 
     private function userAttributes(array $validated): array
     {
-        $names = Arr::only($validated, ['first_name', 'middle_name', 'last_name']);
+        // Names are stored formally ("Juan Dela Cruz"), however they were typed or imported.
+        $names = array_map(fn ($name) => PersonName::format($name) ?: null, Arr::only($validated, ['first_name', 'middle_name', 'last_name']));
 
         return [
             ...$names,
@@ -156,6 +158,9 @@ class TenantManagementService
         $attributes = Arr::only($validated, [
             'home_address', 'guardian_name', 'guardian_relationship', 'status', 'security_deposit', 'advance_payment',
         ]);
+        if (array_key_exists('guardian_name', $attributes)) {
+            $attributes['guardian_name'] = PersonName::format($attributes['guardian_name']) ?: null;
+        }
 
         $attributes['move_in_date'] = match ($validated['status']) {
             Tenant::STATUS_ACTIVE => $validated['move_in_date'],

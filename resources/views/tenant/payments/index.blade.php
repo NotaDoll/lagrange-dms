@@ -70,7 +70,6 @@
                         <th>Description</th>
                         <th>Amount</th>
                         <th>Date</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -82,15 +81,10 @@
                             </td>
                             <td data-label="Amount">PHP {{ number_format((float) $payment->amount, 2) }}</td>
                             <td data-label="Date">{{ ($payment->paid_date ?? $payment->due_date)->format('M d, Y') }}</td>
-                            <td data-label="">
-                                @if ($payment->exists)
-                                    <a href="#" class="theme-link-pill">View</a>
-                                @endif
-                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-5">No payments found.</td>
+                            <td colspan="4" class="text-center text-muted py-5">No payments found.</td>
                         </tr>
                     @endforelse
                 </tbody>

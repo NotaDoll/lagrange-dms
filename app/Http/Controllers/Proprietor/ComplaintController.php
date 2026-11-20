@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Proprietor;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiSummary;
 use App\Http\Requests\UpdateComplaintStatusRequest;
 use App\Models\Complaint;
 use App\Services\NotificationService;
@@ -17,6 +18,23 @@ class ComplaintController extends Controller
 
     public function index(Request $request)
     {
+        $hasComplaintScope = $request->query->has('complaint_ids');
+        $rawComplaintIds = (array) $request->query('complaint_ids', []);
+        $complaintScopeIds = $hasComplaintScope
+            ? array_slice(array_values(array_unique(array_filter(array_map(function ($id) {
+                if (is_int($id) && $id > 0) {
+                    return $id;
+                }
+
+                return is_string($id) && ctype_digit($id) && (int) $id > 0 ? (int) $id : null;
+            }, $rawComplaintIds)))), 0, 50)
+            : null;
+        $summaryId = $request->query('summary_id');
+        $summary = is_string($summaryId) && ctype_digit($summaryId) ? AiSummary::find((int) $summaryId) : null;
+        $summaryComplaintIds = $summary?->filter_params['complaint_ids'] ?? null;
+        $summaryComplaintIds = is_array($summaryComplaintIds)
+            ? array_values(array_filter($summaryComplaintIds, fn ($id) => is_int($id) || (is_string($id) && ctype_digit($id))))
+            : null;
         $category = $request->query('category');
         $category = is_string($category) ? $category : null;
         $status = $request->query('status');
@@ -40,7 +58,19 @@ class ComplaintController extends Controller
         );
         $dateErrors = $dates->errors();
 
-        $complaints = Complaint::with('tenant.user')
+        $complaintsQuery = Complaint::with('tenant.user');
+        if ($complaintScopeIds !== null) {
+            $complaintsQuery->whereKey($complaintScopeIds);
+        } elseif ($summary) {
+            if ($summaryComplaintIds !== null) {
+                $complaintsQuery->whereKey($summaryComplaintIds);
+            } else {
+                // Older saved summaries did not keep their source IDs; show the closest available set.
+                $complaintsQuery->open();
+            }
+        }
+
+        $complaints = $complaintsQuery
             ->when($category, fn ($query) => $query->where('category', $category))
             ->when($status, fn ($query) => $query->where('status', $status))
             ->when($dateFrom && $dateErrors->isEmpty(), fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
@@ -58,7 +88,7 @@ class ComplaintController extends Controller
             ->withQueryString();
 
         return view('proprietor.complaints.index', compact(
-            'complaints', 'category', 'status', 'search', 'dateFrom', 'dateTo', 'dateErrors'
+            'complaints', 'category', 'status', 'search', 'dateFrom', 'dateTo', 'dateErrors', 'summary', 'summaryComplaintIds', 'complaintScopeIds'
         ));
     }
 

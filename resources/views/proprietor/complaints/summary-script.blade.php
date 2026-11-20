@@ -11,6 +11,9 @@
                     const backButton = document.getElementById('anSummaryBack');
                     const retryButton = document.getElementById('anSummaryRetry');
                     const historyItems = document.getElementById('anHistoryItems');
+                    const summaryThemes = document.getElementById('anSummaryThemes');
+                    const summaryThemeLinks = document.getElementById('anSummaryThemeLinks');
+                    const summaryAllComplaints = document.getElementById('anSummaryAllComplaints');
                     const previous = document.getElementById('anHistoryPrevious');
                     const next = document.getElementById('anHistoryNext');
                     let opener;
@@ -117,11 +120,50 @@
                         if (period) { chips.unshift(textElement('span', period, 'an-badge')); }
                         document.getElementById('anSummaryChips').replaceChildren(...chips);
                         document.getElementById('anSummaryGenerated').textContent = 'Generated ' + summary.created_at + ' · ' + summary.created_ago;
-                        document.getElementById('anSummaryText').textContent = summary.summary;
-                        document.getElementById('anSummaryIncluded').open = false;
-                        document.getElementById('anSummaryComplaints').replaceChildren(...summary.complaints.map(complaint =>
-                            textElement('li', [complaint.tenant, complaint.category, complaint.date].join(' · '))
-                        ));
+                        const plural = (n) => n + (n === 1 ? ' complaint' : ' complaints');
+                        const groups = summary.groups || [];
+                        const urgent = summary.recommended_action || '';
+                        document.getElementById('anSummaryUrgentText').textContent = urgent;
+                        document.getElementById('anSummaryUrgent').hidden = !urgent;
+                        const text = document.getElementById('anSummaryText');
+                        text.textContent = summary.summary;
+                        text.hidden = groups.length > 0;
+
+                        // One block per category: its heading, then each issue with a link to its complaints.
+                        summaryThemeLinks.replaceChildren(...groups.map(group => {
+                            const block = textElement('section', '');
+                            const heading = textElement('h3', group.label + ' ', 'h6 fw-semibold mb-1');
+                            heading.append(textElement('span', plural(group.count), 'text-muted fw-normal small'));
+                            const list = textElement('ul', '', 'list-group list-group-flush');
+                            group.issues.forEach(theme => {
+                                const item = textElement('li', '', 'list-group-item px-0');
+                                const row = textElement('div', '', 'd-flex align-items-center justify-content-between gap-2');
+                                const link = textElement('a', theme.theme, 'text-dark fw-semibold text-decoration-underline');
+                                link.href = theme.url;
+                                link.setAttribute('aria-label', 'View ' + plural(theme.count) + ' about ' + theme.theme);
+                                row.append(link, textElement('span', plural(theme.count), 'badge bg-secondary rounded-pill'));
+                                item.append(row);
+                                if (theme.detail) { item.append(textElement('div', theme.detail, 'small text-muted')); }
+                                list.append(item);
+                            });
+                            block.append(heading, list);
+                            return block;
+                        }));
+                        summaryThemes.hidden = groups.length === 0;
+
+                        const moved = summary.recategorized || [];
+                        document.getElementById('anSummaryRecategorizedTitle').textContent =
+                            plural(moved.length) + ' filed under a different category. The AI sorted ' + (moved.length === 1 ? 'it' : 'them') + ' by what the tenant wrote:';
+                        document.getElementById('anSummaryRecategorizedList').replaceChildren(...moved.map(item => {
+                            const li = textElement('li', '');
+                            const link = textElement('a', item.tenant);
+                            link.href = item.url;
+                            li.append(link, document.createTextNode(': filed as ' + item.filed_as + ', reads as ' + item.category));
+                            return li;
+                        }));
+                        document.getElementById('anSummaryRecategorized').hidden = moved.length === 0;
+                        summaryAllComplaints.href = summary.complaints_url || '#';
+                        summaryAllComplaints.hidden = !summary.complaints_url;
                         document.getElementById('anSummaryMissing').hidden = !summary.complaints_missing;
                         showPanel('detail', 'Complaints Summary', true);
                     }
@@ -219,6 +261,7 @@
                             openSavedSummary(summary.url);
                         });
 
+                        // The summary itself opens on click; its issue links live inside the opened summary.
                         const remove = textElement('button', 'Delete', 'btn btn-sm btn-outline-danger mt-1');
                         remove.type = 'button';
                         remove.setAttribute('aria-label', 'Delete summary from ' + summary.created_at);

@@ -15,6 +15,8 @@
     /* Priority alert tiles: the color says how urgent, the number says how many. */
     .pd-tile-value { font-size: 2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .pd-tile-topic { font-size: 1.05rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+    .pd-summary-theme-link { color: #5e1049; font-size: .875rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+    .pd-summary-theme-link:hover, .pd-summary-theme-link:focus-visible { color: #9b267a; }
     .pd-tile-ok { font-size: .9rem; color: var(--theme-text-muted); }
     .pd-tile-danger { border: 2px solid var(--theme-danger) !important; }
     .pd-tile-danger .pd-tile-value, .pd-tile-danger .pd-stat-label i { color: var(--theme-danger); }
@@ -30,10 +32,12 @@
     .pd-chart { position: relative; height: 240px; }
     .pd-chart-short { height: 190px; }
     /* Follow-up table */
+    .pd-main-reason { color: var(--theme-danger); }
+    .pd-overdue { font-size: .7rem; color: var(--theme-danger); }
+    .pd-icon-btn { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
     .pd-reason { font-size: .72rem; line-height: 1.3; padding: .25rem .6rem; border-radius: 999px; background: var(--theme-danger-bg); color: var(--theme-danger); }
     .pd-follow-search { max-width: 220px; min-height: 36px; }
-    .pd-follow-table td:first-child { min-width: 160px; }
-    .pd-follow-table td:nth-child(2) { min-width: 210px; }
+    .pd-follow-table td:first-child { min-width: 140px; }
     .pd-history { display: inline-flex; gap: 3px; }
     .pd-history-cell { display: inline-flex; align-items: flex-end; justify-content: center; width: 22px; height: 26px; border-radius: 4px; font-size: .58rem; color: var(--theme-text-muted); }
     .pd-history-cell > span { transform: translateY(14px); }
@@ -43,7 +47,6 @@
     .pd-history-low { background: #7cb342; }
     .pd-history-none { background: transparent; border: 1px dashed var(--theme-border); }
     .pd-history-key { width: 10px; height: 10px; vertical-align: -1px; }
-    .pd-due-list li + li { border-top: 1px solid var(--theme-border); }
     .pd .min-w-0 { min-width: 0; }
     .pd details summary { cursor: pointer; }
     .pd-stat-label { font-size: .83rem; color: var(--theme-text-muted); font-weight: 500; margin-bottom: .65rem; }
@@ -52,7 +55,7 @@
     .pd-progress { height: 8px; background: var(--theme-pink-light); }
     .pd-progress .progress-bar { background: var(--theme-plum); }
     .pd-note { font-size: .73rem; color: var(--theme-text-muted); line-height: 1.6; }
-    .pd-follow-table { font-size: .8rem; min-width: 780px; }
+    .pd-follow-table { font-size: .8rem; min-width: 460px; }
     .pd-follow-table th, .pd-follow-table td { padding: .8rem .5rem; }
     .pd-follow-table summary { cursor: pointer; padding: .3rem 0; }
     .pd-spark { width: 100px; height: 40px; color: var(--theme-plum); }

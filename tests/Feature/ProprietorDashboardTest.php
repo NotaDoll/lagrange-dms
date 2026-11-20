@@ -128,7 +128,7 @@ class ProprietorDashboardTest extends TestCase
         Http::assertSentCount(1);
         $this->assertDatabaseCount('sms_logs', 1);
         $this->assertDatabaseHas('sms_logs', ['tenant_id' => $tenant->id, 'recipient_type' => 'guardian', 'recipient_number' => '09998887777', 'status' => 'queued', 'textbee_batch_id' => 'batch-1']);
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('SMS queued')->assertSee('Send SMS again');
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('SMS queued')->assertSee('Send reminder again');
         $previousId = \App\Models\SmsLog::sole()->id;
         $this->postJson(route('proprietor.dashboard.sms', $tenant), ['resend_after' => $previousId])
             ->assertOk()->assertJsonPath('status', 'queued');
@@ -175,8 +175,17 @@ class ProprietorDashboardTest extends TestCase
         $admin = $this->admin();
         config(["services.groq.key" => "test-key"]);
         $tenant = $this->tenant();
-        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'No water supply', 'status' => Complaint::STATUS_IN_PROGRESS]);
-        Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => json_encode(['themes' => [['theme' => 'Water supply interruptions', 'count' => 1]], 'recommended_action' => 'Inspect the water supply.'])]]]], 200)]);
+        $complaint = Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'No water supply', 'status' => Complaint::STATUS_IN_PROGRESS]);
+        // Filed as maintenance, but the text is about a wrong charge: the AI puts it under Billing.
+        $misfiled = Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'Sobra ang gi-charge sa akong bill', 'status' => Complaint::STATUS_IN_PROGRESS]);
+        Http::fake(['api.groq.com/*' => Http::response(['choices' => [['message' => ['content' => json_encode([
+            'complaints' => [['id' => $complaint->id, 'category' => 'maintenance'], ['id' => $misfiled->id, 'category' => 'billing']],
+            'issues' => [
+                ['category' => 'maintenance', 'issue' => 'Water supply interruptions', 'detail' => 'No water supply.', 'complaint_ids' => [$complaint->id]],
+                ['category' => 'billing', 'issue' => 'Overcharged bill', 'detail' => 'A tenant was charged too much.', 'complaint_ids' => [$misfiled->id]],
+            ],
+            'recommended_action' => 'Inspect the water supply.',
+        ])]]]], 200)]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('id="pd-generate-summary"', false)
             ->assertDontSee('No saved complaint summary')->assertDontSee('No complaint summary has been saved')
             ->assertDontSee('AI SUMMARY')->assertDontSee('AI-generated')
@@ -186,8 +195,13 @@ class ProprietorDashboardTest extends TestCase
         $this->assertDatabaseCount('ai_summaries', 1);
         $this->assertSame($admin->id, AiSummary::sole()->generated_by);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertSee('Water supply interruptions')->assertSee('Inspect the water supply.')
+            ->assertSeeInOrder(['Maintenance', 'Water supply interruptions', 'Billing', 'Overcharged bill'])
+            ->assertSee('1 complaint filed under a different category.')
+            ->assertSee("Complaint #{$misfiled->id}</a>: filed as Maintenance, reads as Billing", false)
             ->assertSee('Review before taking action.');
         Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => $request['model'] === config('services.groq.model')
+            && $request['response_format'] === ['type' => 'json_object']);
     }
 
     public function test_summary_api_failure_keeps_the_previous_summary(): void
@@ -213,7 +227,7 @@ class ProprietorDashboardTest extends TestCase
         Room::create(['room_number' => '201', 'floor' => '2', 'capacity' => 1, 'monthly_rate' => 1300, 'status' => 'reserved']);
         $admin->notifications()->create(['type' => 'announcement', 'message' => 'Test', 'is_read' => false]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('reservedRooms', 1)->assertViewHas('unreadCount', 1)
-            ->assertSee('Sep: not billed, Oct: high')->assertDontSee('Sep: medium')->assertViewHas('upcomingMoveIns', 0);
+            ->assertSee('aria-label="Oct: high risk"', false)->assertDontSee('Sep: medium')->assertViewHas('upcomingMoveIns', 0);
     }
 
     public function test_guest_and_tenant_cannot_access_dashboard_or_actions(): void
@@ -262,8 +276,9 @@ class ProprietorDashboardTest extends TestCase
     {
         $this->admin();
         $this->get(route('proprietor.dashboard'))->assertOk()
-            ->assertSee('No high-risk tenants')->assertSee('None waiting over 7 days')
-            ->assertSee('Nothing due this week')->assertSee('No summary yet')
+            ->assertSee('No high-risk tenants')->assertSee('Urgent complaints')->assertSee('None right now')
+            ->assertSee('Nothing due this week')
+            ->assertDontSee('Top complaint')->assertDontSee('Complaints waiting') // the summary card covers the top issue
             ->assertViewHas('riskCounts', ['high' => 0, 'medium' => 0, 'low' => 0]);
 
         $late = $this->resident('Late Payer', '2026-08-01', '301');
@@ -278,11 +293,27 @@ class ProprietorDashboardTest extends TestCase
             ->assertViewHas('oldestOpenComplaintDays', 12)
             ->assertViewHas('dueSoon', fn ($rows) => $rows->map(fn ($r) => [$r->tenant->id, $r->due_date->toDateString(), $r->amount])->all()
                 === [[$late->id, '2026-11-01', 1300.0], [$soon->id, '2026-11-03', 1300.0]]) // soonest first
-            ->assertSee('Follow up')->assertSee('Review')->assertSee('Record payment')
+            ->assertSee('Follow up')->assertSee('0 urgent · 1 waiting 7+ days (oldest 12 days)')->assertSee('Record payment')
             ->assertDontSee('No high-risk tenants');
         // The high-risk tile (danger) comes before the complaints tile (warning).
         $html = $response->getContent();
-        $this->assertLessThan(strpos($html, 'Complaints waiting'), strpos($html, 'High-risk tenants'));
+        $this->assertLessThan(strpos($html, 'Urgent complaints'), strpos($html, 'High-risk tenants'));
+    }
+
+    public function test_an_ai_flagged_urgent_complaint_turns_the_complaints_tile_red_and_shows_why(): void
+    {
+        $this->admin();
+        $tenant = $this->tenant();
+        $urgent = Complaint::create(['tenant_id' => $tenant->id, 'category' => 'maintenance', 'description' => 'Nag-spark ang outlet', 'status' => Complaint::STATUS_IN_PROGRESS]);
+        $urgent->forceFill(['priority' => 'urgent', 'priority_reason' => 'Sparking outlet is a fire risk'])->save();
+        Complaint::create(['tenant_id' => $tenant->id, 'category' => 'noise', 'description' => 'Loud music', 'status' => Complaint::STATUS_IN_PROGRESS])
+            ->forceFill(['priority' => 'normal'])->save();
+
+        $this->get(route('proprietor.dashboard'))->assertOk()
+            ->assertViewHas('attentionComplaintIds', [$urgent->id])
+            ->assertSee('Sparking outlet is a fire risk')
+            ->assertSee('1 urgent · 0 waiting 7+ days')
+            ->assertSee('pd-tile-danger', false);
     }
 
     public function test_trends_show_collections_and_risk_for_each_month_from_payment_history(): void
@@ -372,39 +403,23 @@ class ProprietorDashboardTest extends TestCase
                     'Has an overdue balance now',
                 ];
             })
-            ->assertSee('Why flagged')->assertSee('₱3,900.00')
-            ->assertSee('Jul: low, Aug: high, Sep: high, Oct: high')
+            // One main reason under the name, every reason on the badge, the overdue balance under the amount.
+            ->assertSee('<span class="pd-main-reason">Late 3 months in a row</span>', false)
+            ->assertSee('Why flagged: Late in 3 months of the last 6; Late 3 months in a row; Pays 41.3 days late on average; Has an overdue balance now')
+            ->assertSee('₱3,900.00')->assertSee('overdue now')
+            ->assertSee('Jul: low risk, Aug: high risk, Sep: high risk, Oct: high risk')
             ->assertSee('id="pd-follow-filters"', false)->assertSee('Search name or room')
-            ->assertSee('Rent due in the next 7 days')->assertSee('Tue, Nov 3')->assertSee('in 3 days');
+            ->assertSee('Rent due in 7 days')->assertSee('next Due Soon, Nov 3')->assertDontSee('Rent due in the next 7 days');
     }
 
-    public function test_complaints_by_category_count_open_and_resolved_within_the_trend_period(): void
+    public function test_dashboard_has_no_occupancy_by_floor_or_complaints_by_category_section(): void
     {
         $this->admin();
-        $tenant = $this->tenant();
-        $make = fn (string $category, string $status, string $created) => Complaint::create(['tenant_id' => $tenant->id, 'category' => $category, 'description' => 'x', 'status' => $status])
-            ->forceFill(['created_at' => $created])->save();
-        $make('maintenance', Complaint::STATUS_IN_PROGRESS, '2026-10-20');
-        $make('maintenance', Complaint::STATUS_RESOLVED, '2026-09-02');
-        $make('noise', Complaint::STATUS_IN_PROGRESS, '2026-08-15');
-        $make('billing', Complaint::STATUS_RESOLVED, '2026-01-10'); // older than 6 months
-
-        $this->get(route('proprietor.dashboard'))->assertOk()
-            ->assertViewHas('complaintsByCategory', fn ($rows) => array_slice($rows, 0, 2) === [
-                ['category' => 'maintenance', 'label' => 'Maintenance', 'open' => 1, 'resolved' => 1],
-                ['category' => 'noise', 'label' => 'Noise', 'open' => 1, 'resolved' => 0],
-            ] && collect($rows)->firstWhere('category', 'billing')['resolved'] === 0)
-            ->assertSee('Complaints by category')->assertSee('3 in total');
-        $this->get(route('proprietor.dashboard', ['trend' => 12]))
-            ->assertViewHas('complaintsByCategory', fn ($rows) => collect($rows)->firstWhere('category', 'billing')['resolved'] === 1);
-    }
-
-    public function test_dashboard_has_no_occupancy_by_floor_section(): void
-    {
-        $this->admin();
+        // The Complaint Summary already groups complaints by (AI-checked) category, so there is no separate chart.
         $this->get(route('proprietor.dashboard'))->assertOk()
             ->assertDontSee('Occupancy by floor')->assertViewMissing('floors')
-            ->assertSee('Complaints by category')->assertSee('Complaint Summary');
+            ->assertDontSee('Complaints by category')->assertViewMissing('complaintsByCategory')
+            ->assertSee('Complaint Summary');
     }
 
     public function test_remembered_risk_history_refreshes_as_soon_as_a_payment_is_recorded(): void
@@ -424,7 +439,7 @@ class ProprietorDashboardTest extends TestCase
         $this->admin();
         $this->get(route('proprietor.dashboard'))->assertOk()
             ->assertSee('No tenants need a payment follow-up right now.')
-            ->assertSee('Nothing is due this week.')
+            ->assertSee('Nothing due this week')
             ->assertDontSee('id="pd-follow-filters"', false);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreComplaintRequest;
 use App\Models\Complaint;
+use App\Services\ComplaintUrgencyService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -47,12 +48,20 @@ class ComplaintController extends Controller
     {
         $tenant = auth()->user()->tenant()->firstOrFail();
 
-        Complaint::create([
+        $complaint = Complaint::create([
             'tenant_id' => $tenant->id,
             'category' => $request->validated('category'),
             'description' => $request->validated('description'),
             'status' => Complaint::STATUS_IN_PROGRESS,
         ]);
+
+        // One AI urgency check per complaint, run after the tenant's page has been sent so they never wait for it.
+        $id = $complaint->id;
+        dispatch(function () use ($id) {
+            if ($complaint = Complaint::find($id)) {
+                app(ComplaintUrgencyService::class)->assess($complaint);
+            }
+        })->afterResponse();
 
         return redirect()
             ->route('tenant.complaints.index')

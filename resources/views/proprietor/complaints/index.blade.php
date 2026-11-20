@@ -102,8 +102,8 @@
         $filterQuery = request()->only(['search', 'category', 'date_from', 'date_to', 'status', 'page']);
         $displayStatus = fn ($complaint) => isset($statusLabels[$complaint->status]) ? $complaint->status : \App\Models\Complaint::STATUS_IN_PROGRESS;
 
-        // Priority is derived from what the complaint already has:
-        // an urgency/priority column (if you have one), then how long it has waited unresolved.
+        // Priority comes from the AI's one-time urgency check (priority = "urgent"),
+        // then from how long the complaint has waited unresolved.
         $meta = function ($c) use ($catIcons) {
             $attrs = $c->getAttributes();
             $flag = Str::lower((string) ($attrs['priority'] ?? $attrs['urgency'] ?? ''));
@@ -117,6 +117,7 @@
 
             return (object) [
                 'pKey' => $p[0], 'pLabel' => $p[1], 'pIcon' => $p[2],
+                'pTitle' => $p[0] === 'urgent' ? 'Marked urgent by AI: '.($c->priority_reason ?: 'needs action today') : ($p[0] === 'aging' ? 'Unresolved for '.$days.' days' : ''),
                 'attention' => in_array($p[0], ['urgent', 'aging'], true),
                 'catIcon' => $catIcons[$c->category] ?? 'bi-chat-dots',
             ];
@@ -126,8 +127,29 @@
     <div class="an">
         <h1 class="an-title mb-3">Complaints</h1>
 
+        @if ($summary || $complaintScopeIds !== null)
+            <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+                <span>
+                    @if ($complaintScopeIds !== null)
+                        Showing the complaints linked to this summary issue.
+                    @elseif ($summaryComplaintIds !== null)
+                        Showing complaints included in the saved AI summary.
+                    @else
+                        This older summary did not save its source complaint IDs; showing current open complaints.
+                    @endif
+                </span>
+                <a class="alert-link" href="{{ route('proprietor.complaints.index', request()->except('summary_id', 'complaint_ids', 'page')) }}">Show all complaints</a>
+            </div>
+        @endif
+
         <div class="an-panel p-3 mb-3">
             <form method="GET" action="{{ route('proprietor.complaints.index') }}" id="anFilters" class="d-flex flex-wrap gap-3 align-items-end">
+                @if ($summary)
+                    <input type="hidden" name="summary_id" value="{{ $summary->id }}">
+                @endif
+                @foreach ($complaintScopeIds ?? [] as $complaintId)
+                    <input type="hidden" name="complaint_ids[]" value="{{ $complaintId }}">
+                @endforeach
                 <div class="an-filter an-filter-search">
                     <label for="anSearch" class="form-label">Search</label>
                     <div class="an-searchbox">
@@ -240,7 +262,7 @@
                                     <td><div class="t-desc">{{ Str::limit($complaint->description, 80) }}</div></td>
                                     <td>
                                         @if ($m->pKey)
-                                            <span class="an-badge p-{{ $m->pKey }}"><i class="bi {{ $m->pIcon }}"></i>{{ $m->pLabel }}</span>
+                                            <span class="an-badge p-{{ $m->pKey }}" @if ($m->pTitle) title="{{ $m->pTitle }}" @endif><i class="bi {{ $m->pIcon }}"></i>{{ $m->pLabel }}</span>
                                         @else
                                             <span class="t-sub">Normal</span>
                                         @endif
@@ -285,7 +307,7 @@
                                     </div>
                                 </div>
                                 @if ($m->pKey)
-                                    <span class="an-badge p-{{ $m->pKey }}"><i class="bi {{ $m->pIcon }}"></i>{{ $m->pLabel }}</span>
+                                    <span class="an-badge p-{{ $m->pKey }}" @if ($m->pTitle) title="{{ $m->pTitle }}" @endif><i class="bi {{ $m->pIcon }}"></i>{{ $m->pLabel }}</span>
                                 @endif
                             </div>
                             <div class="d-flex gap-1 flex-wrap">

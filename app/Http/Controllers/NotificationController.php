@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
@@ -13,6 +14,7 @@ class NotificationController extends Controller
         ]);
     }
 
+    /** The list. A notification is marked read only when the tenant opens it (or uses Mark All Read). */
     public function index(Request $request)
     {
         $notifications = $request->user()
@@ -20,15 +22,22 @@ class NotificationController extends Controller
             ->latest()
             ->paginate(20);
 
-        // ===== CRITICAL FIX ADDED HERE =====
-        // Mark all fetched notifications as read in the database immediately
-        $request->user()
-            ->notifications()
-            ->where('is_read', false)
-            ->update(['is_read' => true]);
-        // ===================================
-
         return view('notifications.index', compact('notifications'));
+    }
+
+    /** Opening a notification in its modal marks it read. */
+    public function markRead(Request $request, Notification $notification)
+    {
+        abort_unless($notification->user_id === $request->user()->id, 404);
+
+        if (! $notification->is_read) {
+            $notification->update(['is_read' => true]);
+        }
+
+        return response()->json([
+            'read' => true,
+            'unread' => $request->user()->notifications()->where('is_read', false)->count(),
+        ]);
     }
 
     public function markAllRead(Request $request)

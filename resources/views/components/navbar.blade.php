@@ -74,7 +74,7 @@
 
                 <!-- Right Side Actions (Bell & Avatar Dropdown) -->
                 <div class="nav-right-actions">
-                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" aria-label="Notifications" onclick="clearNotificationBadge()">
+                    <a href="{{ route('notifications.index') }}" class="nav-notif-wrapper" aria-label="Notifications">
                         <i class="bi bi-bell-fill" aria-hidden="true"></i>
                         <span class="badge notif-badge">0</span>
                     </a><!-- User Avatar Dropdown -->
@@ -153,7 +153,7 @@
 
             <div class="tenant-sidebar-section-label mt-4">ACCOUNT</div>
             <nav class="tenant-sidebar-links" aria-label="Account menu">
-                                <a class="tenant-sidebar-link {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" onclick="clearNotificationBadge()"><i class="bi bi-bell-fill" aria-hidden="true"></i><span>Notifications</span><span class="badge rounded-pill notif-badge">0</span></a>
+                                <a class="tenant-sidebar-link {{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}"><i class="bi bi-bell-fill" aria-hidden="true"></i><span>Notifications</span><span class="badge rounded-pill notif-badge">0</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.profile.show') ? 'active' : '' }}" href="{{ route('tenant.profile.show') }}"
                     @if (request()->routeIs('tenant.profile.show')) aria-current="page" @endif><i class="bi bi-person-vcard" aria-hidden="true"></i><span>My Information</span></a>
                 <a class="tenant-sidebar-link {{ request()->routeIs('tenant.password.*') ? 'active' : '' }}" href="{{ route('tenant.password.edit') }}"><i class="bi bi-person-fill" aria-hidden="true"></i><span>Change password</span></a>

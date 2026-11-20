@@ -127,25 +127,6 @@
     <!-- ===== RIGHT COLUMN (SIDEBAR) ===== -->
     <div class="ann-right-col">
 
-        <!-- FAQ Card -->
-        <div class="ann-sidebar-card">
-            <div class="ann-sidebar-title">Frequently Asked Questions</div>
-
-            @forelse ($faqs as $faq)
-                <div style="margin-bottom: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
-                    <a href="{{ route('tenant.faq.index') }}" style="text-decoration: none; color: #374151; font-weight: 500; font-size: 0.9rem; display: block;">
-                        {{ $faq->question ?? $faq->title }}
-                    </a>
-                </div>
-            @empty
-                <div style="color: #9ca3af; font-size:0.9rem;">No FAQs available yet.</div>
-            @endforelse
-
-            <a href="{{ route('tenant.faq.index') }}" style="display: block; text-align: right; margin-top: 15px; font-size: 0.8rem; color: #6b7280; text-decoration: none;">
-                View all FAQs &rarr;
-            </a>
-        </div>
-
         <!-- Emergency Contact Card -->
         <div class="ann-emergency-box">
             <h5>Emergency Contact</h5>

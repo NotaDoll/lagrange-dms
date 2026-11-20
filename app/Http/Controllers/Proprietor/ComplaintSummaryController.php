@@ -62,15 +62,15 @@ class ComplaintSummaryController extends Controller
             ], 422);
         }
 
+        $generated = null;
         try {
-            $text = $summarizer->generate($complaints);
+            $generated = $summarizer->generateWithThemes($complaints);
         } catch (\Throwable $exception) {
             report($exception);
-            $text = null;
         }
 
-        if ($text === null) {
-            return response()->json(['message' => 'The AI could not generate a summary. Please try again.'], 502);
+        if ($generated === null) {
+            return response()->json(['message' => 'The AI could not generate a summary with reliable complaint groups. Please try again.'], 502);
         }
 
         $summary = ComplaintSummary::create([
@@ -80,7 +80,12 @@ class ComplaintSummaryController extends Controller
             'categories_included' => $complaints->pluck('category')->unique()->sort()->values()->all(),
             'period_start' => $complaints->first()->created_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->toDateString(),
             'period_end' => $complaints->last()->created_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->toDateString(),
-            'summary' => $text,
+            'summary' => $generated['summary'],
+            'theme_complaint_ids' => [
+                'themes' => $generated['themes'],
+                'recategorized' => $generated['recategorized'],
+                'recommended_action' => $generated['recommended_action'],
+            ],
         ]);
 
         return response()->json($this->detail($summary, $complaints), 201);
@@ -113,7 +118,9 @@ class ComplaintSummaryController extends Controller
             'id' => $summary->id,
             'url' => route('proprietor.complaints.summaries.show', $summary),
             'complaint_count' => $summary->complaint_count,
+            'complaints_url' => route('proprietor.complaints.index', ['complaint_ids' => $summary->complaint_ids]),
             'categories' => $summary->categories_included ?? [],
+            'themes' => $this->presentThemes($summary),
             'created_at' => $summary->created_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('M d, Y, g:i A'),
             'created_ago' => $summary->created_at->diffForHumans(),
         ];
@@ -126,6 +133,9 @@ class ComplaintSummaryController extends Controller
             'period_start' => $summary->period_start?->format('M d, Y'),
             'period_end' => $summary->period_end?->format('M d, Y'),
             'summary' => $summary->summary,
+            'groups' => $this->presentCategories($summary),
+            'recategorized' => $this->presentRecategorized($summary, $complaints),
+            'recommended_action' => $this->analysis($summary)['recommended_action'] ?? null,
             'complaints_missing' => $complaints->count() < $summary->complaint_count,
             'complaints' => $complaints->map(fn (Complaint $complaint) => [
                 'tenant' => $complaint->tenant?->name ?? 'Tenant unavailable',
@@ -133,5 +143,55 @@ class ComplaintSummaryController extends Controller
                 'date' => $complaint->created_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('M d, Y'),
             ])->all(),
         ];
+    }
+
+    /** Stored analysis: a list of themes (older summaries) or {themes, recategorized, recommended_action}. */
+    private function analysis(ComplaintSummary $summary): array
+    {
+        $stored = $summary->theme_complaint_ids ?? [];
+
+        return array_is_list($stored) ? ['themes' => $stored] : $stored;
+    }
+
+    private function presentThemes(ComplaintSummary $summary): array
+    {
+        return collect($this->analysis($summary)['themes'] ?? [])->map(function (array $theme) {
+            $ids = array_values(array_filter($theme['complaint_ids'] ?? [], fn ($id) => is_int($id) || (is_string($id) && ctype_digit($id))));
+
+            return [
+                'theme' => (string) ($theme['theme'] ?? ''),
+                'category' => $theme['category'] ?? null,
+                'detail' => (string) ($theme['detail'] ?? ''),
+                'count' => (int) ($theme['count'] ?? count($ids)),
+                'url' => $ids === [] ? null : route('proprietor.complaints.index', ['complaint_ids' => $ids]),
+            ];
+        })->filter(fn ($theme) => $theme['theme'] !== '' && $theme['url'] !== null)->values()->all();
+    }
+
+    /** Issues grouped under the category the AI gave them, largest category first. */
+    private function presentCategories(ComplaintSummary $summary): array
+    {
+        $labels = ComplaintSummarizationService::CATEGORY_LABELS;
+
+        return collect($this->presentThemes($summary))->groupBy(fn ($theme) => $theme['category'] ?? '')
+            ->map(fn ($issues, $category) => [
+                'label' => $labels[$category] ?? 'Issues',
+                'count' => $issues->sum('count'),
+                'issues' => $issues->values()->all(),
+            ])->sortByDesc('count')->values()->all();
+    }
+
+    /** Complaints whose text the AI read as a different category from the one the tenant chose. */
+    private function presentRecategorized(ComplaintSummary $summary, Collection $complaints): array
+    {
+        $labels = ComplaintSummarizationService::CATEGORY_LABELS;
+        $byId = $complaints->keyBy('id');
+
+        return collect($this->analysis($summary)['recategorized'] ?? [])->map(fn ($moved) => [
+            'tenant' => $byId->get($moved['complaint_id'])?->tenant?->name ?? 'Complaint #'.$moved['complaint_id'],
+            'filed_as' => $labels[$moved['filed_as']] ?? ucfirst((string) $moved['filed_as']),
+            'category' => $labels[$moved['category']] ?? ucfirst((string) $moved['category']),
+            'url' => route('proprietor.complaints.index', ['complaint_ids' => [$moved['complaint_id']]]),
+        ])->values()->all();
     }
 }

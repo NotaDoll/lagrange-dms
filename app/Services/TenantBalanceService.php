@@ -323,7 +323,45 @@ class TenantBalanceService
             'effective_from' => $storage ? $month : $assignment->start_date,
             'due_date' => $storage ? $this->policy->dueDate($tenant, $month)
                 : $this->policy->dueDate($tenant, $month)->max($this->policy->firstRentDueDate($tenant)),
+            'next_due' => $this->nextDue($tenant),
         ];
+    }
+
+    /**
+     * The next rent or storage fee the tenant still has to pay, starting with this month: this month's
+     * if it is unpaid (marked overdue once its due date has passed), otherwise the first later month
+     * not already covered by a payment or the advance. Null when nothing is due within a year.
+     *
+     * @return ?array{date: Carbon, amount: float, label: string, overdue: bool}
+     */
+    public function nextDue(Tenant $tenant): ?array
+    {
+        $today = Carbon::parse(Tenant::localDate());
+        $firstDue = $this->policy->firstRentDueDate($tenant);
+        if ($firstDue === null) {
+            return null;
+        }
+
+        for ($i = 0; $i <= 12; $i++) {
+            $month = $today->copy()->startOfMonth()->addMonthsNoOverflow($i);
+            $due = $this->policy->dueDate($tenant, $month);
+            if ($due === null || $due->lt($firstDue)) {
+                continue;
+            }
+            $balance = $this->monthBalance($tenant, $month);
+            if ($balance['remaining'] <= 0) {
+                continue; // paid, covered by the advance, or nothing billed that month
+            }
+
+            return [
+                'date' => $due,
+                'amount' => $balance['remaining'],
+                'label' => $balance['storage'] ? 'Storage fee' : 'Rent',
+                'overdue' => $due->lt($today),
+            ];
+        }
+
+        return null;
     }
 
     public function summary(Tenant $tenant): array

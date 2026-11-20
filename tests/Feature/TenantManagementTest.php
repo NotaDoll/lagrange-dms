@@ -229,7 +229,7 @@ class TenantManagementTest extends TestCase
 
         $tenant = Tenant::where('email', 'shared@example.com')->sole();
         $this->assertNull($tenant->user);
-        $this->assertSame('Ana Santos De la Peña-Cruz', $tenant->name);
+        $this->assertSame('Ana Santos De La Peña-Cruz', $tenant->name);
         $this->assertSame($originalPassword, $admin->fresh()->password);
         $this->assertSame('proprietor', $admin->fresh()->role);
         $this->assertDatabaseCount('users', 1);

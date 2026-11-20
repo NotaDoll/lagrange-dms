@@ -78,8 +78,11 @@ class ProprietorDashboardService
         // These are the exact occupancy/availability predicates used by RoomController.
         $occupiedBeds = RoomAssignment::where('status', 'active')->count();
         $availableBeds = Bed::where('status', 'available')->whereDoesntHave('currentAssignment')->count();
-        $complaints = Complaint::select('id', 'status', 'category', 'created_at')->get();
+        $complaints = Complaint::select('id', 'status', 'category', 'priority', 'priority_reason', 'created_at')->get();
         $open = $complaints->whereIn('status', ['submitted', 'in_progress']);
+        // Needs attention now: flagged urgent by the AI's one-time check, or unresolved for more than 7 days.
+        $urgent = $open->where('priority', ComplaintUrgencyService::URGENT)->sortBy('created_at')->values();
+        $waiting = $open->filter(fn ($complaint) => $complaint->created_at->lt(now()->subDays(7)));
         $latestSummary = AiSummary::latest('id')->first();
 
         return [
@@ -88,16 +91,16 @@ class ProprietorDashboardService
             'expectedThisMonth' => (float) $period->sum('amount'),
             'collectedThisMonth' => (float) $period->where('status', 'paid')->sum('amount'),
             'overdueBalance' => (float) $overdue->sum('amount'), 'overdueTenants' => $overdue->pluck('tenant_id')->unique()->count(),
-            'openComplaints' => $open->count(), 'submittedComplaints' => $open->where('status', 'submitted')->count(),
-            'inProgressComplaints' => $open->where('status', 'in_progress')->count(),
+            'openComplaints' => $open->count(),
             'newComplaintsToday' => $open->filter(fn ($complaint) => $complaint->created_at->isToday())->count(),
-            'oldComplaints' => $open->filter(fn ($complaint) => $complaint->created_at->lt(now()->subDays(7)))->count(),
+            'oldComplaints' => $waiting->count(),
+            'urgentComplaints' => $urgent,
+            'attentionComplaintIds' => $urgent->concat($waiting)->pluck('id')->unique()->values()->all(),
             'reservedRooms' => Room::where('status', 'reserved')->count(),
             'upcomingMoveIns' => RoomAssignment::where('status', 'active')->whereDate('start_date', '>', today())->count(),
             'nextMoveIn' => RoomAssignment::where('status', 'active')->whereDate('start_date', '>', today())->min('start_date'),
             'followUps' => $followUps, 'highRiskCount' => $followUps->where('risk_level', 'high')->count(),
             'latestSummary' => $latestSummary,
-            'complaintsByCategory' => $this->complaintsByCategory($complaints, $trendMonths),
             'summaryContent' => $this->presentSummary($latestSummary),
             'riskCounts' => $riskCounts,
             'oldestOpenComplaintDays' => $open->isEmpty() ? null : (int) $open->min('created_at')->diffInDays(now()),
@@ -200,24 +203,6 @@ class ProprietorDashboardService
         })->all();
     }
 
-    /** Complaints filed in the trend period, per category, split into still open and resolved. */
-    private function complaintsByCategory(Collection $complaints, int $months): array
-    {
-        $since = Carbon::parse(Tenant::localDate())->startOfMonth()->subMonthsNoOverflow($months - 1);
-        $recent = $complaints->filter(fn ($complaint) => $complaint->created_at->gte($since));
-        $labels = ['maintenance' => 'Maintenance', 'noise' => 'Noise', 'billing' => 'Billing', 'other' => 'Other'];
-        foreach ($recent->pluck('category')->unique() as $category) {
-            $labels[$category] ??= Str::headline((string) $category);
-        }
-
-        return collect($labels)->map(function (string $label, string $category) use ($recent) {
-            $rows = $recent->where('category', $category);
-            $resolved = $rows->where('status', Complaint::STATUS_RESOLVED)->count();
-
-            return ['category' => $category, 'label' => $label, 'open' => $rows->count() - $resolved, 'resolved' => $resolved];
-        })->sortByDesc(fn ($row) => $row['open'] + $row['resolved'])->values()->all();
-    }
-
     /** Rent coming due in the next 7 days (from each tenant's move-in day) that isn't paid yet. */
     private function dueSoon(Collection $tenants): Collection
     {
@@ -241,16 +226,20 @@ class ProprietorDashboardService
     private function presentSummary(?AiSummary $summary): array
     {
         if (! $summary) {
-            return ['themes' => [], 'action' => null, 'text' => null, 'alert' => null, 'total' => null];
+            return ['themes' => [], 'categories' => [], 'recategorized' => [], 'action' => null, 'text' => null, 'alert' => null, 'total' => null];
         }
         $parsed = json_decode($summary->summary_result, true);
         $total = $summary->filter_params['complaint_count'] ?? null;
         $themes = is_array($parsed) ? collect($parsed['themes'] ?? [])->filter(fn ($theme) => is_array($theme) && is_string($theme['theme'] ?? null) && is_numeric($theme['count'] ?? null))->values()->all() : [];
+        // Summaries made before AI categorization have no categories: show their issues under one heading.
+        $categories = is_array($parsed['categories'] ?? null) ? $parsed['categories']
+            : ($themes ? [['category' => null, 'label' => 'Issues', 'count' => array_sum(array_column($themes, 'count')), 'issues' => $themes]] : []);
         $text = $themes ? null : strip_tags($summary->summary_result);
         $first = $themes[0] ?? null;
 
         return [
-            'themes' => $themes, 'total' => $total,
+            'themes' => $themes, 'total' => $total, 'categories' => $categories,
+            'recategorized' => is_array($parsed['recategorized'] ?? null) ? $parsed['recategorized'] : [],
             'action' => is_array($parsed) && is_string($parsed['recommended_action'] ?? null) ? $parsed['recommended_action'] : null,
             'text' => $text,
             'alert' => $first ? $first['theme'].' — '.$first['count'].($total !== null ? ' of '.$total : '').' complaints in the saved summary.' : Str::limit($text, 190),

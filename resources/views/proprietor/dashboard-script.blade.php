@@ -77,7 +77,7 @@
             return;
         }
         const previousId = smsButton.dataset.logId;
-        const statusLabel = smsButton.parentElement.querySelector('.pd-sms-status');
+        const statusLabel = smsButton.closest('td').querySelector('.pd-sms-status');
         smsSend.disabled = true;
         smsSend.textContent = 'Sending…';
         try {
@@ -87,7 +87,8 @@
             show('pd-sms-message', data.message);
             statusLabel.textContent = statusLabels[data.status] || '';
             smsButton.dataset.logId = data.log_id;
-            smsButton.textContent = 'Send SMS again';
+            smsButton.title = 'Send reminder again'; // icon button: the label lives in its title and aria-label
+            smsButton.setAttribute('aria-label', 'Send reminder again');
             bootstrap.Modal.getOrCreateInstance(smsModalEl).hide();
         } catch (error) {
             smsError.textContent = error.message;

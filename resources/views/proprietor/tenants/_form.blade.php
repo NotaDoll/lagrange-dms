@@ -35,21 +35,21 @@
 <div class="row g-3">
     <div class="col-md-4">
         <label for="first_name" class="form-label">First Name</label>
-        <input type="text" id="first_name" name="first_name" class="form-control text-uppercase @error('first_name') is-invalid @enderror" maxlength="255" autocomplete="given-name" required
+        <input type="text" id="first_name" name="first_name" class="form-control @error('first_name') is-invalid @enderror" maxlength="255" autocomplete="given-name" required
             value="{{ old('first_name', $tenant?->first_name ?? $tenant?->user?->first_name ?? '') }}" @error('first_name') aria-invalid="true" aria-describedby="first_name-error" @enderror>
         @error('first_name') <div class="invalid-feedback" id="first_name-error">{{ $message }}</div> @enderror
     </div>
 
     <div class="col-md-4">
         <label for="middle_name" class="form-label">Middle Name <span class="text-muted">(Optional)</span></label>
-        <input type="text" id="middle_name" name="middle_name" class="form-control text-uppercase @error('middle_name') is-invalid @enderror" maxlength="255" autocomplete="additional-name"
+        <input type="text" id="middle_name" name="middle_name" class="form-control @error('middle_name') is-invalid @enderror" maxlength="255" autocomplete="additional-name"
             value="{{ old('middle_name', $tenant?->middle_name ?? $tenant?->user?->middle_name ?? '') }}" @error('middle_name') aria-invalid="true" aria-describedby="middle_name-error" @enderror>
         @error('middle_name') <div class="invalid-feedback" id="middle_name-error">{{ $message }}</div> @enderror
     </div>
 
     <div class="col-md-4">
         <label for="last_name" class="form-label">Last Name</label>
-        <input type="text" id="last_name" name="last_name" class="form-control text-uppercase @error('last_name') is-invalid @enderror" maxlength="255" autocomplete="family-name" required
+        <input type="text" id="last_name" name="last_name" class="form-control @error('last_name') is-invalid @enderror" maxlength="255" autocomplete="family-name" required
             value="{{ old('last_name', $tenant?->last_name ?? $tenant?->user?->last_name ?? '') }}" @error('last_name') aria-invalid="true" aria-describedby="last_name-error" @enderror>
         @error('last_name') <div class="invalid-feedback" id="last_name-error">{{ $message }}</div> @enderror
     </div>
@@ -165,7 +165,7 @@
 
     <div class="col-md-4">
         <label for="guardian_name" class="form-label">Guardian Name</label>
-        <input type="text" id="guardian_name" name="guardian_name" class="form-control text-uppercase @error('guardian_name') is-invalid @enderror" maxlength="255" @required(! $editing)
+        <input type="text" id="guardian_name" name="guardian_name" class="form-control @error('guardian_name') is-invalid @enderror" maxlength="255" @required(! $editing)
             value="{{ old('guardian_name', ($tenant?->guardian_name ?? '')) }}" @error('guardian_name') aria-invalid="true" aria-describedby="guardian_name-error" @enderror>
         @error('guardian_name') <div class="invalid-feedback" id="guardian_name-error">{{ $message }}</div> @enderror
     </div>

@@ -584,7 +584,7 @@
     .ann-modal-list { padding-left: 20px; margin-bottom: 30px; font-size: 0.95rem; color: #374151; line-height: 1.7; }
 
     @media (max-width: 900px) {
-        .ann-page-wrapper { flex-direction: column-reverse; }
+        .ann-page-wrapper { flex-direction: column; } /* announcements first, FAQ and emergency contact below */
         .ann-right-col { flex-direction: row; flex-wrap: wrap; }
         .ann-right-col > * { flex: 1; min-width: 200px; }
         .db-emergency-banner { flex-direction: column; align-items: flex-start; text-align: left; }

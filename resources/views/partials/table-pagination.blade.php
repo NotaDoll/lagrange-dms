@@ -1,7 +1,7 @@
 {{--
     Shows at most 10 rows per page in every table (class "table") that has more, with page links underneath.
     Tables paginated by the server already have 10 or fewer rows, so nothing changes for them.
-    - Opt out with <table data-no-paginate>.
+    - Opt out with <table data-no-paginate>; show a different number of rows with <table data-per-page="5">.
     - Rows a page hides with its own filter (class "d-none") aren't counted; after filtering, call
       window.paginateTable(table, 1) to start again from page 1.
     - Printing always shows every row.
@@ -18,7 +18,7 @@
 </style>
 <script>
 (() => {
-    const PER_PAGE = 10;
+    const DEFAULT_PER_PAGE = 10;
     // Skip "No records found" style rows (a single cell spanning the table).
     const isDataRow = (row) => !row.hasAttribute('data-paginate-ignore') && !(row.cells.length === 1 && row.cells[0].colSpan > 1);
 
@@ -33,6 +33,7 @@
     function paginate(table, page = 1) {
         const body = table.tBodies[0];
         if (!body) return;
+        const PER_PAGE = Number(table.dataset.perPage) > 0 ? Number(table.dataset.perPage) : DEFAULT_PER_PAGE;
         const rows = [...body.rows].filter(isDataRow);
         rows.forEach((row) => row.classList.remove('tp-hidden'));
         const visible = rows.filter((row) => !row.classList.contains('d-none'));

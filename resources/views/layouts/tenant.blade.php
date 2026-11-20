@@ -354,6 +354,31 @@
         .tenant-sidebar-footer-note { margin: 14px 12px 0; color: #a79aa3; font-size: .75rem; }
         .tenant-navbar .notif-badge { display: none; }
 
+        /* Phones: tables become one card per row instead of a box you swipe sideways. */
+        @media (max-width: 640px) {
+            .table-responsive > .theme-table,
+            .table-responsive > .cp-table { min-width: 0; }
+
+            /* Payments: label on the left, value on the right; the long description goes under its label. */
+            .theme-table tbody td[data-label="Description"],
+            .db-table tbody td[data-label="Description"] { text-align: left; }
+            .theme-table tbody td[data-label="Description"]::before,
+            .db-table tbody td[data-label="Description"]::before { float: none; display: block; margin-bottom: 2px; }
+
+            /* Complaints: category and status on top, the description, then the date. */
+            .cp-table thead { display: none; }
+            .cp-table, .cp-table tbody { display: block; width: 100%; }
+            .cp-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+            /* !important: Bootstrap's .table cell padding and borders are more specific than these rules. */
+            .cp-table tbody td { display: block; padding: 0 !important; border: none !important; width: auto !important; background: transparent; }
+            .cp-table tbody td.cp-cell-category { grid-area: 1 / 1; font-weight: 600; color: #271522; }
+            .cp-table tbody td.cp-cell-status { grid-area: 1 / 2; justify-self: end; }
+            .cp-table tbody td.cp-cell-description { grid-area: 2 / 1 / 3 / 3; overflow-wrap: anywhere; }
+            .cp-table tbody td.cp-cell-time { grid-area: 3 / 1 / 4 / 3; color: #7b6b78; font-size: .8rem; }
+            .cp-table tbody td.cp-cell-menu { display: none; }
+            .cp-table tbody td[colspan] { grid-column: 1 / -1; }
+        }
+
         @media (max-width: 575.98px) {
             .tenant-mobile-topbar { min-height: 60px; padding: 8px 12px; }
             .tenant-mobile-brand img { height: 36px; }
@@ -378,24 +403,12 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        function clearNotificationBadge() {
-            document.querySelectorAll('.tenant-navbar .notif-badge, .tenant-mobile-sidebar .notif-badge').forEach((badge) => {
-                badge.style.display = 'none';
-                badge.textContent = '0';
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            if (window.location.pathname.includes('/notifications')) {
-                clearNotificationBadge();
-            }
-        });
-
+        // Notifications are marked read one at a time when opened, so the badge always shows what is still unread.
         async function pollNotifications() {
             try {
                 const response = await fetch("{{ route('notifications.unread-count') }}");
                 const data = await response.json();
-                const shouldShow = data.count > 0 && !window.location.pathname.includes('/notifications');
+                const shouldShow = data.count > 0;
 
                 document.querySelectorAll('.tenant-navbar .notif-badge, .tenant-mobile-sidebar .notif-badge').forEach((badge) => {
                     badge.textContent = data.count;

@@ -38,6 +38,7 @@ Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])->
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->whereNumber('notification')->name('notifications.read');
 });
 
 Route::middleware(['auth', 'role:proprietor'])->group(function () {

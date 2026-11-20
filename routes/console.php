@@ -128,3 +128,37 @@ Artisan::command('admin:create', function () {
 
     return 0;
 })->purpose('Create another admin (proprietor) login');
+
+Artisan::command('complaints:check-urgency', function (\App\Services\ComplaintUrgencyService $urgency) {
+    // Checks only unresolved complaints the AI has not checked yet, so running it again costs nothing extra.
+    $pending = \App\Models\Complaint::open()->whereNull('priority')->orderBy('id')->get();
+    if ($pending->isEmpty()) {
+        $this->info('Every unresolved complaint has already been checked.');
+
+        return 0;
+    }
+
+    $counts = ['urgent' => 0, 'normal' => 0, 'failed' => 0];
+    foreach ($pending as $complaint) {
+        $counts[$urgency->assess($complaint) ?? 'failed']++;
+    }
+    $this->info(sprintf('Checked %d complaint(s): %d urgent, %d normal, %d could not be checked (try again later).',
+        $pending->count(), $counts['urgent'], $counts['normal'], $counts['failed']));
+
+    return 0;
+})->purpose('Ask the AI once whether each unchecked, unresolved complaint is urgent');
+
+Artisan::command('rent:send-reminders', function (\App\Services\RentReminderService $reminders) {
+    // Safe to run any number of times: each reminder goes out once per tenant, due date and stage.
+    $sent = 0;
+    \App\Models\Tenant::where('status', \App\Models\Tenant::STATUS_ACTIVE)->whereNotNull('user_id')
+        ->with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])
+        ->each(function ($tenant) use ($reminders, &$sent) {
+            $sent += $reminders->remind($tenant) ? 1 : 0;
+        });
+    $this->info("Sent {$sent} rent reminder(s).");
+
+    return 0;
+})->purpose('In-app rent reminders: 3 days before the due date and on the due day');
+
+Schedule::command('rent:send-reminders')->dailyAt('07:00')->withoutOverlapping();
