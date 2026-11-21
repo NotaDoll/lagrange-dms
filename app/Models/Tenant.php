@@ -134,16 +134,6 @@ class Tenant extends Model
         return $this->hasMany(Complaint::class);
     }
 
-    public function riskFlags()
-    {
-        return $this->hasMany(RiskFlag::class);
-    }
-
-    public function latestRiskFlag()
-    {
-        return $this->hasOne(RiskFlag::class)->latestOfMany('calculated_at');
-    }
-
     public function smsLogs()
     {
         return $this->hasMany(SmsLog::class);

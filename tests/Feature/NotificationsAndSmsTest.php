@@ -64,7 +64,7 @@ class NotificationsAndSmsTest extends TestCase
         ]);
     }
 
-    public function test_risk_recalculation_saves_flags_but_never_texts_anyone(): void
+    public function test_risk_evaluation_never_texts_anyone(): void
     {
         // Guardian reminders are reviewed and sent by the proprietor from the Dashboard, never automatically.
         Http::fake();
@@ -79,10 +79,9 @@ class NotificationsAndSmsTest extends TestCase
             Payment::create(['tenant_id' => $tenant->id, 'amount' => 1000, 'due_date' => Carbon::parse($due), 'days_overdue' => $days, 'status' => 'overdue']);
         }
 
-        $flag = app(PaymentRiskService::class)->calculateForTenant($tenant);
+        $evaluation = app(PaymentRiskService::class)->evaluate($tenant);
 
-        $this->assertSame('high', $flag->risk_level);
-        $this->assertDatabaseHas('risk_flags', ['tenant_id' => $tenant->id, 'risk_level' => 'high']);
+        $this->assertSame('high', $evaluation['risk_level']);
         $this->assertSame(0, SmsLog::count());
         Http::assertNothingSent();
     }

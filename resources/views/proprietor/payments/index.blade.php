@@ -1,13 +1,14 @@
 @extends('layouts.proprietor')
 
 @section('title', 'Payment Ledger')
+@section('own_success_alert', '1')
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Payment Ledger</h1>
 
         <div class="d-flex gap-2">
-            <a href="{{ route('proprietor.risk.index') }}" class="btn btn-outline-danger"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Risk Dashboard</a>
+            <a href="{{ route('proprietor.dashboard') }}#pd-follow" class="btn btn-outline-danger"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Payment Risk</a>
             <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
                 <i class="bi bi-upload" aria-hidden="true"></i> Import Excel
             </button>

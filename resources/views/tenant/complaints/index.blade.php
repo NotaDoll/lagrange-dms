@@ -5,10 +5,6 @@
 
 <!-- Header -->
 <div class="container mt-4">
-    @if (session('success'))
-        <div class="alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
-
     <div class="cp-header">
         <div>
             <h1>My Complaints</h1>

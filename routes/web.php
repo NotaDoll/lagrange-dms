@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Proprietor\AnnouncementController as ProprietorAnnouncementController;
-use App\Http\Controllers\Proprietor\AiSummaryController;
 use App\Http\Controllers\Proprietor\ComplaintSummaryController;
 use App\Http\Controllers\Proprietor\ComplaintController as ProprietorComplaintController;
 use App\Http\Controllers\Proprietor\FaqController as ProprietorFaqController;
@@ -13,7 +12,6 @@ use App\Http\Controllers\Proprietor\PaymentController as ProprietorPaymentContro
 use App\Http\Controllers\Proprietor\ResidentContentController;
 use App\Http\Controllers\Proprietor\RoomAssignmentController;
 use App\Http\Controllers\Proprietor\RoomController;
-use App\Http\Controllers\Proprietor\RiskDashboardController;
 use App\Http\Controllers\Proprietor\TenantController;
 use App\Http\Controllers\Tenant\AnnouncementController as TenantAnnouncementController;
 use App\Http\Controllers\Tenant\ComplaintController as TenantComplaintController;
@@ -81,8 +79,6 @@ Route::middleware(['auth', 'role:proprietor'])
 
         Route::get('summer-storage', [SummerStorageController::class, 'index'])->name('summer-storage.index');
         Route::post('summer-storage', [SummerStorageController::class, 'store'])->name('summer-storage.store');
-        Route::get('risk', [RiskDashboardController::class, 'index'])->name('risk.index');
-        Route::post('risk/recalculate', [RiskDashboardController::class, 'recalculate'])->name('risk.recalculate');
         Route::get('announcements-faqs', [ResidentContentController::class, 'index'])->name('announcements-faqs.index');
         Route::resource('announcements', ProprietorAnnouncementController::class)->except(['show']);
         Route::resource('faqs', ProprietorFaqController::class)->except(['show']);
@@ -96,7 +92,6 @@ Route::middleware(['auth', 'role:proprietor'])
         Route::delete('complaints/summaries/{summary}', [ComplaintSummaryController::class, 'destroy'])->name('complaints.summaries.destroy');
         Route::patch('complaints/{complaint}', [ProprietorComplaintController::class, 'update'])->name('complaints.update');
         Route::patch('complaints/{complaint}/read', [ProprietorComplaintController::class, 'markRead'])->name('complaints.read');
-        Route::post('ai-summaries', [AiSummaryController::class, 'store'])->name('ai-summaries.store');
         Route::post('room-assignments', [RoomAssignmentController::class, 'store'])->name('room-assignments.store');
         Route::patch('room-assignments/{roomAssignment}', [RoomAssignmentController::class, 'update'])->name('room-assignments.update');
         Route::get('tenants/import', [TenantImportController::class, 'create'])->name('tenants.import.create');

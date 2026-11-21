@@ -3,10 +3,6 @@
     <a href="{{ route('proprietor.faqs.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> New FAQ</a>
 </div>
 
-@if (session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-
 <table class="table table-hover align-middle">
     <thead>
         <tr>

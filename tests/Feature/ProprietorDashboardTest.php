@@ -6,7 +6,6 @@ use App\Models\AiSummary;
 use App\Models\Bed;
 use App\Models\Complaint;
 use App\Models\Payment;
-use App\Models\RiskFlag;
 use App\Models\Room;
 use App\Models\RoomAssignment;
 use App\Models\Tenant;
@@ -71,7 +70,6 @@ class ProprietorDashboardTest extends TestCase
             ->assertViewHas('openComplaints', 2)->assertViewHas('oldComplaints', 1)->assertViewHas('newComplaintsToday', 1)
             ->assertViewHas('followUps', fn ($rows) => $rows->first()->rules_tripped === 4 && $rows->first()->risk_level === 'high');
         Http::assertNothingSent();
-        $this->assertDatabaseCount('risk_flags', 0);
         $this->assertDatabaseCount('sms_logs', 0);
     }
 
@@ -93,7 +91,6 @@ class ProprietorDashboardTest extends TestCase
             && $rows->last()->tenant->is($pending) && $rows->last()->avg_days_overdue === 11.0
         )->assertViewHas('highRiskCount', 2);
         $this->assertDatabaseCount('payments', 1);
-        $this->assertDatabaseCount('risk_flags', 0);
         Http::assertNothingSent();
     }
 
@@ -222,8 +219,7 @@ class ProprietorDashboardTest extends TestCase
         $admin = $this->admin();
         $tenant = $this->tenant();
         $this->late($tenant);
-        // A saved flag no longer drives the history; the payment record does (overdue since Oct 1).
-        RiskFlag::create(['tenant_id' => $tenant->id, 'risk_level' => 'medium', 'calculated_at' => '2026-09-01']);
+        // The history comes from the payment record (overdue since Oct 1), not from saved flags.
         Room::create(['room_number' => '201', 'floor' => '2', 'capacity' => 1, 'monthly_rate' => 1300, 'status' => 'reserved']);
         $admin->notifications()->create(['type' => 'announcement', 'message' => 'Test', 'is_read' => false]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('reservedRooms', 1)->assertViewHas('unreadCount', 1)

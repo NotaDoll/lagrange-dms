@@ -310,8 +310,9 @@
             <x-navbar variant="proprietor-mobile-topbar" />
 
             <main class="proprietor-main">
-                @if (session('success'))
-                    <div class="alert alert-success">{{ session('success') }}</div>
+                {{-- Pages with their own styled success alert set @section('own_success_alert'). --}}
+                @if (session('success') && ! View::hasSection('own_success_alert'))
+                    <div class="alert alert-success" role="status">{{ session('success') }}</div>
                 @endif
                 @yield('content')
             </main>

@@ -24,10 +24,6 @@
         <div class="alert alert-info" role="status">{{ session('notice') }}</div>
     @endif
 
-    @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-
     <div class="row g-3 mb-3">
         <div class="col-12 col-sm-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">All tenants</div><div class="fs-4 fw-semibold">{{ $tenantCounts['all'] }}</div></div></div></div>
         <div class="col-6 col-sm-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Active</div><div class="fs-4 fw-semibold text-success">{{ $tenantCounts['active'] }}</div></div></div></div>

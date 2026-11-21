@@ -395,7 +395,7 @@
     <!-- Main Content -->
     <div class="container mt-4">
         @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success" role="status">{{ session('success') }}</div>
         @endif
         @yield('content')
     </div>

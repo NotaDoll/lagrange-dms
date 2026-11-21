@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Payment;
-use App\Models\RiskFlag;
 use App\Models\Tenant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -158,24 +157,5 @@ class PaymentRiskService
             $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
             $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Has an overdue balance now' : 'Last late payment settled '.$plural($days, 'day').' ago') : null,
         ]));
-    }
-
-    public function calculateForTenant(Tenant $tenant): RiskFlag
-    {
-        $evaluation = $this->evaluate($tenant);
-        $flag = RiskFlag::create([
-            'tenant_id' => $tenant->id,
-            ...array_diff_key($evaluation, array_flip(['rules', 'rules_tripped'])),
-            'calculated_at' => now(),
-        ]);
-        // No SMS here: the proprietor reviews and sends guardian reminders from the Dashboard.
-
-        return $flag;
-    }
-
-    public function calculateForAllTenants(): int
-    {
-        return Tenant::where('status', 'active')->with(['user', 'payments', 'monthModes', 'roomAssignments.bed.room'])->get()
-            ->each(fn ($tenant) => $this->calculateForTenant($tenant))->count();
     }
 }
