@@ -145,17 +145,21 @@ class PaymentRiskService
         return intdiv($date->getTimestamp() + $date->getOffset(), 86400);
     }
 
-    /** Why a tenant is flagged, in plain words (one per rule that tripped), for the dashboard and tenant page. */
+    /** Reason shown when a charge is still unpaid past its due date. */
+    public const UNPAID_NOW = 'Has unpaid rent right now';
+
+    /** Why a tenant is flagged, in everyday words (one per rule that tripped), for the dashboard and tenant page. */
     public function reasons(array $evaluation): array
     {
         $plural = fn (int $n, string $word) => $n.' '.Str::plural($word, $n);
         $days = $evaluation['days_since_last_default'];
+        $avg = (int) round($evaluation['avg_days_overdue']);
 
         return array_values(array_filter([
-            $evaluation['rules']['Repeated late payments'] ? 'Late in '.$plural($evaluation['late_payments_6mo'], 'month').' of the last 6' : null,
-            $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
-            $evaluation['rules']['Average days overdue'] ? 'Pays '.rtrim(rtrim(number_format($evaluation['avg_days_overdue'], 1), '0'), '.').' days late on average' : null,
-            $evaluation['rules']['Recent default'] ? ($days === 0 ? 'Has an overdue balance now' : 'Last late payment settled '.$plural($days, 'day').' ago') : null,
+            $evaluation['rules']['Repeated late payments'] ? 'Late '.$plural($evaluation['late_payments_6mo'], 'time').' in the last 6 months' : null,
+            $evaluation['rules']['Consecutive late months'] ? 'Paid late '.$evaluation['consecutive_late_months'].' months in a row' : null,
+            $evaluation['rules']['Average days overdue'] ? 'Usually pays about '.$plural($avg, 'day').' late' : null,
+            $evaluation['rules']['Recent default'] ? ($days === 0 ? self::UNPAID_NOW : 'Paid late just '.$plural($days, 'day').' ago') : null,
         ]));
     }
 }

@@ -223,7 +223,7 @@ class ProprietorDashboardTest extends TestCase
         Room::create(['room_number' => '201', 'floor' => '2', 'capacity' => 1, 'monthly_rate' => 1300, 'status' => 'reserved']);
         $admin->notifications()->create(['type' => 'announcement', 'message' => 'Test', 'is_read' => false]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('reservedRooms', 1)->assertViewHas('unreadCount', 1)
-            ->assertSee('aria-label="Oct: high risk"', false)->assertDontSee('Sep: medium')->assertViewHas('upcomingMoveIns', 0);
+            ->assertSee('aria-label="Risk level each month: Oct High risk"', false)->assertDontSee('Sep Medium risk')->assertViewHas('upcomingMoveIns', 0);
     }
 
     public function test_guest_and_tenant_cannot_access_dashboard_or_actions(): void
@@ -393,17 +393,18 @@ class ProprietorDashboardTest extends TestCase
                 $row = $rows->firstWhere(fn ($r) => $r->tenant->is($behind));
 
                 return $rows->count() === 1 && $row->owes === 3900.0 && $row->reasons === [
-                    'Late in 3 months of the last 6',
-                    'Late 3 months in a row',
-                    'Pays 41.3 days late on average',
-                    'Has an overdue balance now',
+                    'Late 3 times in the last 6 months',
+                    'Paid late 3 months in a row',
+                    'Usually pays about 41 days late',
+                    'Has unpaid rent right now',
                 ];
             })
             // One main reason under the name, every reason on the badge, the overdue balance under the amount.
-            ->assertSee('<span class="pd-main-reason">Late 3 months in a row</span>', false)
-            ->assertSee('Why flagged: Late in 3 months of the last 6; Late 3 months in a row; Pays 41.3 days late on average; Has an overdue balance now')
+            ->assertSee('<span class="pd-main-reason">Paid late 3 months in a row</span>', false)
+            ->assertSee("Why flagged:&#10;• Late 3 times in the last 6 months\n• Paid late 3 months in a row\n• Usually pays about 41 days late\n• Has unpaid rent right now", false)
+            ->assertSee('Colored boxes show the risk level each month')
             ->assertSee('₱3,900.00')->assertSee('overdue now')
-            ->assertSee('Jul: low risk, Aug: high risk, Sep: high risk, Oct: high risk')
+            ->assertSee('Risk level each month: Jul Low risk, Aug High risk, Sep High risk, Oct High risk')
             ->assertSee('id="pd-follow-filters"', false)->assertSee('Search name or room')
             ->assertSee('Rent due in 7 days')->assertSee('next Due Soon, Nov 3')->assertDontSee('Rent due in the next 7 days');
     }

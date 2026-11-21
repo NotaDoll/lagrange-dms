@@ -149,6 +149,11 @@
                     <div>
                         <h2 id="pd-follow" class="h6 fw-semibold mb-1">Tenants to follow up</h2>
                         <p class="pd-note mb-0">High risk: 2 or more warning signs · Medium: 1 · Sorted by risk, then amount owed</p>
+                        <p class="pd-note mb-0 pd-legend">Colored boxes show the risk level each month:
+                            <span class="pd-legend-dot pd-history-high" aria-hidden="true"></span> High
+                            <span class="pd-legend-dot pd-history-medium" aria-hidden="true"></span> Medium
+                            <span class="pd-legend-dot pd-history-low" aria-hidden="true"></span> Low · Hover the High/Medium tag to see why
+                        </p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
                         {{-- Secondary action first, main action last (rightmost). --}}
@@ -176,20 +181,22 @@
                 <div id="pd-sms-message" class="d-none alert" role="status" aria-live="polite" data-refresh-url="{{ route('proprietor.dashboard.sms.refresh') }}"></div>
                 <div class="table-responsive"><table class="table align-middle pd-follow-table" data-per-page="5">
                     <caption class="visually-hidden">Active tenants with High or Medium payment risk</caption>
-                    <thead><tr><th scope="col">Tenant</th><th scope="col" class="text-end">Owes</th><th scope="col">Last 6 months</th><th scope="col" class="text-end">Action</th></tr></thead>
+                    <thead><tr><th scope="col">Tenant</th><th scope="col" class="text-end">Owes</th><th scope="col">Risk each month</th><th scope="col" class="text-end">Action</th></tr></thead>
                     <tbody>
                         @forelse ($followUps as $row)
                             {{-- The overdue balance shows under "Owes"; the line under the name gives the strongest other reason. --}}
                             @php($room = $row->tenant->currentAssignment?->bed?->room?->room_number)
-                            @php($overdueNow = in_array('Has an overdue balance now', $row->reasons, true))
-                            @php($others = array_values(array_diff($row->reasons, ['Has an overdue balance now'])))
-                            @php($mainReason = collect($others)->first(fn ($reason) => str_ends_with($reason, 'in a row')) ?? ($others[0] ?? ($overdueNow ? 'Has an overdue balance now' : '')))
+                            @php($unpaidNow = \App\Services\PaymentRiskService::UNPAID_NOW)
+                            @php($overdueNow = in_array($unpaidNow, $row->reasons, true))
+                            @php($others = array_values(array_diff($row->reasons, [$unpaidNow])))
+                            @php($mainReason = collect($others)->first(fn ($reason) => str_ends_with($reason, 'in a row')) ?? ($others[0] ?? ($overdueNow ? $unpaidNow : '')))
                             @php($billedMonths = $row->trend->filter(fn ($point) => $point['level'] !== null))
-                            @php($trendLabel = $billedMonths->map(fn ($point) => $point['label'].': '.$point['level'].' risk')->implode(', '))
+                            @php($levelWords = ['high' => 'High risk', 'medium' => 'Medium risk', 'low' => 'Low risk'])
+                            @php($trendLabel = 'Risk level each month: '.$billedMonths->map(fn ($point) => $point['label'].' '.$levelWords[$point['level']])->implode(', '))
                             <tr data-level="{{ $row->risk_level }}" data-search="{{ Str::lower($row->tenant->name.' '.$room) }}">
                                 <td>
                                     <div class="fw-semibold">{{ $row->tenant->name }}
-                                        <span class="pd-tag pd-{{ $row->risk_level }} ms-1" tabindex="0" title="Why flagged: {{ implode('; ', $row->reasons) }}">{{ ucfirst($row->risk_level) }}</span>
+                                        <span class="pd-tag pd-{{ $row->risk_level }} ms-1" tabindex="0" title="Why flagged:&#10;• {{ implode("\n• ", $row->reasons) }}">{{ ucfirst($row->risk_level) }}</span>
                                     </div>
                                     <div class="pd-note">{{ $room ? 'Room '.$room : 'No room' }}@if ($mainReason) · <span class="pd-main-reason">{{ $mainReason }}</span>@endif</div>
                                     <span class="visually-hidden">Why flagged: {{ implode('; ', $row->reasons) }}</span>

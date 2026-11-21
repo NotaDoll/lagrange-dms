@@ -45,6 +45,7 @@
     .pd-history-high { background: #d32f2f; }
     .pd-history-medium { background: #f0a020; }
     .pd-history-low { background: #7cb342; }
+    .pd-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: .35rem; vertical-align: -1px; }
     .pd-history-none { background: transparent; border: 1px dashed var(--theme-border); }
     .pd-history-key { width: 10px; height: 10px; vertical-align: -1px; }
     .pd .min-w-0 { min-width: 0; }
