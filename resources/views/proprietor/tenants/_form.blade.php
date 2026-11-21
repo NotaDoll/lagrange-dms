@@ -223,7 +223,8 @@
     const roomSelect = get('room_id');
     const bedSelect = get('bed_id');
     const rentText = get('room-monthly-rent');
-    const bedRequired = @js($bedRequired);
+    const assignedBedRequired = @js($bedRequired);
+    let bedRequired = assignedBedRequired;
     const money = new Intl.NumberFormat('en-PH', { maximumFractionDigits: 2 });
 
     function renderBeds(selectedBed = '') {
@@ -284,8 +285,27 @@
         dateHelp.textContent = disabled ? 'Set when the tenant moves in.' : 'Billing starts on the move-in date.';
     }
 
+    // Inactive = moved out: the bed is released on save, so no room is chosen.
+    const roomHelp = get('room-selection-help');
+    const defaultRoomHelp = roomHelp.textContent;
+    function syncRoom() {
+        const movingOut = status.value === 'inactive';
+        bedRequired = assignedBedRequired && !movingOut;
+        if (movingOut) {
+            [typeSelect, roomSelect, bedSelect].forEach(select => { select.disabled = true; select.required = false; });
+            roomHelp.textContent = @js($currentBedId ? 'Saving as Inactive moves the tenant out and frees their bed today.' : 'Inactive tenants have no room.');
+        } else {
+            typeSelect.disabled = false;
+            typeSelect.required = bedRequired;
+            renderRooms(roomSelect.value || @js($selectedRoomId), bedSelect.value || @js($selectedBedId));
+            roomHelp.textContent = defaultRoomHelp;
+        }
+    }
+
     status.addEventListener('change', syncMoveIn);
+    status.addEventListener('change', syncRoom);
     syncMoveIn();
+    syncRoom();
 })();
 </script>
 @endpush

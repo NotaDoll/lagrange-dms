@@ -9,7 +9,7 @@
     @php
         $phone = fn ($number) => $number ? (PhilippineMobile::normalize($number) ?? $number) : null;
         $room = $tenant->currentAssignment?->bed;
-        $statusClass = ['active' => 'text-bg-success', 'reserved' => 'text-bg-info', 'inactive' => 'text-bg-secondary', 'moved_out' => 'text-bg-dark'][$tenant->status] ?? 'text-bg-secondary';
+        $statusClass = ['active' => 'text-bg-success', 'reserved' => 'text-bg-info', 'inactive' => 'text-bg-secondary'][$tenant->status] ?? 'text-bg-secondary';
         $riskClass = ['high' => 'text-bg-danger', 'medium' => 'text-bg-warning', 'low' => 'text-bg-success'];
         $paymentBadge = ['paid' => 'text-bg-success', 'overdue' => 'text-bg-danger', 'pending' => 'text-bg-secondary'];
     @endphp

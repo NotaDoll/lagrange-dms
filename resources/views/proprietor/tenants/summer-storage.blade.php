@@ -70,6 +70,13 @@
                     <button type="submit" name="action" value="storage" class="btn btn-primary btn-sm"><i class="bi bi-box-seam" aria-hidden="true"></i> Mark as Storage</button>
                     <button type="submit" name="action" value="regular" class="btn btn-outline-primary btn-sm"><i class="bi bi-house" aria-hidden="true"></i> Mark as Regular</button>
                     <span class="small text-muted" id="storage-selected" aria-live="polite"></span>
+                    <div class="ms-auto">
+                        <label for="storage-search" class="visually-hidden">Search tenants</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                            <input id="storage-search" type="search" class="form-control" placeholder="Search name or email" autocomplete="off">
+                        </div>
+                    </div>
                 </div>
             </form>
             <div class="table-responsive">
@@ -85,7 +92,7 @@
                     </thead>
                     <tbody>
                         @forelse ($tenants as $tenant)
-                            <tr>
+                            <tr data-tenant-row data-search="{{ Str::lower($tenant->name.' '.$tenant->email) }}">
                                 <td>
                                     <input type="checkbox" class="form-check-input mt-0" form="storage-bulk" name="tenants[]" value="{{ $tenant->id }}"
                                            aria-label="Select {{ $tenant->name }}" data-select-tenant>
@@ -127,6 +134,7 @@
                         @empty
                             <tr><td colspan="{{ $months->count() + 2 }}" class="text-center text-muted py-4">No active tenants.</td></tr>
                         @endforelse
+                        <tr id="storage-no-match" hidden><td colspan="{{ $months->count() + 2 }}" class="text-center text-muted py-4">No tenants match your search.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -142,19 +150,35 @@
         const selected = document.getElementById('storage-selected');
         const boxes = [...document.querySelectorAll('[data-select-tenant]')];
         const buttons = [...form.querySelectorAll('button[type="submit"]')];
+        const search = document.getElementById('storage-search');
+        const noMatch = document.getElementById('storage-no-match');
         const countSelected = () => boxes.filter(box => box.checked).length;
+        // "Select all" only acts on the tenants the search is showing.
+        const visibleBoxes = () => boxes.filter(box => !box.closest('tr').hidden);
 
         function syncSelection() {
             const count = countSelected();
+            const visible = visibleBoxes();
+            const visibleChecked = visible.filter(box => box.checked).length;
             selected.textContent = count + ' selected';
-            all.checked = count > 0 && count === boxes.length;
-            all.indeterminate = count > 0 && count < boxes.length;
-            all.disabled = boxes.length === 0;
+            all.checked = visibleChecked > 0 && visibleChecked === visible.length;
+            all.indeterminate = visibleChecked > 0 && visibleChecked < visible.length;
+            all.disabled = visible.length === 0;
             buttons.forEach(button => { button.disabled = count === 0; });
         }
 
         all.addEventListener('change', () => {
-            boxes.forEach(box => { box.checked = all.checked; });
+            visibleBoxes().forEach(box => { box.checked = all.checked; });
+            syncSelection();
+        });
+        search.addEventListener('input', () => {
+            const terms = search.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+            let shown = 0;
+            document.querySelectorAll('[data-tenant-row]').forEach(row => {
+                row.hidden = !terms.every(term => row.dataset.search.includes(term));
+                if (!row.hidden) shown++;
+            });
+            noMatch.hidden = shown > 0 || boxes.length === 0;
             syncSelection();
         });
         boxes.forEach(box => box.addEventListener('change', syncSelection));

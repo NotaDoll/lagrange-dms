@@ -117,6 +117,34 @@ class TenantManagementTest extends TestCase
         $this->assertSame(['100.00', '4900.00'], $entries->pluck('amount')->all());
     }
 
+    public function test_making_a_tenant_inactive_moves_them_out_and_frees_the_bed(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 21)->setTime(12, 0));
+        $this->actingAs(User::factory()->create(['role' => 'proprietor']));
+        $bed = $this->bed();
+
+        $this->post(route('proprietor.tenants.store'), $this->form($bed, ['status' => Tenant::STATUS_ACTIVE, 'move_in_date' => '2026-11-01']))
+            ->assertSessionHasNoErrors();
+        $tenant = Tenant::sole();
+        $assignment = $tenant->currentAssignment;
+
+        $this->get(route('proprietor.tenants.edit', $tenant))->assertOk()
+            ->assertSee('Inactive (Moved Out)')->assertDontSee('value="moved_out"', false);
+
+        $form = $this->form($bed, ['status' => Tenant::STATUS_INACTIVE, 'move_in_date' => '2026-11-01']);
+        unset($form['bed_id']);
+        $this->put(route('proprietor.tenants.update', $tenant), $form)->assertSessionHasNoErrors();
+
+        $tenant->refresh();
+        $this->assertSame(Tenant::STATUS_INACTIVE, $tenant->status);
+        $this->assertNull($tenant->currentAssignment);
+        $this->assertSame('ended', $assignment->fresh()->status);
+        $this->assertSame('2026-11-21', $assignment->fresh()->end_date->toDateString());
+        $this->assertSame('2026-11-01', $tenant->move_in_date->toDateString());
+        $this->assertNull($bed->fresh()->currentAssignment);
+        $this->put(route('proprietor.tenants.update', $tenant), ['status' => 'moved_out'] + $form)->assertSessionHasErrors('status');
+    }
+
     public function test_bed_cannot_be_submitted_with_a_different_room_or_type(): void
     {
         $admin = User::factory()->create(['role' => 'proprietor']);

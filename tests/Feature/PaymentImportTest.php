@@ -51,4 +51,23 @@ class PaymentImportTest extends TestCase
         $october = Payment::whereMonth('due_date', 10)->sole();
         $this->assertSame(['2026-10-14', 'overdue', 36], [$october->due_date->toDateString(), $october->current_status, $october->current_days_overdue]);
     }
+
+    public function test_reimporting_a_month_that_already_has_rent_is_rejected(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 19)->setTime(10, 0));
+        $tenant = Tenant::create(['user_id' => User::factory()->create()->id, 'status' => 'active', 'move_in_date' => '2026-05-14']);
+        $room = Room::create(['room_number' => '101', 'floor' => '1', 'capacity' => 1, 'monthly_rate' => 3000]);
+        $bed = Bed::create(['room_id' => $room->id, 'bed_label' => 'A', 'status' => 'available']);
+        RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-05-14', 'status' => 'active']);
+
+        $csv = "tenant_id,amount,due_date,status,paid_date,receipt_number\n{$tenant->id},3000,2026-08-14,paid,2026-08-14,";
+        $proprietor = User::factory()->create(['role' => 'proprietor']);
+        $import = fn () => $this->actingAs($proprietor)
+            ->post(route('proprietor.payments.import'), ['excel_file' => UploadedFile::fake()->createWithContent('payments.csv', $csv)]);
+
+        $import()->assertSessionHas('success', 'Successfully imported 1 payments!');
+        $import()->assertSessionHas('import_errors', fn ($errors) => count($errors) === 1 && str_contains($errors[0], 'already recorded'));
+
+        $this->assertSame(1, Payment::whereMonth('due_date', 8)->count());
+    }
 }

@@ -69,7 +69,9 @@ class TenantManagementService
             }
             $tenant->save();
 
-            $bedId = array_key_exists('bed_id', $validated) ? $validated['bed_id'] : $assignment?->bed_id;
+            // Moving out (inactive) releases the bed; billing stops on the assignment's end date.
+            $bedId = $validated['status'] === Tenant::STATUS_INACTIVE ? null
+                : (array_key_exists('bed_id', $validated) ? $validated['bed_id'] : $assignment?->bed_id);
             $this->reassignBed($tenant, $assignment, $bedId === null ? null : (int) $bedId, $previousMoveIn, $validated);
 
             return $loginEmailSkipped;

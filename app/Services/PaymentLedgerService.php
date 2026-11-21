@@ -39,6 +39,13 @@ class PaymentLedgerService
                 if ($dueDate->lt($start) || $dueDate->lt($this->policy->firstRentDueDate($tenant))) {
                     throw ValidationException::withMessages(['due_date' => 'Rent is first due one month after move-in and follows the move-in day each month.']);
                 }
+                $alreadyRecorded = $tenant->payments()->whereNull('utility_bill_id')
+                    ->whereDate('due_date', '>=', $month)->whereDate('due_date', '<=', $month->copy()->endOfMonth())->exists();
+                if ($alreadyRecorded) {
+                    throw ValidationException::withMessages([
+                        'due_date' => 'Rent for '.$month->format('F Y').' is already recorded for this tenant. Use the Payment Ledger to update it.',
+                    ]);
+                }
             }
             if ($charge) {
                 $existing = $tenant->payments()->whereNull('utility_bill_id')

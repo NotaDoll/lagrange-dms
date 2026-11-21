@@ -16,14 +16,13 @@ class Tenant extends Model
 
     public const STATUS_RESERVED = 'reserved';
     public const STATUS_ACTIVE = 'active';
+    /** The tenant has moved out: their bed is released and billing stops. */
     public const STATUS_INACTIVE = 'inactive';
-    public const STATUS_MOVED_OUT = 'moved_out';
 
     public const STATUS_LABELS = [
         self::STATUS_RESERVED => 'Reserved',
         self::STATUS_ACTIVE => 'Active',
-        self::STATUS_INACTIVE => 'Inactive',
-        self::STATUS_MOVED_OUT => 'Moved Out',
+        self::STATUS_INACTIVE => 'Inactive (Moved Out)',
     ];
 
     /** How the guardian is related to the tenant. */

@@ -60,7 +60,7 @@ class StoreTenantRequest extends FormRequest
             'home_address' => [$requiredOnCreate, 'string', 'max:5000'],
             'room_type' => ['nullable', 'required_with:room_id', 'string', Rule::in($roomTypes)],
             'room_id' => ['nullable', 'required_with:room_type', 'integer', 'exists:rooms,id'],
-            'bed_id' => [$tenant && ! $tenant->currentAssignment ? 'nullable' : 'required', 'required_with:room_type,room_id', 'integer', 'exists:beds,id'],
+            'bed_id' => [($tenant && ! $tenant->currentAssignment) || $this->input('status') === Tenant::STATUS_INACTIVE ? 'nullable' : 'required', 'required_with:room_type,room_id', 'integer', 'exists:beds,id'],
             'move_in_date' => ['required_if:status,'.Tenant::STATUS_ACTIVE, 'nullable', 'date_format:Y-m-d', 'before_or_equal:'.Tenant::localDate()],
             'status' => ['required', Rule::in($statuses)],
             'security_deposit' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
