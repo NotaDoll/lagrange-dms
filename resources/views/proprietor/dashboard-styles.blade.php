@@ -25,12 +25,6 @@
     .pd-tile-info .pd-stat-label i { color: var(--theme-plum); }
     .pd-tile-ok .bi { color: var(--theme-success); }
     .pd-tile.pd-tile-clear { background: var(--bs-tertiary-bg, #f8f9fa); }
-    .pd-riskbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--theme-border); margin: .35rem 0 .15rem; }
-    .pd-risk-high { background: #d32f2f; }
-    .pd-risk-medium { background: #f0a020; }
-    .pd-risk-low { background: #7cb342; }
-    .pd-chart { position: relative; height: 240px; }
-    .pd-chart-short { height: 190px; }
     /* Follow-up table */
     .pd-main-reason { color: var(--theme-danger); }
     .pd-overdue { font-size: .7rem; color: var(--theme-danger); }
@@ -42,9 +36,10 @@
     .pd-history-cell { display: inline-flex; align-items: flex-end; justify-content: center; width: 22px; height: 26px; border-radius: 4px; font-size: .58rem; color: var(--theme-text-muted); }
     .pd-history-cell > span { transform: translateY(14px); }
     .pd-history { padding-bottom: 14px; }
-    .pd-history-high { background: #d32f2f; }
-    .pd-history-medium { background: #f0a020; }
-    .pd-history-low { background: #7cb342; }
+    .pd-payment-on_time { background: #7cb342; }
+    .pd-payment-late { background: #f0a020; }
+    .pd-payment-overdue { background: #d32f2f; }
+    .pd-payment-pending { background: #d5d8dc; }
     .pd-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: .35rem; vertical-align: -1px; }
     .pd-history-none { background: transparent; border: 1px dashed var(--theme-border); }
     .pd-history-key { width: 10px; height: 10px; vertical-align: -1px; }
@@ -63,7 +58,6 @@
     .pd-summary-text { white-space: pre-line; font-size: .85rem; overflow-wrap: anywhere; }
     .pd a:focus-visible, .pd button:focus-visible { outline: 2px solid var(--theme-plum); outline-offset: 3px; }
     @media (max-width: 575.98px) {
-        .pd-chart { height: 200px; }
         .pd-stat-value { font-size: 1.6rem; }
     }
 </style>

@@ -1,6 +1,6 @@
 <fieldset id="risk-thresholds" class="border rounded-3 p-3 mb-4">
     <legend class="float-none w-auto px-2 h6">Payment risk thresholds</legend>
-    <p class="small text-muted">These four rules determine payment risk: 0 tripped = Low, 1 = Medium, 2 or more = High. A month counts as late when any charge in it is paid more than the grace period after its due date. Saving applies to the dashboard immediately.</p>
+    <p class="small text-muted">High risk requires all three: an unpaid balance past its due date today, enough consecutive late months, and enough repeated late months in the last 6 months. Adjust the consecutive and repeated late-month thresholds below. Medium means other payment warning signs; saving applies to the dashboard immediately.</p>
     <div class="row g-3">
         @foreach ([
             'grace_days' => ['Grace period (days late still counted as on time)', 0, 60],

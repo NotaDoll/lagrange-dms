@@ -17,7 +17,13 @@ class ProprietorDashboardController extends Controller
 {
     public function index(Request $request, ProprietorDashboardService $dashboard)
     {
-        return view('proprietor.dashboard', $dashboard->data($request->user(), $request->integer('trend', 6)));
+        return view('proprietor.dashboard', $dashboard->data($request->user()));
+    }
+
+    /** "View all" for the dashboard's Tenants to follow up: the same list, on its own page. */
+    public function atRisk(Request $request, ProprietorDashboardService $dashboard)
+    {
+        return view('proprietor.payments.at-risk', ['followUps' => $dashboard->data($request->user())['followUps']]);
     }
 
     public function sendSms(Request $request, Tenant $tenant, PaymentRiskService $risk, SmsService $sms)

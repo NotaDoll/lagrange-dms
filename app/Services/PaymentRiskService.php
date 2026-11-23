@@ -29,7 +29,7 @@ class PaymentRiskService
     }
 
     /**
-     * Evaluate the existing four rules without saving flags or sending SMS.
+     * Evaluate payment history without saving flags or sending SMS.
      * With $asOf, evaluate as the proprietor would have seen it on that day: only charges due by then,
      * and a payment made after that day still counts as unpaid. Used for the dashboard's risk trend.
      */
@@ -63,7 +63,7 @@ class PaymentRiskService
     }
 
     /**
-     * Step 2 of a risk check: the four rules as of $asOf. Only charges due by then count, and a
+     * Step 2 of a risk check: the current-overdue rule and history metrics as of $asOf. Only charges due by then count, and a
      * payment made after $asOf still counts as unpaid on that day. A month is late when any charge
      * due in it was paid (or is still unpaid) more than grace_days after its due date. Late months,
      * the late streak and the average use the last 6 months; "recent default" counts days since the
@@ -77,6 +77,7 @@ class PaymentRiskService
         $months = [];          // month => worst days late of its charges (6-month window only)
         $undecided = [];       // month => true while a charge is unpaid but still within the grace period
         $lastLateEnd = null;   // day the most recent late charge was settled (today if still unpaid)
+        $overdueNow = false;
 
         foreach ($charges as $charge) {
             if ($charge['due'] > $today) {
@@ -87,6 +88,9 @@ class PaymentRiskService
                 ? max(0, $charge['paid'] !== null ? $charge['paid'] - $charge['due'] : $charge['stored'])
                 : max(0, $today - $charge['due']);
             $late = $daysLate > $grace;
+            if (! $paidByThen && $charge['due'] < $today) {
+                $overdueNow = true;
+            }
 
             // Recent default looks at all history: an old charge that is still unpaid is a default today.
             if ($late) {
@@ -129,6 +133,7 @@ class PaymentRiskService
             'days_since_last_default' => $lastLateEnd === null ? null : max(0, $today - $lastLateEnd),
         ];
         $rules = [
+            'Overdue now' => $overdueNow,
             'Repeated late payments' => $metrics['late_payments_6mo'] >= (int) $thresholds['late_payments'],
             'Consecutive late months' => $metrics['consecutive_late_months'] >= (int) $thresholds['consecutive_months'],
             'Average days overdue' => $metrics['avg_days_overdue'] > (float) $thresholds['average_days'],
@@ -136,7 +141,13 @@ class PaymentRiskService
         ];
         $count = count(array_filter($rules));
 
-        return [...$metrics, 'rules' => $rules, 'rules_tripped' => $count, 'risk_level' => $count >= 2 ? 'high' : ($count === 1 ? 'medium' : 'low')];
+        // High requires all three reminder warnings: overdue now, a consecutive late streak, and
+        // repeated late months. Other history warnings can still produce Medium.
+        $highRisk = $rules['Overdue now']
+            && $rules['Consecutive late months']
+            && $rules['Repeated late payments'];
+
+        return [...$metrics, 'rules' => $rules, 'rules_tripped' => $count, 'risk_level' => $highRisk ? 'high' : ($count > 0 ? 'medium' : 'low')];
     }
 
     /** Whole days since 1970 in the date's own (Philippine) time zone, so date differences are plain subtraction. */
@@ -146,7 +157,7 @@ class PaymentRiskService
     }
 
     /** Reason shown when a charge is still unpaid past its due date. */
-    public const UNPAID_NOW = 'Has unpaid rent right now';
+    public const UNPAID_NOW = 'Has an overdue balance right now';
 
     /** Why a tenant is flagged, in everyday words (one per rule that tripped), for the dashboard and tenant page. */
     public function reasons(array $evaluation): array
@@ -156,10 +167,11 @@ class PaymentRiskService
         $avg = (int) round($evaluation['avg_days_overdue']);
 
         return array_values(array_filter([
+            $evaluation['rules']['Overdue now'] ? self::UNPAID_NOW : null,
             $evaluation['rules']['Repeated late payments'] ? 'Late '.$plural($evaluation['late_payments_6mo'], 'time').' in the last 6 months' : null,
-            $evaluation['rules']['Consecutive late months'] ? 'Paid late '.$evaluation['consecutive_late_months'].' months in a row' : null,
+            $evaluation['rules']['Consecutive late months'] ? 'Late '.$evaluation['consecutive_late_months'].' months in a row' : null,
             $evaluation['rules']['Average days overdue'] ? 'Usually pays about '.$plural($avg, 'day').' late' : null,
-            $evaluation['rules']['Recent default'] ? ($days === 0 ? self::UNPAID_NOW : 'Paid late just '.$plural($days, 'day').' ago') : null,
+            $evaluation['rules']['Recent default'] ? ($days === 0 ? null : 'Paid late just '.$plural($days, 'day').' ago') : null,
         ]));
     }
 }

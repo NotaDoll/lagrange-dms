@@ -63,12 +63,13 @@ class RiskBacktestTest extends TestCase
         $outcome = fn (string $cutoff, string $name) => collect($result['observations'])->first(fn ($o) => $o['cutoff'] === $cutoff && $o['tenant'] === $name);
         $this->assertSame([true, true], [$outcome('2026-08-31', 'Chronic')['flagged'], $outcome('2026-08-31', 'Chronic')['defaulted']]);
         $this->assertSame([false, false], [$outcome('2026-08-31', 'Reliable')['flagged'], $outcome('2026-08-31', 'Reliable')['defaulted']]);
-        $this->assertSame([true, false], [$outcome('2026-08-31', 'Turned Around')['flagged'], $outcome('2026-08-31', 'Turned Around')['defaulted']]);
+        // Turned Around has late-payment history but no charge currently overdue, so they are not High.
+        $this->assertSame([false, false], [$outcome('2026-08-31', 'Turned Around')['flagged'], $outcome('2026-08-31', 'Turned Around')['defaulted']]);
         $this->assertSame([false, true], [$outcome('2026-08-31', 'Slipped')['flagged'], $outcome('2026-08-31', 'Slipped')['defaulted']]);
         $this->assertSame('medium', $outcome('2026-09-30', 'Slipped')['risk_level']); // one rule: the Sep 10 rent is 20 days unpaid
 
-        $this->assertSame(['tenants_checked' => 8, 'tp' => 2, 'fp' => 2, 'fn' => 2, 'tn' => 2, 'accuracy' => 50.0, 'false_positive_rate' => 50.0,
-            'flagged_but_paid_on_time' => 50.0, 'precision' => 50.0, 'recall' => 50.0], $result['totals']);
+        $this->assertSame(['tenants_checked' => 8, 'tp' => 2, 'fp' => 0, 'fn' => 2, 'tn' => 4, 'accuracy' => 75.0, 'false_positive_rate' => 0.0,
+            'flagged_but_paid_on_time' => 0.0, 'precision' => 100.0, 'recall' => 50.0], $result['totals']);
 
         // Counting Medium as flagged catches "Slipped" at the Sep 30 cutoff.
         $this->assertSame(3, app(RiskBacktest::class)->run(months: 2, windowMonths: 2, graceDays: 5, flagAt: 'medium')['totals']['tp']);
@@ -80,8 +81,8 @@ class RiskBacktestTest extends TestCase
         $csv = tempnam(sys_get_temp_dir(), 'backtest').'.csv';
 
         $this->artisan('risk:backtest', ['--months' => 2, '--csv' => $csv])
-            ->expectsOutputToContain('accuracy 50% (target 80% or more)')
-            ->expectsOutputToContain('Flagged but paid on time 50%')
+            ->expectsOutputToContain('accuracy 75% (target 80% or more)')
+            ->expectsOutputToContain('Flagged but paid on time 0%')
             ->assertSuccessful();
 
         $rows = array_map('str_getcsv', file($csv, FILE_IGNORE_NEW_LINES));

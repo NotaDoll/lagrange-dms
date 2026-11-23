@@ -8,7 +8,10 @@
         <h1 class="h3 mb-0">Payment Ledger</h1>
 
         <div class="d-flex gap-2">
-            <a href="{{ route('proprietor.dashboard') }}#pd-follow" class="btn btn-outline-danger"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Payment Risk</a>
+            @php($atRiskTotal = collect($riskLevels)->filter(fn ($level) => in_array($level, ['high', 'medium'], true))->count())
+            <a href="{{ route('proprietor.payments.at-risk') }}" class="btn btn-outline-danger" title="Tenants to follow up (High and Medium risk)">
+                <i class="bi bi-shield-exclamation" aria-hidden="true"></i> At Risk Tenants <span class="badge text-bg-danger ms-1">{{ $atRiskTotal }}</span>
+            </a>
             <button type="button" onclick="document.getElementById('excel-import-input').click();" class="btn btn-outline-secondary">
                 <i class="bi bi-upload" aria-hidden="true"></i> Import Excel
             </button>
@@ -53,8 +56,7 @@
 
     <div class="card mb-3">
         <div class="card-body">
-            <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">
-                <div class="col-md-3">
+            <form method="GET" action="{{ route('proprietor.payments.index') }}" class="row g-3 align-items-end">                <div class="col-md-3">
                     <label for="tenant_id" class="form-label">Tenant</label>
                     <select class="form-select" id="tenant_id" name="tenant_id" data-searchable data-placeholder="Search tenant">
                         <option value="">All tenants</option>

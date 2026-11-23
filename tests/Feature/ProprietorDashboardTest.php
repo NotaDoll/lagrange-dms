@@ -41,6 +41,8 @@ class ProprietorDashboardTest extends TestCase
 
     private function late(Tenant $tenant, int $days = 10): Payment
     {
+        Payment::create(['tenant_id' => $tenant->id, 'amount' => 1000, 'due_date' => '2026-09-01', 'days_overdue' => $days, 'status' => 'overdue']);
+
         return Payment::create(['tenant_id' => $tenant->id, 'amount' => 1000, 'due_date' => '2026-10-01', 'days_overdue' => $days, 'status' => 'overdue']);
     }
 
@@ -68,7 +70,10 @@ class ProprietorDashboardTest extends TestCase
             ->assertViewHas('collectedThisMonth', $report->viewData('totalCollected'))
             ->assertViewHas('overdueBalance', $allReport->viewData('totalOverdue'))
             ->assertViewHas('openComplaints', 2)->assertViewHas('oldComplaints', 1)->assertViewHas('newComplaintsToday', 1)
-            ->assertViewHas('followUps', fn ($rows) => $rows->first()->rules_tripped === 4 && $rows->first()->risk_level === 'high');
+            ->assertViewHas('followUps', fn ($rows) => $rows->first()->risk_level === 'high'
+                && $rows->first()->rules['Overdue now']
+                && $rows->first()->rules['Consecutive late months']
+                && $rows->first()->rules['Repeated late payments']);
         Http::assertNothingSent();
         $this->assertDatabaseCount('sms_logs', 0);
     }
@@ -89,7 +94,7 @@ class ProprietorDashboardTest extends TestCase
             $rows->count() === 2
             && $rows->first()->tenant->is($tenant) && $rows->first()->consecutive_late_months === 2 // due Sep 1 and Oct 1
             && $rows->last()->tenant->is($pending) && $rows->last()->avg_days_overdue === 11.0
-        )->assertViewHas('highRiskCount', 2);
+        )->assertViewHas('highRiskCount', 1);
         $this->assertDatabaseCount('payments', 1);
         Http::assertNothingSent();
     }
@@ -104,10 +109,10 @@ class ProprietorDashboardTest extends TestCase
             'dormitory_name' => 'La Grange', 'risk_late_payments' => 20, 'risk_consecutive_months' => 20,
             'risk_average_days' => 100, 'risk_recent_default_days' => 1,
         ])->assertRedirect();
-        // Still flagged: the Oct 1 charge is 30 days unpaid, and an overdue balance always trips "Recent default".
+        // The tenant stays in Medium follow-up: an overdue balance remains visible even when the High thresholds are raised.
         $this->get(route('proprietor.dashboard'))->assertViewHas('highRiskCount', 0)->assertViewHas('followUps', fn ($rows) => $rows->count() === 1);
         $this->put(route('proprietor.settings.update'), ['dormitory_name' => 'La Grange', 'risk_grace_days' => 60])->assertRedirect();
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) => $rows->isEmpty());
+        $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('followUps', fn ($rows) => $rows->count() === 1 && $rows->first()->risk_level === 'medium');
         $this->get(route('proprietor.settings.edit'))->assertOk()->assertSee('Payment risk thresholds');
     }
 
@@ -223,7 +228,7 @@ class ProprietorDashboardTest extends TestCase
         Room::create(['room_number' => '201', 'floor' => '2', 'capacity' => 1, 'monthly_rate' => 1300, 'status' => 'reserved']);
         $admin->notifications()->create(['type' => 'announcement', 'message' => 'Test', 'is_read' => false]);
         $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('reservedRooms', 1)->assertViewHas('unreadCount', 1)
-            ->assertSee('aria-label="Risk level each month: Oct High risk"', false)->assertDontSee('Sep Medium risk')->assertViewHas('upcomingMoveIns', 0);
+            ->assertSee('Payment status each month: Sep overdue, Oct overdue')->assertViewHas('upcomingMoveIns', 0);
     }
 
     public function test_guest_and_tenant_cannot_access_dashboard_or_actions(): void
@@ -272,10 +277,10 @@ class ProprietorDashboardTest extends TestCase
     {
         $this->admin();
         $this->get(route('proprietor.dashboard'))->assertOk()
-            ->assertSee('No high-risk tenants')->assertSee('Urgent complaints')->assertSee('None right now')
+            ->assertSee('No overdue charges')->assertSee('Urgent complaints')->assertSee('None right now')
             ->assertSee('Nothing due this week')
             ->assertDontSee('Top complaint')->assertDontSee('Complaints waiting') // the summary card covers the top issue
-            ->assertViewHas('riskCounts', ['high' => 0, 'medium' => 0, 'low' => 0]);
+            ->assertViewHas('overdueTenants', 0);
 
         $late = $this->resident('Late Payer', '2026-08-01', '301');
         $this->late($late);
@@ -285,15 +290,15 @@ class ProprietorDashboardTest extends TestCase
         Payment::create(['tenant_id' => $soon->id, 'amount' => 1300, 'due_date' => '2026-10-03', 'paid_date' => '2026-10-03', 'status' => 'paid', 'payment_type' => 'full']);
 
         $response = $this->get(route('proprietor.dashboard'))->assertOk()
-            ->assertViewHas('riskCounts', fn ($counts) => $counts['high'] === 1)
+            ->assertViewHas('overdueTenants', 1)
             ->assertViewHas('oldestOpenComplaintDays', 12)
             ->assertViewHas('dueSoon', fn ($rows) => $rows->map(fn ($r) => [$r->tenant->id, $r->due_date->toDateString(), $r->amount])->all()
                 === [[$late->id, '2026-11-01', 1300.0], [$soon->id, '2026-11-03', 1300.0]]) // soonest first
-            ->assertSee('Follow up')->assertSee('0 urgent · 1 waiting 7+ days (oldest 12 days)')->assertSee('Record payment')
-            ->assertDontSee('No high-risk tenants');
-        // The high-risk tile (danger) comes before the complaints tile (warning).
+            ->assertSee('Review overdue')->assertSee('0 urgent · 1 waiting 7+ days (oldest 12 days)')->assertSee('Record payment')
+            ->assertDontSee('No overdue charges');
+        // The overdue alert (danger) comes before the complaints tile (warning).
         $html = $response->getContent();
-        $this->assertLessThan(strpos($html, 'Urgent complaints'), strpos($html, 'High-risk tenants'));
+        $this->assertLessThan(strpos($html, 'Urgent complaints'), strpos($html, 'Tenants with overdue charges'));
     }
 
     public function test_an_ai_flagged_urgent_complaint_turns_the_complaints_tile_red_and_shows_why(): void
@@ -312,72 +317,32 @@ class ProprietorDashboardTest extends TestCase
             ->assertSee('pd-tile-danger', false);
     }
 
-    public function test_trends_show_collections_and_risk_for_each_month_from_payment_history(): void
+    public function test_dashboard_keeps_the_payment_history_and_removes_aggregate_trend_charts(): void
     {
         $this->admin();
-        // Moved in May 10: rent due on the 10th from June, always paid on the day.
-        $onTime = $this->resident('On Time', '2026-05-10', '401');
-        foreach (['06', '07', '08', '09', '10'] as $m) {
-            Payment::create(['tenant_id' => $onTime->id, 'amount' => 1300, 'due_date' => "2026-$m-10", 'paid_date' => "2026-$m-10", 'status' => 'paid', 'payment_type' => 'full']);
+        $tenant = $this->resident('Payment Pattern', '2026-05-10', '401');
+        foreach ([
+            ['2026-05-10', '2026-05-15'], // 5 days late, within the grace period: on time for risk
+            ['2026-06-10', '2026-06-10'], // paid on time
+            ['2026-07-10', '2026-07-16'], // paid late (past the 5-day grace period)
+            ['2026-08-10', null], // overdue
+        ] as [$due, $paid]) {
+            Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => $due, 'paid_date' => $paid, 'status' => $paid ? 'paid' : 'overdue', 'payment_type' => 'full']);
         }
-        // Moved in October: not counted in earlier months.
-        $this->resident('Newcomer', '2026-10-05', '402');
 
         $this->get(route('proprietor.dashboard'))->assertOk()
-            ->assertViewHas('trendMonths', 6)
-            ->assertViewHas('collectionsTrend', function ($months) {
-                return count($months) === 6 && $months[0]['label'] === 'May 2026' && end($months)['label'] === 'Oct 2026'
-                    && end($months)['expected'] === 1300.0 && end($months)['collected'] === 1300.0;
+            ->assertViewHas('followUps', function ($rows) use ($tenant) {
+                $row = $rows->firstWhere(fn ($item) => $item->tenant->is($tenant));
+
+                return $row !== null
+                    && $row->trend->firstWhere('label', 'May')['status'] === 'on_time'
+                    && $row->trend->firstWhere('label', 'Jun')['status'] === 'on_time'
+                    && $row->trend->firstWhere('label', 'Jul')['status'] === 'late'
+                    && $row->trend->firstWhere('label', 'Aug')['status'] === 'overdue';
             })
-            ->assertViewHas('riskTrend', function ($months) {
-                $byLabel = collect($months)->keyBy('label');
-
-                return $byLabel['Sep 2026'] === ['label' => 'Sep 2026', 'high' => 0, 'medium' => 0, 'low' => 1]
-                    && $byLabel['Oct 2026'] === ['label' => 'Oct 2026', 'high' => 0, 'medium' => 0, 'low' => 2];
-            })
-            ->assertSee('Payment risk over time')->assertSee('Show the numbers');
-
-        $this->get(route('proprietor.dashboard', ['trend' => 12]))->assertViewHas('collectionsTrend', fn ($m) => count($m) === 12);
-        $this->get(route('proprietor.dashboard', ['trend' => 99]))->assertViewHas('trendMonths', 6);
-    }
-
-    public function test_risk_trend_counts_a_payment_as_unpaid_until_the_day_it_was_made(): void
-    {
-        $this->admin();
-        $tenant = $this->resident('Paid Late', '2026-07-20', '501'); // rent due Aug 20, Sep 20, Oct 20
-        foreach (['08', '09'] as $m) {
-            // Both paid on Oct 25, long after they were due.
-            Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => "2026-$m-20", 'paid_date' => '2026-10-25', 'status' => 'paid', 'payment_type' => 'full']);
-        }
-        Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => '2026-10-20', 'paid_date' => '2026-10-20', 'status' => 'paid', 'payment_type' => 'full']);
-
-        $this->get(route('proprietor.dashboard'))->assertOk()->assertViewHas('riskTrend', function ($months) {
-            $byLabel = collect($months)->keyBy('label');
-
-            // End of September: August and September were both still unpaid, so the tenant was high risk then.
-            return $byLabel['Sep 2026']['high'] === 1 && $byLabel['Jul 2026']['low'] === 1;
-        });
-    }
-
-    public function test_twelve_month_trend_with_fifty_tenants_loads_under_three_seconds(): void
-    {
-        $this->admin();
-        $room = Room::create(['room_number' => 'PERF', 'floor' => '1', 'capacity' => 50, 'monthly_rate' => 1300]);
-        for ($index = 0; $index < 50; $index++) {
-            $tenant = $this->tenant('Tenant '.$index);
-            $bed = Bed::create(['room_id' => $room->id, 'bed_label' => 'Bed '.$index, 'status' => 'available']);
-            RoomAssignment::create(['tenant_id' => $tenant->id, 'bed_id' => $bed->id, 'start_date' => '2026-08-01', 'status' => 'active']);
-            $this->late($tenant);
-        }
-        $this->get(route('proprietor.dashboard', ['trend' => 12]))->assertOk(); // warm-up
-        DB::enableQueryLog();
-        $started = microtime(true);
-        $this->get(route('proprietor.dashboard', ['trend' => 12]))->assertOk()->assertViewHas('riskTrend', fn ($m) => count($m) === 12);
-        $elapsed = microtime(true) - $started;
-        $queries = count(DB::getQueryLog());
-        DB::disableQueryLog();
-        $this->assertLessThan(3.0, $elapsed, '12-month trend with 50 tenants exceeded 3 seconds.');
-        $this->assertLessThan(60, $queries, 'Trend charts added per-tenant queries.');
+            ->assertSee('Paid on time')->assertSee('Paid late')->assertSee('Overdue')
+            ->assertDontSee('Collections trend')->assertDontSee('Payment risk over time')
+            ->assertDontSee('pd-collections-chart', false)->assertDontSee('pd-risk-chart', false);
     }
 
     public function test_follow_up_list_explains_why_in_plain_words_with_amount_owed_and_history(): void
@@ -393,18 +358,18 @@ class ProprietorDashboardTest extends TestCase
                 $row = $rows->firstWhere(fn ($r) => $r->tenant->is($behind));
 
                 return $rows->count() === 1 && $row->owes === 3900.0 && $row->reasons === [
+                    'Has an overdue balance right now',
                     'Late 3 times in the last 6 months',
-                    'Paid late 3 months in a row',
+                    'Late 3 months in a row',
                     'Usually pays about 41 days late',
-                    'Has unpaid rent right now',
                 ];
             })
             // One main reason under the name, every reason on the badge, the overdue balance under the amount.
-            ->assertSee('<span class="pd-main-reason">Paid late 3 months in a row</span>', false)
-            ->assertSee("Why flagged:&#10;• Late 3 times in the last 6 months\n• Paid late 3 months in a row\n• Usually pays about 41 days late\n• Has unpaid rent right now", false)
-            ->assertSee('Colored boxes show the risk level each month')
+            ->assertSee('<span class="pd-main-reason">Late 3 months in a row</span>', false)
+            ->assertSee("Why flagged:&#10;• Has an overdue balance right now\n• Late 3 times in the last 6 months\n• Late 3 months in a row\n• Usually pays about 41 days late", false)
+            ->assertSee('Monthly boxes show payment status')
             ->assertSee('₱3,900.00')->assertSee('overdue now')
-            ->assertSee('Risk level each month: Jul Low risk, Aug High risk, Sep High risk, Oct High risk')
+            ->assertSee('Payment status each month: Aug overdue, Sep overdue, Oct overdue')
             ->assertSee('id="pd-follow-filters"', false)->assertSee('Search name or room')
             ->assertSee('Rent due in 7 days')->assertSee('next Due Soon, Nov 3')->assertDontSee('Rent due in the next 7 days');
     }
@@ -419,16 +384,17 @@ class ProprietorDashboardTest extends TestCase
             ->assertSee('Complaint Summary');
     }
 
-    public function test_remembered_risk_history_refreshes_as_soon_as_a_payment_is_recorded(): void
+    public function test_monthly_payment_history_updates_when_a_payment_is_recorded(): void
     {
         $this->admin();
         $tenant = $this->resident('Paid Late', '2026-08-15', '701'); // rent due Sep 15 and Oct 15
-        $septemberLevel = fn () => collect($this->get(route('proprietor.dashboard'))->viewData('riskTrend'))->firstWhere('label', 'Sep 2026');
+        $septemberStatus = fn () => $this->get(route('proprietor.dashboard'))->viewData('followUps')
+            ->first(fn ($row) => $row->tenant->is($tenant))->trend->firstWhere('label', 'Sep')['status'];
 
-        $this->assertSame(1, $septemberLevel()['medium'] + $septemberLevel()['high']); // Sep 15 unpaid at Sep 30
-        // Paid on the due date, recorded today: September was on time after all.
+        $this->assertSame('overdue', $septemberStatus());
+        // Paid on the due date, recorded today: the ledger should show September as paid on time.
         Payment::create(['tenant_id' => $tenant->id, 'amount' => 1300, 'due_date' => '2026-09-15', 'paid_date' => '2026-09-15', 'status' => 'paid', 'payment_type' => 'full']);
-        $this->assertSame(['label' => 'Sep 2026', 'high' => 0, 'medium' => 0, 'low' => 1], $septemberLevel());
+        $this->assertSame('on_time', $septemberStatus());
     }
 
     public function test_follow_up_list_shows_an_all_clear_message_without_filters(): void
@@ -438,5 +404,26 @@ class ProprietorDashboardTest extends TestCase
             ->assertSee('No tenants need a payment follow-up right now.')
             ->assertSee('Nothing due this week')
             ->assertDontSee('id="pd-follow-filters"', false);
+    }
+
+    public function test_view_all_opens_the_ledger_and_at_risk_tenants_toggle_filters_it(): void
+    {
+        $this->admin();
+        $risky = $this->resident('Risky Payer', '2026-08-01', '501');
+        $this->late($risky);
+        $fine = $this->resident('Fine Payer', '2026-09-01', '502'); // first rent due Oct 1, paid on time
+        Payment::create(['tenant_id' => $fine->id, 'amount' => 1300, 'due_date' => '2026-10-01', 'paid_date' => '2026-10-01', 'status' => 'paid', 'payment_type' => 'full']);
+
+        $this->get(route('proprietor.dashboard'))->assertOk()
+            ->assertSee('href="'.route('proprietor.payments.at-risk').'"', false)->assertSee('View all')
+            ->assertSee('data-per-page="5"', false);
+
+        // Same follow-up list as the dashboard, just more rows per page and no "View all".
+        $this->get(route('proprietor.payments.at-risk'))->assertOk()
+            ->assertViewHas('followUps', fn ($rows) => $rows->map(fn ($row) => $row->tenant->id)->all() === [$risky->id])
+            ->assertSee('Tenants to follow up')->assertSee('Risky Payer')->assertDontSee('Fine Payer')
+            ->assertSee('pd-history-cell', false)->assertSee('data-per-page="20"', false)->assertDontSee('View all');
+        $this->get(route('proprietor.payments.index'))->assertOk()
+            ->assertSee('href="'.route('proprietor.payments.at-risk').'"', false)->assertSee('At Risk Tenants');
     }
 }

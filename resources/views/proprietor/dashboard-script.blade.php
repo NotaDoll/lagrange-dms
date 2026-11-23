@@ -175,7 +175,7 @@
     });
     allModalEl.addEventListener('hidden.bs.modal', () => { if (allResult.textContent && !allResult.classList.contains('d-none')) window.location.reload(); });
     const generate = document.getElementById('pd-generate-summary');
-    generate.addEventListener('click', async () => {
+    generate?.addEventListener('click', async () => {
         generate.disabled = true;
         generate.setAttribute('aria-busy', 'true');
         generate.textContent = 'Generating summary…';
@@ -234,7 +234,7 @@
         }).catch(() => { /* leave the labels as they are; the scheduler will catch up */ });
     }
 
-    // The page scrolls inside the layout's content panel, so jump to #pd-trends etc. ourselves.
+    // The page scrolls inside the layout's content panel, so jump to dashboard sections ourselves.
     if (location.hash) {
         window.addEventListener('load', () => document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' }));
     }
