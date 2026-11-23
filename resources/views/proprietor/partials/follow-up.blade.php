@@ -3,7 +3,7 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                     <div>
                         <h2 id="pd-follow" class="h6 fw-semibold mb-1">Tenants to follow up</h2>
-                        <p class="pd-note mb-0">High risk requires overdue today, consecutive late months, and repeated late months. Medium means other warning signs · Sorted by risk, then amount owed</p>
+                        <p class="pd-note mb-0">High risk requires overdue today, consecutive late months, and repeated late months. Sorted High to Medium, then alphabetically within each level.</p>
                         <p class="pd-note mb-0">Monthly boxes show payment status; the badge shows current follow-up risk.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">

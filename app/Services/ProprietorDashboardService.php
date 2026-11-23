@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class ProprietorDashboardService
 {
+    private const FOLLOW_UP_RISK_ORDER = ['high' => 0, 'medium' => 1];
+
     public function __construct(
         private readonly PaymentRiskService $risk,
         private readonly TenantBalanceService $balances,
@@ -71,7 +73,8 @@ class ProprietorDashboardService
                 'owes' => $owes($tenant), 'sms_sent' => $tenant->smsLogs->isNotEmpty(), 'sms_status' => $tenant->smsLogs->first()?->status, 'sms_log_id' => $tenant->smsLogs->first()?->id];
         });
         $followUps = $evaluated->filter(fn ($row) => $row->risk_level !== 'low')
-            ->sort(fn ($left, $right) => $right->rules_tripped <=> $left->rules_tripped ?: $right->owes <=> $left->owes ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
+            ->sort(fn ($left, $right) => self::FOLLOW_UP_RISK_ORDER[$left->risk_level] <=> self::FOLLOW_UP_RISK_ORDER[$right->risk_level]
+                ?: strcasecmp($left->tenant->name, $right->tenant->name))->values();
         $totalBeds = Bed::count();
         // These are the exact occupancy/availability predicates used by RoomController.
         $occupiedBeds = RoomAssignment::where('status', 'active')->count();
