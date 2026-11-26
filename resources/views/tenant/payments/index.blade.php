@@ -49,6 +49,42 @@
         </div>
     </div>
 
+    @if ($checkoutTableReady)
+    @php $gcashLimit = min((float) $gcashBalance, 100000); @endphp
+    <div class="theme-card mb-4">
+        <div class="theme-card-header">
+            <h2 class="theme-card-title">Pay with GCash</h2>
+        </div>
+        <div class="p-4">
+            @if (session('status'))
+                <div class="alert alert-info" role="status">{{ session('status') }}</div>
+            @endif
+            @if ($gcashBalance > 0)
+                <p>Pay rent and storage charges securely through Xendit. You’ll be redirected to complete payment in GCash.</p>
+                <form method="POST" action="{{ route('tenant.payments.gcash') }}" class="d-flex flex-wrap align-items-end gap-3">
+                    @csrf
+                    <div>
+                        <label for="gcash-amount" class="form-label">Amount (PHP)</label>
+                        <input id="gcash-amount" name="amount" type="number" min="1" max="{{ number_format($gcashLimit, 2, '.', '') }}" step="0.01" value="{{ number_format($gcashLimit, 2, '.', '') }}" required class="form-control">
+                        @error('amount') <div class="text-danger small">{{ $message }}</div> @enderror
+                        @error('gcash') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+                    <button type="submit" class="btn btn-primary">Continue to GCash</button>
+                </form>
+            @else
+                <p class="mb-0">You have no unpaid rent or storage charges available for GCash. Utility balances can still be paid through your usual arrangement.</p>
+            @endif
+            @if ($recentCheckouts->isNotEmpty())
+                <div class="mt-3 small text-muted">
+                    @foreach ($recentCheckouts as $checkout)
+                        <div>GCash · PHP {{ number_format((float) $checkout->amount, 2) }} · {{ ucfirst($checkout->status) }} · {{ $checkout->created_at->format('M d, Y') }}</div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </div>
+    @endif
+
     <div class="theme-card">
         <div class="theme-card-header">
             <h2 class="theme-card-title">

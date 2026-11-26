@@ -17,6 +17,7 @@ use App\Http\Controllers\Tenant\AnnouncementController as TenantAnnouncementCont
 use App\Http\Controllers\Tenant\ComplaintController as TenantComplaintController;
 use App\Http\Controllers\Tenant\FaqController as TenantFaqController;
 use App\Http\Controllers\Tenant\PaymentController as TenantPaymentController;
+use App\Http\Controllers\XenditWebhookController;
 use App\Http\Controllers\Tenant\ProfileController as TenantProfileController;
 use App\Http\Controllers\Tenant\TenantDashboardController;
 use App\Http\Controllers\NotificationController;
@@ -31,6 +32,8 @@ use App\Http\Controllers\Proprietor\SummerStorageController;
 require __DIR__.'/auth.php'; // Breeze's login/logout/password routes
 
 Route::get('/', fn () => redirect()->route('login'));
+
+Route::post('/webhooks/xendit', XenditWebhookController::class)->name('webhooks.xendit');
 
 Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
@@ -118,6 +121,8 @@ Route::middleware(['auth', 'role:tenant', EnsureTenantPasswordChanged::class])
         Route::view('/password', 'tenant.password')->withoutMiddleware(EnsureTenantPasswordChanged::class)->name('password.edit');
         Route::get('/my-information', [TenantProfileController::class, 'show'])->name('profile.show');
         Route::get('/payments', [TenantPaymentController::class, 'index'])->name('payments.index');
+        Route::post('/payments/gcash', [TenantPaymentController::class, 'checkout'])->name('payments.gcash');
+        Route::get('/payments/checkout/{checkout}/return', [TenantPaymentController::class, 'return'])->name('payments.return');
         Route::get('/complaints', [TenantComplaintController::class, 'index'])->name('complaints.index');
         Route::get('/complaints/create', [TenantComplaintController::class, 'create'])->name('complaints.create');
         Route::post('/complaints', [TenantComplaintController::class, 'store'])->name('complaints.store');
